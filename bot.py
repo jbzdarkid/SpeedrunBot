@@ -5,7 +5,11 @@ import asyncio
 from html.parser import HTMLParser
 import json
 
-# TODO: Test this.
+_debug = False
+def debug(*args, **kwargs):
+  global _debug
+  if _debug:
+    print(*args, **kwargs)
 
 class StreamParser(HTMLParser):
   def __init__(self, *args, **kwargs):
@@ -44,7 +48,7 @@ async def on_ready():
 
   client.channel = client.get_channel(config.target_channel_id)
   if not client.channel:
-    print(f'Error: Could not locate channel {config.target_channel_id}')
+    debug(f'Error: Could not locate channel {config.target_channel_id}')
     await client.close()
     return
 
@@ -52,29 +56,29 @@ async def on_ready():
   try:
     with open('live_channels.txt') as f:
       live_channels = json.load(f)
-    print(f'Loaded {len(live_channels)} live channels')
+    debug(f'Loaded {len(live_channels)} live channels')
   except FileNotFoundError:
-    print('live_channels.txt does not exist')
+    v('live_channels.txt does not exist')
   except json.decoder.JSONDecodeError:
-    print('live_channels.txt was not parsable')
+    debug('live_channels.txt was not parsable')
 
   while 1:
-    print('Fetching streams')
+    debug('Fetching streams')
     url = 'https://www.speedrun.com/ajax_streams.php?game=' + config.game
     url += '&haspb=on'
     out = requests.get(url).text
 
-    print('Parsing streams')
+    debug('Parsing streams')
     p = StreamParser()
     p.feed(out)
-    print('Found', len(p.streams), 'streams')
+    debug('Found', len(p.streams), 'streams')
 
-    print('Sending live messages')
+    debug('Sending live messages')
     await on_parsed_streams(p.streams)
 
     with open('live_channels.txt', 'w') as f:
       json.dump(live_channels, f)
-    print('Saved live channels')
+    debug('Saved live channels')
 
     # Speedrun.com throttling limit is 100 requests/minute
     await asyncio.sleep(60)
@@ -92,17 +96,26 @@ async def on_parsed_streams(streams):
     name = stream['name']
     if name not in live_channels:
       print('Stream started:', name)
-      message = await client.channel.send(stream['name'] + ' just went live at ' + stream['url'])
+      stream['name'] + ' just went live at ' + stream['url']
+      embed = discord.Embed(title=stream['title'], url=stream['url'])
+      embed.set_image(url=stream['preview'])
+      message = await client.channel.send(content=content, embed=embed)
     elif 'message' not in live_channels[name]:
-      print('No message for', name)
-      message = await client.channel.send(stream['name'] + ' just went live at ' + stream['url'])
+      print('No message for:', name)
+      stream['name'] + ' just went live at ' + stream['url']
+      embed = discord.Embed(title=stream['title'], url=stream['url'])
+      embed.set_image(url=stream['preview'])
+      message = await client.channel.send(content=content, embed=embed)
+    elif stream['title'] != live_channels[name]['title']:
+      debug('Title changed for:', name)
+      message = await client.channel.fetch_message(live_channels[name]['message'])
+      embed = discord.Embed(title=stream['title'], url=stream['url'])
+      embed.set_image(url=stream['preview'])
+      await message.edit(embed=embed)
     else:
-      print('Stream still live:', name)
+      debug('Stream still live:', name)
       message = await client.channel.fetch_message(live_channels[name]['message'])
 
-    embed = discord.Embed(title=stream['title'], url=stream['url'])
-    embed.set_image(url=stream['preview'])
-    await message.edit(embed=embed)
     stream['message'] = message.id
     stream['offline'] = False
     live_channels[name] = stream

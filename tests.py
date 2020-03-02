@@ -93,6 +93,7 @@ class Tests(unittest.TestCase):
     self.assertTrue(bot.live_channels['foo']['title'] == 'new_title')
 
 if __name__ == '__main__':
+  bot._debug = True
   bot.client = MockClient()
   bot.discord.Embed = MockEmbed
   tests = Tests()
