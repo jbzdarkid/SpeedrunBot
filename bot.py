@@ -96,13 +96,13 @@ async def on_parsed_streams(streams):
     name = stream['name']
     if name not in live_channels:
       print('Stream started:', name)
-      stream['name'] + ' just went live at ' + stream['url']
+      content = stream['name'] + ' just went live at ' + stream['url']
       embed = discord.Embed(title=stream['title'], url=stream['url'])
       embed.set_image(url=stream['preview'])
       message = await client.channel.send(content=content, embed=embed)
     elif 'message' not in live_channels[name]:
       print('No message for:', name)
-      stream['name'] + ' just went live at ' + stream['url']
+      content = stream['name'] + ' just went live at ' + stream['url']
       embed = discord.Embed(title=stream['title'], url=stream['url'])
       embed.set_image(url=stream['preview'])
       message = await client.channel.send(content=content, embed=embed)
