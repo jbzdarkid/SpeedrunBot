@@ -1,3 +1,4 @@
 config.py
 __pycache__/
 live_channels.txt
+token.txt
