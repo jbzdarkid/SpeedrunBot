@@ -2,6 +2,7 @@ import bot
 import asyncio
 import unittest
 import inspect
+from time import sleep
 
 _id = 0
 def get_id():
@@ -139,6 +140,19 @@ class Tests(unittest.TestCase):
 
     await bot.on_parsed_streams([], 'game2', bot.client.channels['game2'])
     self.assertTrue(len(bot.live_channels) == 0)
+
+  async def testLiveDuration(self):
+    print('---', inspect.currentframe().f_code.co_name)
+    bot.live_channels = {}
+    await bot.on_parsed_streams([MockStream('foo')], 'game1', bot.client.channels['game1'])
+    self.assertTrue(len(bot.live_channels) == 1)
+
+    sleep(2.5)
+
+    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
+    self.assertTrue(len(bot.live_channels) == 0)
+    # We don't hold on to messages, so it's not easy to assert that time is being printed.
+    # Just look at stdout, for now.
 
 if __name__ == '__main__':
   bot.client = MockClient()

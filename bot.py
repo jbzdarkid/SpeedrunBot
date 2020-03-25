@@ -1,16 +1,16 @@
-# Features
-import ast
-import asyncio
+from ast import literal_eval
+from asyncio import sleep
+from datetime import timedelta
 import discord
 from html.parser import HTMLParser
 import json
 from pathlib import Path
 import requests
-import sys
-# - Show stream start time
-# - Show stream duration on close
-# - Fix preview images not updating
-# - Logging should include timestamps
+from sys import argv
+from time import time, ctime
+from uuid import uuid4
+# TODO:
+# - Add stream start time to message -> Hard, because time is not client-side, so it will be wrong, for most people.
 
 def debug(*args, **kwargs):
   pass
@@ -51,7 +51,7 @@ async def on_ready():
   print(f'Logged in as {client.user.name} (id: {client.user.id})')
 
   with open(Path(__file__).parent / 'config.json', 'r') as f:
-    config = ast.literal_eval(f.read())
+    config = literal_eval(f.read())
   for game, channel in config.items():
     channel_data = client.get_channel(channel)
     if not channel_data:
@@ -92,7 +92,7 @@ async def on_ready():
         p.feed(out)
         debug(f'Found {len(p.streams)} streams')
 
-        debug('Sending live messages')
+        debug(f'Sending live messages for game {game}')
         await on_parsed_streams(p.streams, game, channel)
 
       with open(live_channels_file, 'w') as f:
@@ -100,16 +100,22 @@ async def on_ready():
       debug('Saved live channels')
 
       # Speedrun.com throttling limit is 100 requests/minute
-      await asyncio.sleep(60)
+      await sleep(60)
   except:
     import traceback
     print(traceback.format_exc())
-    pass
+
   await client.close()
 
 # live_channels is a map of name: stream data
 live_channels = {}
 live_channels_file = Path(__file__).parent / 'live_channels.txt'
+
+def get_embed(stream):
+  embed = discord.Embed(title=stream['title'], url=stream['url'])
+  # Add random data to the end of the image URL to force Discord to regenerate it.
+  embed.set_image(url=stream['preview'] + '?' + uuid4().hex)
+  return embed
 
 async def on_parsed_streams(streams, game, channel):
   global live_channels
@@ -120,35 +126,26 @@ async def on_parsed_streams(streams, game, channel):
     name = stream['name']
     stream['offline'] = False
 
-    if name not in live_channels:
-      print('Stream started:', name)
+    # A missing discord message is essentially equivalent to a new stream;
+    # if we didn't send a message, then we weren't really live.
+    if (name not in live_channels) or ('message' not in live_channels[name]):
+      print(f'Stream {name} started at {ctime()}')
       content = stream['name'] + ' just went live at ' + stream['url']
-      embed = discord.Embed(title=stream['title'], url=stream['url'])
-      embed.set_image(url=stream['preview'])
-      message = await channel.send(content=content, embed=embed)
+      message = await channel.send(content=content, embed=get_embed(stream))
       stream['message'] = message.id
-    elif 'message' not in live_channels[name]:
-      print('No message for:', name)
-      content = stream['name'] + ' just went live at ' + stream['url']
-      embed = discord.Embed(title=stream['title'], url=stream['url'])
-      embed.set_image(url=stream['preview'])
-      message = await channel.send(content=content, embed=embed)
-      stream['message'] = message.id
-    elif stream['title'] != live_channels[name]['title']:
-      debug('Title changed for:', name)
-      message = await channel.fetch_message(live_channels[name]['message'])
-      embed = discord.Embed(title=stream['title'], url=stream['url'])
-      embed.set_image(url=stream['preview'])
-      await message.edit(embed=embed)
-      stream['message'] = message.id
+      stream['start'] = time()
     elif game != live_channels[name]['game']:
-      debug('Stream changed games:', name)
-      # Send the stream offline, then it will come back online with the new game.
+      debug(f'Stream {name} changed games at {ctime()}')
+      # Send the stream offline, then it will come back online with the new game,
+      # to be announced in another channel.
       stream['offline'] = True
       stream['message'] = live_channels[name]['message']
     else:
-      debug('Stream still live:', name)
-      stream['message'] = live_channels[name]['message']
+      debug(f'Stream {name} is still live at time {ctime()}',)
+      # Always edit the message so that the preview updates.
+      message = await channel.fetch_message(live_channels[name]['message'])
+      await message.edit(embed=get_embed(stream))
+      stream['message'] = message.id
 
     stream['game'] = game
     live_channels[name] = stream
@@ -159,8 +156,10 @@ async def on_parsed_streams(streams, game, channel):
       continue
     if stream['game'] != game:
       continue # Only parse offlines for streams of the current game.
-    print('Stream now offline:', name)
-    content = name + ' is now offline. See their latest videos here: <' + stream['url'] + '/videos?filter=archives>'
+    print(f'Stream {name} went offline at {ctime()}')
+    duration_sec = int(time() - stream['start'])
+    content = f'{name} is now offline after {timedelta(seconds=duration_sec)}.\r\n'
+    content += 'See their latest videos here: <' + stream['url'] + '/videos?filter=archives>'
     message = await channel.fetch_message(stream['message'])
     await message.edit(content=content, embed=None)
     del live_channels[name]
@@ -168,7 +167,7 @@ async def on_parsed_streams(streams, game, channel):
 if __name__ == '__main__':
   with open(Path(__file__).parent / 'token.txt', 'r') as f:
     token = f.read().strip()
-  if '--debug' in sys.argv:
+  if '--debug' in argv:
     def debug(*args, **kwargs):
       print(*args, **kwargs)
   client.run(token)
