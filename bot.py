@@ -85,7 +85,10 @@ async def on_ready():
       debug('Fetching streams')
       for game, channel in client.channels.items():
         url = f'https://www.speedrun.com/ajax_streams.php?game={game}&haspb=on'
-        out = requests.get(url).text
+        try:
+          out = requests.get(url, timeout=10).text
+        except requests.exceptions.Timeout:
+          continue
 
         debug(f'Parsing streams for game {game}')
         p = StreamParser()
