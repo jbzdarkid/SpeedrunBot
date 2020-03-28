@@ -124,8 +124,6 @@ async def on_parsed_streams(streams, game, channel):
 
   for stream in streams:
     name = stream['name']
-    stream['offline'] = False
-
     # A missing discord message is essentially equivalent to a new stream;
     # if we didn't send a message, then we weren't really live.
     if (name not in live_channels) or ('message' not in live_channels[name]):
@@ -134,21 +132,24 @@ async def on_parsed_streams(streams, game, channel):
       message = await channel.send(content=content, embed=get_embed(stream))
       stream['message'] = message.id
       stream['start'] = time()
-    elif game != live_channels[name]['game']:
+      stream['game'] = game
+      live_channels[name] = stream
+    else:
+      stream = live_channels[name]
+
+    if 'game' in stream and game == stream['game']:
+      debug(f'Stream {name} is still live at {ctime()}')
+      # Always edit the message so that the preview updates.
+      message = await channel.fetch_message(stream['message'])
+      await message.edit(embed=get_embed(stream))
+      stream['offline'] = False
+    else:
       debug(f'Stream {name} changed games at {ctime()}')
       # Send the stream offline, then it will come back online with the new game,
       # to be announced in another channel.
       stream['offline'] = True
-      stream['message'] = live_channels[name]['message']
-    else:
-      debug(f'Stream {name} is still live at time {ctime()}',)
-      # Always edit the message so that the preview updates.
-      message = await channel.fetch_message(live_channels[name]['message'])
-      await message.edit(embed=get_embed(stream))
-      stream['message'] = message.id
+      stream['game'] = game
 
-    stream['game'] = game
-    live_channels[name] = stream
 
   for name in list(live_channels.keys()):
     stream = live_channels[name]
@@ -157,9 +158,9 @@ async def on_parsed_streams(streams, game, channel):
     if stream['game'] != game:
       continue # Only parse offlines for streams of the current game.
     print(f'Stream {name} went offline at {ctime()}')
-    duration_sec = int(time() - stream['start'])
-    content = f'{name} is now offline after {timedelta(seconds=duration_sec)}.\r\n'
-    content += 'See their latest videos here: <' + stream['url'] + '/videos?filter=archives>'
+    duration_sec = int(time() - live_channels[name]['start'])
+    content = f'{name} went offline after {timedelta(seconds=duration_sec)}.\r\n'
+    content += 'Watch their latest videos here: <' + stream['url'] + '/videos?filter=archives>'
     message = await channel.fetch_message(stream['message'])
     await message.edit(content=content, embed=None)
     del live_channels[name]
