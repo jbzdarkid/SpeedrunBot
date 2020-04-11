@@ -1,5 +1,6 @@
 from ast import literal_eval
 from asyncio import sleep
+from asyncio.exceptions import CancelledError
 from datetime import timedelta
 import discord
 from html.parser import HTMLParser
@@ -52,10 +53,9 @@ async def on_ready():
 
   with open(Path(__file__).parent / 'config.json', 'r') as f:
     config = literal_eval(f.read())
-  for game, channel in config.items():
-    channel_data = client.get_channel(channel)
-    if not channel_data:
-      print(f'Error: Could not locate channel {channel}')
+  for game, channel_id in config.items():
+    if not client.get_channel(channel_id):
+      print(f'Error: Could not locate channel {channel_id}')
       continue
 
     game_data = requests.get(f'https://www.speedrun.com/api/v1/games/{game}').json()
@@ -63,7 +63,7 @@ async def on_ready():
       print(game_data['status'], game_data['message'])
       continue
 
-    client.channels[game_data['data']['abbreviation']] = channel_data
+    client.channels[game_data['data']['abbreviation']] = channel_id
 
   if len(client.channels) == 0:
     print('Error: Found no valid channels')
@@ -83,10 +83,10 @@ async def on_ready():
   try:
     while 1:
       debug('Fetching streams')
-      for game, channel in client.channels.items():
+      for game, channel_id in client.channels.items():
         url = f'https://www.speedrun.com/ajax_streams.php?game={game}&haspb=on'
         try:
-          out = requests.get(url, timeout=10).text
+          out = requests.get(url, timeout=60).text
         except requests.exceptions.Timeout:
           continue
 
@@ -96,6 +96,8 @@ async def on_ready():
         debug(f'Found {len(p.streams)} streams')
 
         debug(f'Sending live messages for game {game}')
+        # Fetch a fresh channel object every time (???)
+        channel = client.get_channel(channel_id)
         await on_parsed_streams(p.streams, game, channel)
 
       with open(live_channels_file, 'w') as f:
@@ -103,7 +105,10 @@ async def on_ready():
       debug('Saved live channels')
 
       # Speedrun.com throttling limit is 100 requests/minute
-      await sleep(60)
+      try:
+        await sleep(60)
+      except CancelledError:
+        pass
   except:
     import traceback
     print(traceback.format_exc())
@@ -119,6 +124,17 @@ def get_embed(stream):
   # Add random data to the end of the image URL to force Discord to regenerate it.
   embed.set_image(url=stream['preview'] + '?' + uuid4().hex)
   return embed
+
+async def try_edit_message(message_id, content, embed):
+  try:
+    message = await channel.fetch_message(message_id)
+    if not content:
+      await message.edit(embed=embed)
+    else:
+      await message.edit(content=content, embed=embed)
+  except:
+    pass
+
 
 async def on_parsed_streams(streams, game, channel):
   global live_channels
@@ -143,8 +159,7 @@ async def on_parsed_streams(streams, game, channel):
     if 'game' in stream and game == stream['game']:
       debug(f'Stream {name} is still live at {ctime()}')
       # Always edit the message so that the preview updates.
-      message = await channel.fetch_message(stream['message'])
-      await message.edit(embed=get_embed(stream))
+      await try_edit_message(stream["message"], embed=get_embed(stream))
       stream['offline'] = False
     else:
       debug(f'Stream {name} changed games at {ctime()}')
@@ -164,8 +179,7 @@ async def on_parsed_streams(streams, game, channel):
     duration_sec = int(time() - live_channels[name]['start'])
     content = f'{name} went offline after {timedelta(seconds=duration_sec)}.\r\n'
     content += 'Watch their latest videos here: <' + stream['url'] + '/videos?filter=archives>'
-    message = await channel.fetch_message(stream['message'])
-    await message.edit(content=content, embed=None)
+    await try_edit_message(stream['message'], content=content, embed=None)
     del live_channels[name]
 
 if __name__ == '__main__':
