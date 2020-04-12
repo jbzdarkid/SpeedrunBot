@@ -1,5 +1,5 @@
 from ast import literal_eval
-from asyncio import sleep
+from asyncio import sleep, get_event_loop
 from asyncio.exceptions import CancelledError
 from datetime import timedelta
 import discord
@@ -105,10 +105,7 @@ async def on_ready():
       debug('Saved live channels')
 
       # Speedrun.com throttling limit is 100 requests/minute
-      try:
-        await sleep(60)
-      except CancelledError:
-        pass
+      await sleep(60)
   except:
     import traceback
     print(traceback.format_exc())
@@ -125,7 +122,7 @@ def get_embed(stream):
   embed.set_image(url=stream['preview'] + '?' + uuid4().hex)
   return embed
 
-async def try_edit_message(message_id, content, embed):
+async def try_edit_message(channel, message_id, content, embed):
   try:
     message = await channel.fetch_message(message_id)
     if not content:
@@ -133,8 +130,17 @@ async def try_edit_message(message_id, content, embed):
     else:
       await message.edit(content=content, embed=embed)
   except:
-    pass
+    import traceback
+    print(traceback.format_exc())
 
+async def try_send_message(channel, content, embed):
+  try:
+    message = await channel.fetch_message(message_id)
+    await message.send(content=content, embed=embed)
+    return message.id
+  except:
+    import traceback
+    print(traceback.format_exc())
 
 async def on_parsed_streams(streams, game, channel):
   global live_channels
@@ -148,8 +154,8 @@ async def on_parsed_streams(streams, game, channel):
     if (name not in live_channels) or ('message' not in live_channels[name]):
       print(f'Stream {name} started at {ctime()}')
       content = stream['name'] + ' just went live at ' + stream['url']
-      message = await channel.send(content=content, embed=get_embed(stream))
-      stream['message'] = message.id
+      message_id = try_send_message(channel, content, get_embed(stream))
+      stream['message'] = message_id
       stream['start'] = time()
       stream['game'] = game
       live_channels[name] = stream
@@ -159,7 +165,7 @@ async def on_parsed_streams(streams, game, channel):
     if 'game' in stream and game == stream['game']:
       debug(f'Stream {name} is still live at {ctime()}')
       # Always edit the message so that the preview updates.
-      await try_edit_message(stream["message"], embed=get_embed(stream))
+      await try_edit_message(channel, stream['message'], None, get_embed(stream))
       stream['offline'] = False
     else:
       debug(f'Stream {name} changed games at {ctime()}')
@@ -167,7 +173,6 @@ async def on_parsed_streams(streams, game, channel):
       # to be announced in another channel.
       stream['offline'] = True
       stream['game'] = game
-
 
   for name in list(live_channels.keys()):
     stream = live_channels[name]
@@ -179,7 +184,7 @@ async def on_parsed_streams(streams, game, channel):
     duration_sec = int(time() - live_channels[name]['start'])
     content = f'{name} went offline after {timedelta(seconds=duration_sec)}.\r\n'
     content += 'Watch their latest videos here: <' + stream['url'] + '/videos?filter=archives>'
-    await try_edit_message(stream['message'], content=content, embed=None)
+    await try_edit_message(stream['message'], content, None)
     del live_channels[name]
 
 if __name__ == '__main__':
@@ -188,4 +193,11 @@ if __name__ == '__main__':
   if '--debug' in argv:
     def debug(*args, **kwargs):
       print(*args, **kwargs)
-  client.run(token)
+
+  loop = get_event_loop()
+  try:
+    loop.run_until_complete(client.start(token, reconnect=True))
+  except KeyboardInterrupt:
+    loop.run_until_complete(client.logout())
+  finally:
+    loop.close()
