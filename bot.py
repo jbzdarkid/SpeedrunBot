@@ -1,4 +1,5 @@
 from ast import literal_eval
+from asyncio import sleep
 from datetime import timedelta
 import discord
 from html.parser import HTMLParser
@@ -9,6 +10,10 @@ from sys import argv
 from time import time, ctime
 from uuid import uuid4
 # TODO:
+# - Add a "cooldown" to going offline, so that we don't get confused by stream hiccups or API hiccups.
+#   I'm thinking count to 5, but use the original 'went offline' time.
+#   Or, I could just set offline=time(), then check if 'offline' - time() > whatever.
+# - Add a test for 'what if a live message got deleted'
 # - Add stream start time to message -> Hard, because time is not client-side, so it will be wrong, for most people.
 
 def debug(*args, **kwargs):
@@ -39,6 +44,7 @@ class StreamParser(HTMLParser):
 client = discord.Client()
 client.started = False
 client.channels = {}
+client.MAX_OFFLINE = 5
 
 @client.event
 async def on_ready():
@@ -56,7 +62,10 @@ async def on_ready():
       print(f'Error: Could not locate channel {channel_id}')
       continue
 
-    game_data = requests.get(f'https://www.speedrun.com/api/v1/games/{game}').json()
+    try:
+      game_data = requests.get(f'https://www.speedrun.com/api/v1/games/{game}').json()
+    except FileNotFoundError:
+      continue
     if 'status' in game_data:
       print(game_data['status'], game_data['message'])
       continue
@@ -78,27 +87,32 @@ async def on_ready():
   except json.decoder.JSONDecodeError:
     debug('live_channels.txt was not parsable')
 
-  debug('Fetching streams')
-  for game, channel_id in client.channels.items():
-    url = f'https://www.speedrun.com/ajax_streams.php?game={game}&haspb=on'
-    try:
-      out = requests.get(url, timeout=60).text
-    except requests.exceptions.Timeout:
-      continue
+  while 1:
+    debug('Fetching streams')
+    for game, channel_id in client.channels.items():
+      url = f'https://www.speedrun.com/ajax_streams.php?game={game}&haspb=on'
+      try:
+        out = requests.get(url, timeout=60).text
+      except requests.exceptions.Timeout:
+        continue
 
-    debug(f'Parsing streams for game {game}')
-    p = StreamParser()
-    p.feed(out)
-    debug(f'Found {len(p.streams)} streams')
+      debug(f'Parsing streams for game {game}')
+      p = StreamParser()
+      p.feed(out)
+      debug(f'Found {len(p.streams)} streams')
 
-    debug(f'Sending live messages for game {game}')
-    # Fetch a fresh channel object every time (???)
-    channel = client.get_channel(channel_id)
-    await on_parsed_streams(p.streams, game, channel)
+      debug(f'Sending live messages for game {game}')
+      # Fetch a fresh channel object every time (???)
+      channel = client.get_channel(channel_id)
+      if channel:
+        await on_parsed_streams(p.streams, game, channel)
 
-  with open(live_channels_file, 'w') as f:
-    json.dump(live_channels, f)
-  debug('Saved live channels')
+    with open(live_channels_file, 'w') as f:
+      json.dump(live_channels, f)
+    debug('Saved live channels')
+
+    # Speedrun.com throttling limit is 100 requests/minute
+    await sleep(60)
 
   await client.close()
 
@@ -114,8 +128,7 @@ def get_embed(stream):
 
 async def on_parsed_streams(streams, game, channel):
   global live_channels
-  for stream in live_channels.values():
-    stream['offline'] = True
+  offline_streams = set(live_channels.keys())
 
   for stream in streams:
     name = stream['name']
@@ -131,31 +144,41 @@ async def on_parsed_streams(streams, game, channel):
       live_channels[name] = stream
     else:
       stream = live_channels[name]
+      offline_streams.remove(name)
+      stream['offline'] = 0 # Number of consecutive times observed as offline
 
     if 'game' in stream and game == stream['game']:
       debug(f'Stream {name} is still live at {ctime()}')
       # Always edit the message so that the preview updates.
-      message = await channel.fetch_message(message_id)
+      message = await channel.fetch_message(stream['message'])
       await message.edit(embed=get_embed(stream))
-      stream['offline'] = False
     else:
       debug(f'Stream {name} changed games at {ctime()}')
       # Send the stream offline, then it will come back online with the new game,
       # to be announced in another channel.
-      stream['offline'] = True
+      offline_streams.add(name)
+      stream['offline'] = 9999
       stream['game'] = game
 
-  for name in list(live_channels.keys()):
+  for name in offline_streams:
     stream = live_channels[name]
-    if not stream['offline']:
-      continue
     if stream['game'] != game:
       continue # Only parse offlines for streams of the current game.
+
+    if 'offline' not in stream:
+      stream['offline'] = 1
+    else:
+      stream['offline'] += 1
+
+    if stream['offline'] < client.MAX_OFFLINE:
+      continue
+
+    # Stream has been offline for (5) consecutive checks, close down the post
     print(f'Stream {name} went offline at {ctime()}')
     duration_sec = int(time() - live_channels[name]['start'])
     content = f'{name} went offline after {timedelta(seconds=duration_sec)}.\r\n'
     content += 'Watch their latest videos here: <' + stream['url'] + '/videos?filter=archives>'
-    message = await channel.fetch_message(message_id)
+    message = await channel.fetch_message(stream['message'])
     await message.edit(content=content, embed=None)
     del live_channels[name]
 
