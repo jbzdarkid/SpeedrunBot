@@ -10,11 +10,7 @@ from sys import argv
 from time import time, ctime
 from uuid import uuid4
 # TODO:
-# - Add a "cooldown" to going offline, so that we don't get confused by stream hiccups or API hiccups.
-#   I'm thinking count to 5, but use the original 'went offline' time.
-#   Or, I could just set offline=time(), then check if 'offline' - time() > whatever.
 # - Add a test for 'what if a live message got deleted'
-# - Add stream start time to message -> Hard, because time is not client-side, so it will be wrong, for most people.
 
 def debug(*args, **kwargs):
   pass
@@ -113,8 +109,6 @@ async def on_ready():
 
     # Speedrun.com throttling limit is 100 requests/minute
     await sleep(60)
-
-  await client.close()
 
 # live_channels is a map of name: stream data
 live_channels = {}
