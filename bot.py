@@ -185,7 +185,6 @@ if __name__ == '__main__':
 
   if 'subtask' not in argv:
     import subprocess
-    import time
     import sys
     while 1:
       subprocess.run([sys.executable, __file__, 'subtask'] + argv)

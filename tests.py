@@ -196,8 +196,6 @@ class Tests(unittest.TestCase):
 
 if __name__ == '__main__':
   bot.discord.Embed = MockEmbed
-  global once
-  once = True
   tests = Tests()
 
   loop = asyncio.get_event_loop()
