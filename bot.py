@@ -189,7 +189,7 @@ if __name__ == '__main__':
     while 1:
       subprocess.run([sys.executable, __file__, 'subtask'] + argv)
       # Speedrun.com throttling limit is 100 requests/minute
-      time.sleep(60)
+      sleep(60)
   else:
     client.run(token, reconnect=True)
 
