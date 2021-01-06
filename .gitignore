@@ -1,6 +1,8 @@
 config.py
 __pycache__/
 live_channels.txt
-token.txt
-token2.txt
+discord_token.txt
+twitch_token.txt
+twitch_client.txt
+*.json
 venv/

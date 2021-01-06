@@ -1,21 +1,25 @@
 import requests
 import json
 from pathlib import Path
+from sys import argv
 
-with (Path(__file__).parent / 'token2.txt').open() as f:
+with (Path(__file__).parent / 'twitch_token.txt').open() as f:
   token = f.read().strip()
-client_id = 'xxl8mgqo1ep3dvpq9wlilotwwwd8o3'
+with (Path(__file__).parent / 'twitch_client.txt').open() as f:
+  client_id = f.read().strip()
 
-params = {
+def debug(*args, **kwargs):
+  pass
+
+r = requests.post('https://id.twitch.tv/oauth2/token', params={
   'grant_type': 'client_credentials',
   'client_id': client_id,
   'client_secret': token,
   'scope': 'analytics:read:games user:read:broadcast channel:manage:broadcast',
-}
-j = requests.post('https://id.twitch.tv/oauth2/token', params=params).json()
+})
 headers = {
-  'client-id': 'xxl8mgqo1ep3dvpq9wlilotwwwd8o3',
-  'Authorization': 'Bearer ' + j['access_token'],
+  'client-id': client_id,
+  'Authorization': 'Bearer ' + r.json()['access_token'],
 }
 
 class Cache(object):
@@ -25,6 +29,7 @@ class Cache(object):
       self.cache = {}
     else:
       self.cache = json.load(self.path.open('r'))
+      debug(f'Loaded cache for {self.path.name}')
 
   def get(self, name):
     return self.cache.get(name, None)
@@ -32,19 +37,20 @@ class Cache(object):
   def set(self, name, value):
     self.cache[name] = value
     json.dump(self.cache, self.path.open('w'))
+    debug(f'Saved cache for {self.path.name}')
 
 twitch_cache    = Cache('twitch_cache.json')
 twitch_game_ids = Cache('twitch_game_ids.json')
 src_game_ids    = Cache('src_game_ids.json')
 games_cache     = Cache('games_cache.json')
-
+debug('Loaded all caches')
 
 def get_streamers_for_game(twitch_game_id):
   j = requests.get('https://api.twitch.tv/helix/streams', params={'game_id': twitch_game_id}, headers=headers).json()
   return [stream['user_name'] for stream in j['data'] if stream['type'] == 'live']
 
 
-def get_src_id(twitch_id):
+def get_src_id(twitch_username):
   if src_id := twitch_cache.get(twitch_username):
     return src_id
 
@@ -60,9 +66,9 @@ def runner_runs_game(src_id, src_game_id):
     if src_game_id in games:
       return True
 
-  pbs = r.get(f'https://www.speedrun.com/api/v1/users/{runner}/personal-bests').json()
-  games = {pb['data']['run']['game'] for pb in pbs}
-  games_cache.set(src_id, games)
+  pbs = requests.get(f'https://www.speedrun.com/api/v1/users/{src_id}/personal-bests').json()
+  games = {pb['run']['game'] for pb in pbs['data']}
+  games_cache.set(src_id, list(games))
   return src_game_id in games
 
 
@@ -86,14 +92,27 @@ def get_src_game_id(name):
   return src_game_id
 
 
-if __name__ == '__main__':
-  twitch_game_id = get_twich_game_id('The Witness')
-  src_game_id = get_src_game_id('The Witness')
+def get_speedrunners_for_game(name):
+  twitch_game_id = get_twich_game_id(name)
+  src_game_id = get_src_game_id(name)
+  debug(f'Found game IDs for game {name}.\nTwitch: {twitch_game_id}\nSRC: {src_game_id}')
   streams = get_streamers_for_game(twitch_game_id)
-  for twitch_id in streams:
-    src_id = get_src_id(twitch_id)
+  debug(f'There are currently {len(streams)} streamers of {name}')
+  for twitch_username in streams:
+    src_id = get_src_id(twitch_username)
     if src_id is None:
+      debug(f'Streamer {twitch_username} is not a speedrunner')
       continue # Not actually a speedrunner
 
     if runner_runs_game(src_id, src_game_id):
-      print(runner)
+      debug(f'Streamer {twitch_username} actually runs {name}')
+      yield (src_id, twitch_username)
+    else:
+      debug(f'Streamer {twitch_username} is a speedrunner, but not of {name}')
+
+if __name__ == '__main__':
+  if '--debug' in argv:
+    def debug(*args, **kwargs):
+      print(*args, **kwargs)
+
+  print(list(get_speedrunners_for_game('Grand Theft Auto IV')))

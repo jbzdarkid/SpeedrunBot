@@ -179,7 +179,7 @@ async def on_parsed_streams(streams, game, channel):
     del live_channels[name]
 
 if __name__ == '__main__':
-  with open(Path(__file__).parent / 'token.txt', 'r') as f:
+  with open(Path(__file__).parent / 'discord_token.txt', 'r') as f:
     token = f.read().strip()
   if '--debug' in argv:
     def debug(*args, **kwargs):
