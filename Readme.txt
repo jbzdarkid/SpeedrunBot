@@ -3,3 +3,6 @@ This bot uses the speedrun.com api to search for speedrunners who are actively s
 
 To get a token, follow these steps. The bot only needs the "Send Messages" permission (2048)
 https://github.com/reactiflux/discord-irc/wiki/Creating-a-discord-bot-&-getting-a-token
+
+You also need a twitch token to hit certain endpoints (to determine which stream are live). To do that, you need to create a twitch app, then generate a new client secret (on the page for that app).
+https://dev.twitch.tv/console/apps

@@ -11,6 +11,7 @@ from time import time, ctime
 from uuid import uuid4
 # TODO:
 # - Add a test for 'what if a live message got deleted'
+# - Rename token files
 
 def debug(*args, **kwargs):
   pass
@@ -88,6 +89,7 @@ async def on_ready():
     for game, channel_id in client.channels.items():
       url = f'https://www.speedrun.com/ajax_streams.php?game={game}&haspb=on'
       try:
+        debug(url)
         out = requests.get(url, timeout=60).text
       except requests.exceptions.Timeout:
         continue
