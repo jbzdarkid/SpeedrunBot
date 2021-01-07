@@ -1,5 +1,6 @@
-import requests
+import discord
 import json
+import requests
 from pathlib import Path
 from sys import argv
 
@@ -9,7 +10,8 @@ with (Path(__file__).parent / 'twitch_client.txt').open() as f:
   client_id = f.read().strip()
 
 def debug(*args, **kwargs):
-  pass
+  if '--debug' in argv:
+    print(*args, **kwargs)
 
 r = requests.post('https://id.twitch.tv/oauth2/token', params={
   'grant_type': 'client_credentials',
@@ -45,9 +47,9 @@ src_game_ids    = Cache('src_game_ids.json')
 games_cache     = Cache('games_cache.json')
 debug('Loaded all caches')
 
-def get_streamers_for_game(twitch_game_id):
+def get_live_game_streams(twitch_game_id):
   j = requests.get('https://api.twitch.tv/helix/streams', params={'game_id': twitch_game_id}, headers=headers).json()
-  return [stream['user_name'] for stream in j['data'] if stream['type'] == 'live']
+  return [stream for stream in j['data'] if stream['type'] == 'live']
 
 
 def get_src_id(twitch_username):
@@ -96,23 +98,26 @@ def get_speedrunners_for_game(name):
   twitch_game_id = get_twich_game_id(name)
   src_game_id = get_src_game_id(name)
   debug(f'Found game IDs for game {name}.\nTwitch: {twitch_game_id}\nSRC: {src_game_id}')
-  streams = get_streamers_for_game(twitch_game_id)
-  debug(f'There are currently {len(streams)} streamers of {name}')
-  for twitch_username in streams:
+
+  streams = get_live_game_streams(twitch_game_id)
+  debug(f'There are currently {len(streams)} live streams of {name}')
+  for stream in streams:
+    twitch_username = stream['user_name']
     src_id = get_src_id(twitch_username)
     if src_id is None:
       debug(f'Streamer {twitch_username} is not a speedrunner')
       continue # Not actually a speedrunner
 
-    if runner_runs_game(src_id, src_game_id):
-      debug(f'Streamer {twitch_username} actually runs {name}')
-      yield (src_id, twitch_username)
-    else:
+    if not runner_runs_game(src_id, src_game_id):
       debug(f'Streamer {twitch_username} is a speedrunner, but not of {name}')
+    else:
+      debug(f'Streamer {twitch_username} runs {name}')
+      yield {
+        'preview': stream['thumbnail_url'].format(width=320, height=180),
+        'url': 'https://www.twitch.tv/' + twitch_username,
+        'name': discord.utils.escape_markdown(twitch_username),
+        'title': discord.utils.escape_markdown(stream['title']),
+      }
 
 if __name__ == '__main__':
-  if '--debug' in argv:
-    def debug(*args, **kwargs):
-      print(*args, **kwargs)
-
-  print(list(get_speedrunners_for_game('Grand Theft Auto IV')))
+  print(list(get_speedrunners_for_game('Super Mario Odyssey')))

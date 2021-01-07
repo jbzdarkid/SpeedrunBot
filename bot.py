@@ -1,42 +1,21 @@
+import discord
+import json
+import requests
 from ast import literal_eval
 from asyncio import sleep
 from datetime import timedelta
-import discord
 from html.parser import HTMLParser
-import json
 from pathlib import Path
-import requests
 from sys import argv
 from time import time, ctime
 from uuid import uuid4
+from bot2 import get_speedrunners_for_game
 # TODO:
 # - Add a test for 'what if a live message got deleted'
-# - Rename token files
 
 def debug(*args, **kwargs):
-  pass
-
-class StreamParser(HTMLParser):
-  def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-    self.streams = []
-
-  def handle_starttag(self, tag, attrs):
-    if tag == 'div' and len(attrs) == 1:
-      if attrs[0][0] == 'class' and 'listcell' in attrs[0][1]:
-        self.streams.append({}) # New stream
-
-    elif tag == 'img' and len(attrs) == 3:
-      if attrs[0] == ('class', 'stream-preview'):
-        assert(attrs[1][0] == 'src')
-        self.streams[-1]['preview'] = attrs[1][1]
-    elif tag == 'a' and len(attrs) == 3:
-      if attrs[0] == ('target', '_blank'):
-        assert(attrs[1][0] == 'href')
-        self.streams[-1]['url'] = attrs[1][1]
-        self.streams[-1]['name'] = discord.utils.escape_markdown(attrs[1][1].rsplit('/', 1)[1])
-        assert(attrs[2][0] == 'title')
-        self.streams[-1]['title'] = discord.utils.escape_markdown(attrs[2][1])
+  if '--debug' in argv:
+    print(*args, **kwargs)
 
 client = discord.Client()
 client.started = False
@@ -59,6 +38,7 @@ async def on_ready():
       print(f'Error: Could not locate channel {channel_id}')
       continue
 
+    """
     try:
       game_data = requests.get(f'https://www.speedrun.com/api/v1/games/{game}').json()
     except FileNotFoundError:
@@ -66,8 +46,9 @@ async def on_ready():
     if 'status' in game_data:
       print(game_data['status'], game_data['message'])
       continue
+    """
 
-    client.channels[game_data['data']['abbreviation']] = channel_id
+    client.channels[game] = channel_id
 
   if len(client.channels) == 0:
     print('Error: Found no valid channels')
@@ -87,23 +68,15 @@ async def on_ready():
   while 1:
     debug('Fetching streams')
     for game, channel_id in client.channels.items():
-      url = f'https://www.speedrun.com/ajax_streams.php?game={game}&haspb=on'
-      try:
-        debug(url)
-        out = requests.get(url, timeout=60).text
-      except requests.exceptions.Timeout:
-        continue
-
-      debug(f'Parsing streams for game {game}')
-      p = StreamParser()
-      p.feed(out)
-      debug(f'Found {len(p.streams)} streams')
+      debug(f'Fetching streams for game {game}')
+      streams = list(get_speedrunners_for_game(game))
+      debug(f'Found {len(streams)} streams')
 
       debug(f'Sending live messages for game {game}')
       # Fetch a fresh channel object every time (???)
       channel = client.get_channel(channel_id)
       if channel:
-        await on_parsed_streams(p.streams, game, channel)
+        await on_parsed_streams(streams, game, channel)
 
     with open(live_channels_file, 'w') as f:
       json.dump(live_channels, f)
@@ -181,9 +154,6 @@ async def on_parsed_streams(streams, game, channel):
 if __name__ == '__main__':
   with open(Path(__file__).parent / 'discord_token.txt', 'r') as f:
     token = f.read().strip()
-  if '--debug' in argv:
-    def debug(*args, **kwargs):
-      print(*args, **kwargs)
 
   if 'subtask' not in argv:
     import subprocess
