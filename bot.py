@@ -38,16 +38,6 @@ async def on_ready():
       print(f'Error: Could not locate channel {channel_id}')
       continue
 
-    """
-    try:
-      game_data = requests.get(f'https://www.speedrun.com/api/v1/games/{game}').json()
-    except FileNotFoundError:
-      continue
-    if 'status' in game_data:
-      print(game_data['status'], game_data['message'])
-      continue
-    """
-
     client.channels[game] = channel_id
 
   if len(client.channels) == 0:
@@ -115,6 +105,7 @@ async def on_parsed_streams(streams, game, channel):
       stream = live_channels[name]
       offline_streams.remove(name)
       stream['offline'] = 0 # Number of consecutive times observed as offline
+      debug(f'Stream {name} is not offline')
 
     if 'game' in stream and game == stream['game']:
       debug(f'Stream {name} is still live at {ctime()}')
@@ -138,6 +129,7 @@ async def on_parsed_streams(streams, game, channel):
       stream['offline'] = 1
     else:
       stream['offline'] += 1
+    debug(f'Stream {name} has been offline for {stream["offline"]} consecutive checks')
 
     if stream['offline'] < client.MAX_OFFLINE:
       continue
