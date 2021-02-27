@@ -3,7 +3,7 @@ import json
 import requests
 from ast import literal_eval
 from asyncio import sleep
-from datetime import timedelta
+from datetime import datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 from sys import argv
@@ -21,6 +21,27 @@ client = discord.Client()
 client.started = False
 client.channels = {}
 client.MAX_OFFLINE = 5
+
+@client.event
+async def on_message(message):
+  if not client.started:
+    return
+  if message.author.id == client.user.id:
+    return # Do not process our own messages
+  if message.channel.id not in client.channels.values():
+    return # Only listen for commands in channels we're assigned to
+  args = message.content.split(' ')
+  if args[0] == '!link':
+    if len(args) < 2:
+      await message.channel.send('Usage of !link usage:\n`!link twitch_username src_id`\nE.g. `!link jbzdarkid 1xy9pyjr`')
+      return
+    from bot2 import twitch_cache
+    twitch_cache.set(args[1], args[2])
+    await message.channel.send(f'Linked https://twitch.tv/{args[1]} to https://www.speedrun.com/api/v1/users/{args[2]}')
+    return
+  elif args[0] == '!help':
+    await message.channel.send('Available commands: `!link`, `!help`')
+    return
 
 @client.event
 async def on_ready():
@@ -59,7 +80,11 @@ async def on_ready():
     debug('Fetching streams')
     for game, channel_id in client.channels.items():
       debug(f'Fetching streams for game {game}')
-      streams = list(get_speedrunners_for_game(game))
+      try:
+        streams = list(get_speedrunners_for_game(game))
+      except:
+        break
+
       debug(f'Found {len(streams)} streams')
 
       debug(f'Sending live messages for game {game}')
@@ -151,6 +176,7 @@ if __name__ == '__main__':
     import subprocess
     import sys
     while 1:
+      print(f'Starting subtask at {datetime.now()}')
       subprocess.run([sys.executable, __file__, 'subtask'] + argv)
       # Speedrun.com throttling limit is 100 requests/minute
       sleep(60)
