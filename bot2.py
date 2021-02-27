@@ -4,6 +4,13 @@ import requests
 from pathlib import Path
 from sys import argv
 
+# TODO: Decide on throttling limits for each API call.
+#  - "get streams" is once/minute
+#  - get_src_id is once/week? People don't *become* speedrunners very often.
+#  - runner_runs_game is once/day. If a speedrunner is streaming a game, they submit their first run pretty quick.
+# TODO: Real database? JSON files are gonna get large otherwise. Maybe a local DB file would be good for this, to prepare for future webhosting.
+# TODO: AWS hosting? Maybe.
+
 with (Path(__file__).parent / 'twitch_token.txt').open() as f:
   token = f.read().strip()
 with (Path(__file__).parent / 'twitch_client.txt').open() as f:
