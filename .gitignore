@@ -7,3 +7,4 @@ twitch_client.txt
 *.json
 venv/
 SQLiteBrowser/
+database.db
