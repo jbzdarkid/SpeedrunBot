@@ -6,3 +6,4 @@ twitch_token.txt
 twitch_client.txt
 *.json
 venv/
+SQLiteBrowser/
