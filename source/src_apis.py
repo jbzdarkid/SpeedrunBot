@@ -24,6 +24,8 @@ def get_src_id(twitch_username):
   src_id = j['data'][0]['id']
   database.add_user(twitch_username, src_id)
 
+# TODO: search_src_id using https://www.speedrun.com/api/v1/users?name=dark
+# Should be used for !link instead of the current inanity.
 
 def track_game(game_name, discord_channel):
   if game := database.get_game(game_name):
