@@ -23,8 +23,6 @@ def get_src_id(twitch_username):
   src_id = j['data'][0]['id']
   database.add_user(twitch_username, src_id)
 
-# TODO: search_src_id using https://www.speedrun.com/api/v1/users?name=dark
-# Should be used for !link instead of the current inanity.
 
 def runner_runs_game(src_id, src_game_id):
   if database.has_personal_best(src_id, src_game_id):
@@ -43,11 +41,14 @@ def runner_runs_game(src_id, src_game_id):
   return False
 
 
-def track_game(game_name, discord_channel):
-  if game := database.get_game(game_name):
-    return
-
+def get_game_id(game_name):
   j = requests.get('https://www.speedrun.com/api/v1/games', params={'name': game_name}).json()
-  src_game_id = j['data'][0]['id']
-  database.add_game(game_name, src_game_id, discord_channel)
-  # https://discord.com/oauth2/authorize?scope=bot&permissions=2048&client_id={discord.client_id}
+  return j['data'][0]['id']
+
+
+def search_src_user(username):
+  j = requests.get('https://www.speedrun.com/api/v1/users', params={'name': username}).json()
+  if len(j['data']) == 0:
+    return []
+
+  return [(user["names"]["international"], user["id"]) for user in j['data']]

@@ -10,12 +10,15 @@ c.execute('''CREATE TABLE IF NOT EXISTS users (
 )''')
 c.execute('''CREATE TABLE IF NOT EXISTS tracked_games (
   game_name       TEXT    NOT NULL    PRIMARY KEY,
+  twitch_game_id  TEXT    NOT NULL    UNIQUE,
   src_game_id     TEXT    NOT NULL    UNIQUE,
   discord_channel INTEGER NOT NULL
 )''')
 c.execute('''CREATE TABLE IF NOT EXISTS personal_bests (
-  src_id          TEXT    NOT NULL    FOREIGN KEY users.src_id,
-  src_game_id     TEXT    NOT NULL    FOREIGN KEY tracked_games.src_game_id,
+  src_id          TEXT    NOT NULL,
+  src_game_id     TEXT    NOT NULL,
+  FOREIGN KEY (src_id)      REFERENCES users (src_id),
+  FOREIGN KEY (src_game_id) REFERENCES tracked_games (src_game_id),
   PRIMARY KEY (src_id, src_game_id)
 )''')
 conn.commit()
@@ -29,13 +32,13 @@ def add_user(twitch_username, src_id, fetch_time=datetime.now()):
     pass
 
 
-def add_game(game_name, src_game_id, discord_channel):
-  c.execute('INSERT INTO tracked_games VALUES (?, ?, ?)', (game_name, src_game_id, int(discord_channel)))
+def add_game(game_name, twitch_game_id, src_game_id, discord_channel):
+  c.execute('INSERT INTO tracked_games VALUES (?, ?, ?, ?)', (game_name, twitch_game_id, src_game_id, int(discord_channel)))
   conn.commit()
 
 
 def add_personal_best(src_id, src_game_id):
-  c.execute('INSERT INTO personal_bests VALUES (?, ?)', (src_id, src_game_id)))
+  c.execute('INSERT INTO personal_bests VALUES (?, ?)', (src_id, src_game_id))
   conn.commit()
 
 
@@ -71,10 +74,15 @@ def get_game(game_name):
   if data := c.fetchone():
     return {
       'game_name': data[0],
-      'src_game_id': data[1],
-      'discord_channel': data[2],
+      'twitch_game_id': data[1],
+      'src_game_id': data[2],
+      'discord_channel': data[3],
     }
   return None
+
+
+def get_all_games():
+  return c.execute('SELECT * FROM tracked_games')
 
 
 def has_personal_best(src_id, src_game_id):
