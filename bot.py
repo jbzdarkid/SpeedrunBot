@@ -38,10 +38,16 @@ async def on_message(message):
     from bot2 import twitch_cache
     twitch_cache.set(args[1], args[2])
     await message.channel.send(f'Linked https://twitch.tv/{args[1]} to https://www.speedrun.com/api/v1/users/{args[2]}')
-    return
+  elif args[0] == '!about':
+    for game in client.channels:
+      if message.channel.id == client.channels[game]:
+        break
+    else:
+      game = 'this game'
+    await message.channel.send(f'Speedrunning bot, created by darkid#1647. \nThe bot will search for twitch streams of {game}, then check to see if the given streamer is a speedrunner, then check to see if the speedrunner has a PB in this game. If so, it announces their stream in this channel.')
+    # 83001199959216128
   elif args[0] == '!help':
-    await message.channel.send('Available commands: `!link`, `!help`')
-    return
+    await message.channel.send('Available commands: `!link`, `!help`, `!about`')
 
 @client.event
 async def on_ready():
