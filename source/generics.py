@@ -31,9 +31,9 @@ def get_speedrunners_for_game(game_name):
       continue # Not actually a speedrunner
 
     if not src_apis.runner_runs_game(src_id, src_game_id):
-      print(f'Streamer {twitch_username} is a speedrunner, but not of {name}')
+      print(f'Streamer {twitch_username} is a speedrunner, but not of {game_name}')
     else:
-      print(f'Streamer {twitch_username} runs {name}')
+      print(f'Streamer {twitch_username} runs {game_name}')
       yield {
         'preview': stream['thumbnail_url'].format(width=320, height=180),
         'url': f'https://www.twitch.tv/{twitch_username}',

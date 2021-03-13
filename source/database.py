@@ -81,5 +81,5 @@ def get_all_games():
 
 
 def has_personal_best(src_id, src_game_id):
-  c.execute('SELECT * FROM tracked_games WHERE src_id=? AND src_game_id=?', (src_id, src_game_id))
+  c.execute('SELECT * FROM personal_bests WHERE src_id=? AND src_game_id=?', (src_id, src_game_id))
   return c.fetchone() != None
