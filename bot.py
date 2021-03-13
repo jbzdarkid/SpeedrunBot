@@ -74,7 +74,7 @@ async def on_ready():
 
   global live_channels
   try:
-    with open(live_channels_file) as f:
+    with live_channels_file.open('r') as f:
       live_channels = json.load(f)
     debug(f'Loaded {len(live_channels)} live channels')
   except FileNotFoundError:
@@ -99,7 +99,7 @@ async def on_ready():
       if channel:
         await on_parsed_streams(streams, game, channel)
 
-    with open(live_channels_file, 'w') as f:
+    with live_channels_file.open('w') as f:
       json.dump(live_channels, f)
     debug('Saved live channels')
 
