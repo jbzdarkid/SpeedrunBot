@@ -23,6 +23,8 @@ def get_src_id(twitch_username):
   src_id = j['data'][0]['id']
   database.add_user(twitch_username, src_id)
 
+# TODO: search_src_id using https://www.speedrun.com/api/v1/users?name=dark
+# Should be used for !link instead of the current inanity.
 
 def runner_runs_game(src_id, src_game_id):
   if database.has_personal_best(src_id, src_game_id):
