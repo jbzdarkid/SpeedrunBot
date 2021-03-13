@@ -1,6 +1,6 @@
-from datetime import datetime
 import requests
-import database
+from datetime import datetime
+from . import database
 
 ONE_HOUR = (3600)
 ONE_DAY  = (3600 * 24)
@@ -17,7 +17,7 @@ def get_src_id(twitch_username):
       return user['src_id']
 
   # Make a network call to determine if the streamer is a speedrunner.
-  j = requests.get('https://www.speedrun.com/api/v1/users' params={'twitch', twitch_username}).json()
+  j = requests.get('https://www.speedrun.com/api/v1/users', params={'twitch', twitch_username}).json()
   if len(j['data']) == 0:
     return None
   src_id = j['data'][0]['id']

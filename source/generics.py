@@ -1,7 +1,4 @@
-import src_apis
-import twitch_apis
-import database
-
+from . import database, src_apis, twitch_apis
 
 def track_game(game_name, discord_channel):
   if game := database.get_game(game_name):

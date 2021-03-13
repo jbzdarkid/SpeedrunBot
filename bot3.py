@@ -5,8 +5,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
-import source.database as database
-import source.generics as generics
+from source import database, generics
 
 # Globals
 client = discord.Client()

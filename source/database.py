@@ -1,7 +1,8 @@
 import sqlite3
 from datetime import datetime
+from pathlib import Path
 
-conn = sqlite3.connect('database.db')
+conn = sqlite3.connect(Path(__file__).with_name('database.db'))
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS users (
   twitch_username TEXT    NOT NULL    PRIMARY KEY,
@@ -22,7 +23,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS personal_bests (
   PRIMARY KEY (src_id, src_game_id)
 )''')
 conn.commit()
-
 
 def add_user(twitch_username, src_id, fetch_time=datetime.now()):
   try:
