@@ -6,7 +6,6 @@ ONE_HOUR = (3600)
 ONE_DAY  = (3600 * 24)
 ONE_WEEK = (3600 * 24 * 7)
 
-### Functions which talk to the Speedrun.com APIs
 def get_src_id(twitch_username):
   if user := database.get_user(twitch_username):
     if user['src_id']:
@@ -25,6 +24,23 @@ def get_src_id(twitch_username):
   database.add_user(twitch_username, src_id)
 
 
+def runner_runs_game(src_id, src_game_id):
+  if database.has_personal_best(src_id, src_game_id):
+    return True
+
+  if user := database.get_user_by_src(src_id):
+    if datetime.now().timestamp() < user['fetch_time'] + ONE_DAY:
+      # Last check was <1 day ago, don't fetch again
+      return False
+
+  pbs = requests.get(f'https://www.speedrun.com/api/v1/users/{src_id}/personal-bests').json()
+  games = {pb['run']['game'] for pb in pbs['data']}
+  if src_game_id in games:
+    database.add_personal_best(src_id, src_game_id)
+    return True
+  return False
+
+
 def track_game(game_name, discord_channel):
   if game := database.get_game(game_name):
     return
@@ -32,18 +48,4 @@ def track_game(game_name, discord_channel):
   j = requests.get('https://www.speedrun.com/api/v1/games', params={'name': game_name}).json()
   src_game_id = j['data'][0]['id']
   database.add_game(game_name, src_game_id, discord_channel)
-  # https://discord.com/oauth2/authorize?scope=bot&permissions=2048&client_id=683472204280889511
-
-
-def runner_runs_game(src_id, src_game_id):
-  if database.has_personal_best(src_id, src_game_id):
-    return True
-
-  # ... last fetch time?
-
-  pbs = requests.get(f'https://www.speedrun.com/api/v1/users/{src_id}/personal-bests').json()
-  games = {pb['run']['game'] for pb in pbs['data']}
-  games_cache.set(src_id, list(games))
-  # fix me
-  return src_game_id in games
-
+  # https://discord.com/oauth2/authorize?scope=bot&permissions=2048&client_id={discord.client_id}
