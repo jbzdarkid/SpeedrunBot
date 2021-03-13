@@ -69,16 +69,11 @@ def get_user_by_src(src_id):
   return None
 
 
-def get_game(game_name):
+def get_game_ids(game_name):
   c.execute('SELECT * FROM tracked_games WHERE game_name LIKE ?', (game_name,))
   if data := c.fetchone():
-    return {
-      'game_name': data[0],
-      'twitch_game_id': data[1],
-      'src_game_id': data[2],
-      'discord_channel': data[3],
-    }
-  return None
+    return (data[1], data[2])
+  return (None, None)
 
 
 def get_all_games():

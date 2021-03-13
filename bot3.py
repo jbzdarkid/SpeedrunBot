@@ -1,5 +1,6 @@
 import discord
 import json
+import sys
 from asyncio import sleep
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -22,7 +23,7 @@ async def on_message(message):
     return # Do not process our own messages
   if message.channel.id not in client.tracked_games:
     return # Only listen for commands in channels we're assigned to
-  handle_command(message.channel, message.content.split(' '))
+  await handle_command(message.channel, message.content.split(' '))
 
 
 # TODO: !force_pb ? What do I use for the user ID? SRC ID is hard to know, but usernames suck to handle.
@@ -80,8 +81,10 @@ async def on_ready():
     await client.close()
     return
 
-  with Path(__file__).with_name('live_channels2.txt').open() as f:
-    client.live_channels = json.load(f)
+  p = Path(__file__).with_name('live_channels2.txt')
+  if p.exists():
+    with p.open('r') as f:
+      client.live_channels = json.load(f)
 
   while 1: # This while loop doesn't expect to return.
     for channel_id, game in client.tracked_games.items():
@@ -95,6 +98,13 @@ async def on_ready():
       json.dump(client.live_channels, f)
 
     await sleep(60)
+
+
+@client.event
+async def on_error(event, *args, **kwargs):
+  import traceback
+  traceback.print_exc(chain=False)
+  sys.exit(0)
 
 
 async def on_parsed_streams(streams, game, channel):
@@ -161,7 +171,6 @@ async def on_parsed_streams(streams, game, channel):
 
 
 if __name__ == '__main__':
-  import sys
   if 'subtask' not in sys.argv:
     import subprocess
     while 1:
