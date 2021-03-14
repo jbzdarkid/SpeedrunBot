@@ -25,12 +25,8 @@ c.execute('''CREATE TABLE IF NOT EXISTS personal_bests (
 conn.commit()
 
 def add_user(twitch_username, src_id, fetch_time=datetime.now().timestamp()):
-  try:
-    c.execute('INSERT INTO users VALUES (?, ?, ?)', (twitch_username.lower(), src_id, fetch_time))
-    conn.commit()
-  except sqlite3.IntegrityError as e:
-    print('IntegrityError:', e)
-    pass
+  c.execute('INSERT INTO users VALUES (?, ?, ?)', (twitch_username.lower(), src_id, fetch_time))
+  conn.commit()
 
 
 def add_game(game_name, twitch_game_id, src_game_id, discord_channel):
@@ -49,7 +45,7 @@ def update_user_fetch_by_src(src_id):
 
 
 def get_user(twitch_username):
-  c.execute('SELECT * FROM users WHERE twitch_username=?', (twitch_username,))
+  c.execute('SELECT * FROM users WHERE twitch_username=?', (twitch_username.lower(),))
   if data := c.fetchone():
     return {
       'twitch_username': data[0],

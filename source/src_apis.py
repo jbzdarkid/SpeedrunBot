@@ -21,8 +21,9 @@ def get_src_id(twitch_username):
   if len(j['data']) == 0:
     return None
   src_id = j['data'][0]['id']
-  # When initially adding a user, we set the fetch_time to 0 so that further lookups will fetch their PBs.
-  database.add_user(twitch_username, src_id, 0)
+  if not user:
+    # When initially adding a user, we set the fetch_time to 0 so that further lookups will fetch their PBs.
+    database.add_user(twitch_username, src_id, 0)
   return src_id
 
 
