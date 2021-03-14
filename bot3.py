@@ -121,39 +121,37 @@ async def on_parsed_streams(streams, game, channel):
     # if we didn't send a message, then we weren't really live.
     if (name not in client.live_channels) or ('message' not in client.live_channels[name]):
       print(f'Stream {name} started at {datetime.now().ctime()}')
-      content = f'{name} is now doings runs of {game} at {stream["url"]}'
+      content = f'{name} is now doing runs of {game} at {stream["url"]}'
       message = await channel.send(content=content, embed=get_embed(stream))
       stream['message'] = message.id
       stream['start'] = datetime.now().timestamp()
       stream['game'] = game
+      stream['offline'] = 0
       client.live_channels[name] = stream
     else:
       stream = client.live_channels[name]
       offline_streams.remove(name)
-      stream['offline'] = 0 # Number of consecutive times observed as offline
+      stream['offline'] = 0
 
-    if 'game' in stream and game == stream['game']:
-      print(f'Stream {name} is still live at {datetime.now().ctime()}')
-      # Always edit the message so that the preview updates.
-      message = await channel.fetch_message(stream['message'])
-      await message.edit(embed=get_embed(stream))
-    else:
-      print(f'Stream {name} changed games at {datetime.now().ctime()}')
-      # Send the stream offline so that it will come back online with the new game,
-      # to be announced in another channel.
-      offline_streams.add(name)
-      stream['offline'] = 9999
-      stream['game'] = game
+      if 'game' in stream and game == stream['game']:
+        print(f'Stream {name} is still live at {datetime.now().ctime()}')
+        # Always edit the message so that the preview updates.
+        message = await channel.fetch_message(stream['message'])
+        await message.edit(embed=get_embed(stream))
+      else:
+        print(f'Stream {name} changed games at {datetime.now().ctime()}')
+        # Send the stream offline so that it will come back online with the new game,
+        # to be announced in another channel.
+        offline_streams.add(name)
+        stream['offline'] = 9999
+        stream['game'] = game
 
   for name in offline_streams:
     stream = client.live_channels[name]
     if stream['game'] != game:
-      continue # Only parse offlines for streams of the current game.
+      continue # Only parse offline streams for the current game.
 
-    if 'offline' not in stream:
-      stream['offline'] = 1
-    else:
-      stream['offline'] += 1
+    stream['offline'] = stream.get('offline', 0) + 1
     print(f'Stream {name} has been offline for {stream["offline"]} consecutive checks')
 
     if stream['offline'] < 5: # MAX_OFFLINE
