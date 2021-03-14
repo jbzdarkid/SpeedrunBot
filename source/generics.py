@@ -20,7 +20,7 @@ def get_speedrunners_for_game(game_name):
   if not twitch_game_id:
     print('Failed to find game IDs for game {game_name}. Skipping.')
     raise StopIteration() # This might not be the correct way to indicate an empty iterator.
-  print(f'Found game IDs for game {game_name}.\nTwitch: {twitch_game_id}\nSRC: {src_game_id}')
+  print(f'Found game IDs for game {game_name}:\nTwitch: {twitch_game_id}\nSpeedrun.com: {src_game_id}')
 
   streams = twitch_apis.get_live_game_streams(twitch_game_id)
   print(f'There are currently {len(streams)} live streams of {game_name}')

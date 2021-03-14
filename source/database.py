@@ -24,9 +24,9 @@ c.execute('''CREATE TABLE IF NOT EXISTS personal_bests (
 )''')
 conn.commit()
 
-def add_user(twitch_username, src_id, fetch_time=datetime.now()):
+def add_user(twitch_username, src_id, fetch_time=datetime.now().timestamp()):
   try:
-    c.execute('INSERT INTO users VALUES (?, ?, ?)', (twitch_username.lower(), src_id, fetch_time.timestamp()))
+    c.execute('INSERT INTO users VALUES (?, ?, ?)', (twitch_username.lower(), src_id, fetch_time))
     conn.commit()
   except sqlite3.IntegrityError as e:
     print('IntegrityError:', e)
