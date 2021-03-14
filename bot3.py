@@ -152,9 +152,8 @@ async def on_parsed_streams(streams, game, channel):
       continue # Only parse offline streams for the current game.
 
     stream['offline'] = stream.get('offline', 0) + 1
-    print(f'Stream {name} has been offline for {stream["offline"]} consecutive checks')
-
     if stream['offline'] < 5: # MAX_OFFLINE
+      print(f'Stream {name} has been offline for {stream["offline"]} consecutive checks')
       continue
 
     # Stream has been offline for (5) consecutive checks, close down the post
