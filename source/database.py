@@ -28,7 +28,8 @@ def add_user(twitch_username, src_id, fetch_time=datetime.now()):
   try:
     c.execute('INSERT INTO users VALUES (?, ?, ?)', (twitch_username.lower(), src_id, fetch_time.timestamp()))
     conn.commit()
-  except sqlite3.IntegrityError:
+  except sqlite3.IntegrityError as e:
+    print('IntegrityError:', e)
     pass
 
 
