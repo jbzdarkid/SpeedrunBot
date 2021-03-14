@@ -8,3 +8,4 @@ twitch_client.txt
 venv/
 SQLiteBrowser/
 database.db
+out.log

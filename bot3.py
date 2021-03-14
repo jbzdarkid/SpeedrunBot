@@ -169,11 +169,13 @@ async def on_parsed_streams(streams, game, channel):
 if __name__ == '__main__':
   if 'subtask' not in sys.argv:
     import subprocess
-    while 1:
-      print(f'Starting subtask at {datetime.now()}')
-      subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:])
+    with Path(__file__).with_name('out.log').open('wb+') as logfile:
+      while 1:
+        print(f'Starting subtask at {datetime.now()}')
+        subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:], stdout=logfile)
 
   else:
+    sys.stdout.reconfigure(encoding='utf-8') # Inelegant, but fixes utf-8 twitch usernames
     with Path(__file__).with_name('discord_token.txt').open() as f:
       token = f.read().strip()
 
