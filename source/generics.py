@@ -1,7 +1,8 @@
 from . import database, src_apis, twitch_apis
 
 def track_game(game_name, discord_channel):
-  if database.get_game_ids(game_name):
+  if database.get_game_ids(game_name)[0]:
+    print(f'Already tracking game {game_name}')
     return # Game is already tracked
 
   twitch_game_id = twitch_apis.get_game_id(game_name)

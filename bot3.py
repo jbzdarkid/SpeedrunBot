@@ -78,7 +78,6 @@ async def on_ready():
 
   if len(client.tracked_games) == 0:
     print('Error: Found no valid channels')
-    await client.close()
     return
 
   p = Path(__file__).with_name('live_channels2.txt')
