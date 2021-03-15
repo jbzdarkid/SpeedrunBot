@@ -4,6 +4,7 @@ import sys
 from asyncio import sleep
 from datetime import datetime, timedelta
 from pathlib import Path
+from requests.exceptions import ConnectionError
 from uuid import uuid4
 
 from source import database, generics
@@ -87,7 +88,10 @@ async def on_ready():
 
   while 1: # This while loop doesn't expect to return.
     for channel_id, game in client.tracked_games.items():
-      streams = generics.get_speedrunners_for_game(game)
+      try:
+        streams = generics.get_speedrunners_for_game(game)
+      except ConnectionError:
+        continue # Network connection error occurred while fetching streams, take no action (i.e. do not increase offline count)
 
       if channel := client.get_channel(channel_id):
         await on_parsed_streams(streams, game, channel)
@@ -103,7 +107,7 @@ async def on_ready():
 async def on_error(event, *args, **kwargs):
   import traceback
   traceback.print_exc(chain=False)
-  sys.exit(0)
+  sys.exit(1)
 
 
 async def on_parsed_streams(streams, game, channel):
