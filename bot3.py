@@ -90,7 +90,8 @@ async def on_ready():
     for channel_id, game in client.tracked_games.items():
       try:
         streams = generics.get_speedrunners_for_game(game)
-      except ConnectionError:
+      except ConnectionError as e:
+        print(e, file=sys.stderr)
         continue # Network connection error occurred while fetching streams, take no action (i.e. do not increase offline count)
 
       if channel := client.get_channel(channel_id):
@@ -126,7 +127,10 @@ async def on_parsed_streams(streams, game, channel):
     if (name not in client.live_channels) or ('message' not in client.live_channels[name]):
       print(f'Stream {name} started at {datetime.now().ctime()}')
       content = f'{name} is now doing runs of {game} at {stream["url"]}'
-      message = await channel.send(content=content, embed=get_embed(stream))
+      try:
+        message = await channel.send(content=content, embed=get_embed(stream))
+      except discord.errors.HTTPException:
+        continue # The message will be posted next pass.
       stream['message'] = message.id
       stream['start'] = datetime.now().timestamp()
       stream['game'] = game
@@ -140,8 +144,11 @@ async def on_parsed_streams(streams, game, channel):
       if 'game' in stream and game == stream['game']:
         print(f'Stream {name} is still live at {datetime.now().ctime()}')
         # Always edit the message so that the preview updates.
-        message = await channel.fetch_message(stream['message'])
-        await message.edit(embed=get_embed(stream))
+        try:
+          message = await channel.fetch_message(stream['message'])
+          await message.edit(embed=get_embed(stream))
+        except discord.errors.HTTPException:
+          continue # The message will be edited next pass.
       else:
         print(f'Stream {name} changed games at {datetime.now().ctime()}')
         # Send the stream offline so that it will come back online with the new game,
@@ -165,8 +172,11 @@ async def on_parsed_streams(streams, game, channel):
     duration_sec = int(datetime.now().timestamp() - client.live_channels[name]['start'])
     content = f'{name} went offline after {timedelta(seconds=duration_sec)}.\r\n'
     content += 'Watch their latest videos here: <' + stream['url'] + '/videos?filter=archives>'
-    message = await channel.fetch_message(stream['message'])
-    await message.edit(content=content, embed=None)
+    try:
+      message = await channel.fetch_message(stream['message'])
+      await message.edit(content=content, embed=None)
+    except discord.errors.HTTPException:
+      continue # The stream can go offline next pass. The offline count will increase, which is OK.
     del client.live_channels[name]
 
 
