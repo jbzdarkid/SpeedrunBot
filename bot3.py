@@ -81,7 +81,7 @@ async def on_ready():
     print('Error: Found no valid channels')
     return
 
-  p = Path(__file__).with_name('live_channels2.txt')
+  p = Path(__file__).with_name('live_channels.txt')
   if p.exists():
     with p.open('r') as f:
       client.live_channels = json.load(f)
@@ -98,7 +98,7 @@ async def on_ready():
         await on_parsed_streams(streams, game, channel)
 
     # Due to bot instability, we write this every loop, just in case we crash.
-    with Path(__file__).with_name('live_channels2.txt').open('w') as f:
+    with Path(__file__).with_name('live_channels.txt').open('w') as f:
       json.dump(client.live_channels, f)
 
     await sleep(60)
