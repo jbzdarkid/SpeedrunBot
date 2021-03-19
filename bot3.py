@@ -183,7 +183,10 @@ async def on_parsed_streams(streams, game, channel):
 if __name__ == '__main__':
   if 'subtask' not in sys.argv:
     import subprocess
-    with Path(__file__).with_name('out.log').open('wb+') as logfile:
+    # If the file doesn't exist, it's created (a)
+    # Data is read and written as bytes (b)
+    # # The file is opened in read/write mode (+),
+    with Path(__file__).with_name('out.log').open('ab') as logfile:
       while 1:
         print(f'Starting subtask at {datetime.now()}')
         subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:], stdout=logfile)
