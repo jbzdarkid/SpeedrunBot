@@ -20,25 +20,26 @@ def get_speedrunners_for_game(game_name):
   if not twitch_game_id:
     print('Failed to find game IDs for game {game_name}. Skipping.')
     raise StopIteration() # This might not be the correct way to indicate an empty iterator.
-  print(f'Found game IDs for game {game_name}:\nTwitch: {twitch_game_id}\nSpeedrun.com: {src_game_id}')
+  print(f'Getting speedrunners for game {game_name} ({twitch_game_id} | {src_game_id})')
 
   streams = twitch_apis.get_live_game_streams(twitch_game_id)
-  print(f'There are currently {len(streams)} live streams of {game_name}')
+  print(f'There are currently {len(streams)} live streams of {game_name}:')
   for stream in streams:
     twitch_username = stream['user_name']
     src_id = src_apis.get_src_id(twitch_username)
     if src_id is None:
-      print(f'Streamer {twitch_username} is not a speedrunner')
-      continue # Not actually a speedrunner
+      print(f'{twitch_username.ljust(20)} is not a speedrunner')
+      continue
 
     if not src_apis.runner_runs_game(src_id, src_game_id):
-      print(f'Streamer {twitch_username} is a speedrunner, but not of {game_name}')
-    else:
-      print(f'Streamer {twitch_username} runs {game_name}')
-      yield {
-        'preview': stream['thumbnail_url'].format(width=320, height=180),
-        'url': f'https://www.twitch.tv/{twitch_username}',
-        'name': twitch_username,
-        'title': stream['title'],
-        'viewcount': stream['viewer_count'],
-      }
+      print(f'{twitch_username.ljust(20)} is a speedrunner, but not of {game_name}')
+      continue
+
+    print(f'{twitch_username.ljust(20)} is a speedrunner, and runs {game_name}')
+    yield {
+      'preview': stream['thumbnail_url'].format(width=320, height=180),
+      'url': f'https://www.twitch.tv/{twitch_username}',
+      'name': twitch_username,
+      'title': stream['title'],
+      'viewcount': stream['viewer_count'],
+    }
