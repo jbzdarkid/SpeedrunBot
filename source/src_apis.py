@@ -19,6 +19,7 @@ def get_src_id(twitch_username):
   # Make a network call to determine if the streamer is a speedrunner.
   j = requests.get('https://www.speedrun.com/api/v1/users', params={'twitch': twitch_username}).json()
   if len(j['data']) == 0:
+    database.add_user(twitch_username, None)
     return None
   src_id = j['data'][0]['id']
   if not user:
