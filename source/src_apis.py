@@ -1,6 +1,6 @@
-import requests
 from datetime import datetime
 from . import database
+from .make_request import get_json
 
 ONE_HOUR = (3600)
 ONE_DAY  = (3600 * 24)
@@ -17,7 +17,7 @@ def get_src_id(twitch_username):
       return user['src_id']
 
   # Make a network call to determine if the streamer is a speedrunner.
-  j = requests.get('https://www.speedrun.com/api/v1/users', params={'twitch': twitch_username}).json()
+  j = get_json('https://www.speedrun.com/api/v1/users', params={'twitch': twitch_username})
   if len(j['data']) == 0:
     database.add_user(twitch_username, None)
     return None
@@ -37,7 +37,7 @@ def runner_runs_game(src_id, src_game_id):
       # Last check was <1 day ago, don't fetch again
       return False
 
-  pbs = requests.get(f'https://www.speedrun.com/api/v1/users/{src_id}/personal-bests').json()
+  pbs = get_json(f'https://www.speedrun.com/api/v1/users/{src_id}/personal-bests')
   games = {pb['run']['game'] for pb in pbs['data']}
   if src_game_id in games:
     database.add_personal_best(src_id, src_game_id)
@@ -46,12 +46,12 @@ def runner_runs_game(src_id, src_game_id):
 
 
 def get_game_id(game_name):
-  j = requests.get('https://www.speedrun.com/api/v1/games', params={'name': game_name}).json()
+  j = get_json('https://www.speedrun.com/api/v1/games', params={'name': game_name})
   return j['data'][0]['id']
 
 
 def search_src_user(username):
-  j = requests.get('https://www.speedrun.com/api/v1/users', params={'name': username}).json()
+  j = get_json('https://www.speedrun.com/api/v1/users', params={'name': username})
   if len(j['data']) == 0:
     return []
 

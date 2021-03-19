@@ -1,5 +1,6 @@
-from pathlib import Path
 import requests
+from pathlib import Path
+from .make_request import get_json
 
 with Path(__file__).with_name('twitch_token.txt').open() as f:
   token = f.read().strip()
@@ -22,7 +23,7 @@ def get_live_game_streams(twitch_game_id):
   streams = []
   params = {'game_id': twitch_game_id, 'first': 100}
   while 1:
-    j = requests.get('https://api.twitch.tv/helix/streams', params=params, headers=headers).json()
+    j = get_json('https://api.twitch.tv/helix/streams', params=params, headers=headers)
     if 'data' not in j:
       break
     streams += [stream for stream in j['data'] if stream['type'] == 'live']
@@ -35,5 +36,5 @@ def get_live_game_streams(twitch_game_id):
 
 
 def get_game_id(game_name):
-  j = requests.get('https://api.twitch.tv/helix/games', params={'name': game_name}, headers=headers).json()
+  j = get_json('https://api.twitch.tv/helix/games', params={'name': game_name}, headers=headers)
   return j['data'][0]['id']
