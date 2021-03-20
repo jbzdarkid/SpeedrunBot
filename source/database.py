@@ -85,7 +85,9 @@ def get_game_ids(game_name):
 
 
 def get_all_games():
-  return c.execute('SELECT * FROM tracked_games')
+  c.execute('SELECT * FROM tracked_games')
+  if data := c.fetchall():
+    return ((d[0], d[3]) for d in data)
 
 
 def has_personal_best(src_id, src_game_id):

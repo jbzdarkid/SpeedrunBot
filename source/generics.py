@@ -5,14 +5,15 @@ def track_game(game_name, discord_channel):
     print(f'Already tracking game {game_name}')
     return # Game is already tracked
 
-  twitch_game_id = twitch_apis.get_game_id(game_name)
   src_game_id = src_apis.get_game_id(game_name)
+  twitch_game_id = twitch_apis.get_game_id(game_name)
   database.add_game(game_name, twitch_game_id, src_game_id, discord_channel)
 
-  print(f'Now tracking game {game_name}. In order for the bot to post messages, it needs the "send_messages" permission.')
-  print('Please post this link in the associated discord channel, and have an admin grant the bot permissions.')
-  # This is my bot's client ID. You'll need to change it to your bot's if you forked this repo.
-  print('https://discord.com/oauth2/authorize?scope=bot&permissions=2048&client_id=683472204280889511')
+  # In order for the bot to post messages, it needs the "send_messages" permission.
+  # Please use this link in to grant the permissions to a server you administrate.
+  # (This is my bot's client ID. You'll need to change it to your bot's if you forked this repo.)
+  # https://discord.com/oauth2/authorize?scope=bot&permissions=2048&client_id=683472204280889511
+  return (twitch_game_id, src_game_id) # Same as database.get_game_ids, to save a SQL read
 
 
 def get_speedrunners_for_game(game_name):
