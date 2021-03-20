@@ -47,7 +47,20 @@ def runner_runs_game(src_id, src_game_id):
 
 def get_game_id(game_name):
   j = get_json('https://www.speedrun.com/api/v1/games', params={'name': game_name})
-  return j['data'][0]['id']
+  if len(j['data']) == 0:
+    raise ValueError(f'Could not find game "{game_name}" on Speedrun.com')
+
+  if len(j['data']) == 1:
+    return j['data'][0]['id']
+
+  possible_matches = []
+  for game in j['data']:
+    possible_matches.append(game['names']['twitch'])
+    if game['names']['twitch'] == game_name:
+      return game['id']
+
+  suggestions = ', '.join(possible_matches[:10]) # Only show a max of 10 matches, for brevity's sake
+  raise ValueError(f'Found {len(possible_matches)} possible matches for game "{game_name}" on Speedrun.com -- Try one of these options:\n' + suggestions)
 
 
 def search_src_user(username):

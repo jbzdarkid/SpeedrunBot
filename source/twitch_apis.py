@@ -37,4 +37,6 @@ def get_live_game_streams(twitch_game_id):
 
 def get_game_id(game_name):
   j = get_json('https://api.twitch.tv/helix/games', params={'name': game_name}, headers=headers)
+  if len(j['data']) == 0:
+    raise ValueError(f'Could not find game {game_name} on Twitch')
   return j['data'][0]['id']
