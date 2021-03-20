@@ -6,7 +6,7 @@ conn = sqlite3.connect(Path(__file__).with_name('database.db'))
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS users (
   twitch_username TEXT    NOT NULL    PRIMARY KEY,
-  src_id          TEXT,
+  src_id          TEXT    UNIQUE,
   last_fetched    REAL
 )''')
 c.execute('''CREATE TABLE IF NOT EXISTS tracked_games (
@@ -32,6 +32,17 @@ def add_user(twitch_username, src_id, fetch_time=datetime.now().timestamp()):
 def add_game(game_name, twitch_game_id, src_game_id, discord_channel):
   c.execute('INSERT INTO tracked_games VALUES (?, ?, ?, ?)', (game_name, twitch_game_id, src_game_id, int(discord_channel)))
   conn.commit()
+
+
+def remove_game(game_name):
+  src_game_id, _ = get_game_ids(game_name)
+  if not src_game_id:
+    raise ValueError(f'Cannot remove game "{game_name}" as it is not currently being tracked.')
+
+  c.execute('DELETE from personal_bests where src_game_id=?', (src_game_id, ))
+  c.execute('DELETE from tracked_games where src_game_id=?', (src_game_id, ))
+  conn.commit()
+  # Note: There is no need to delete users here -- users are cross-game.
 
 
 def add_personal_best(src_id, src_game_id):
