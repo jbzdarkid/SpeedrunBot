@@ -10,12 +10,15 @@ from uuid import uuid4
 
 from source import database, generics
 
+# TODO: !force_pb ? What do I use for the user ID? SRC ID is hard to know, but usernames suck to handle.
+# TODO: [nosrl] (and associated tests)
+# TODO: Add a test for 'what if a live message got deleted'
+
 # Globals
 client = discord.Client()
 client.started = False # Single-shot boolean to know if we've started up already
 client.tracked_games = {} # Map of channel_id : game name
 client.live_channels = {} # Contains twitch streams which are actively running (or have recently closed).
-
 
 @client.event
 async def on_message(message):
@@ -23,8 +26,6 @@ async def on_message(message):
     return
   if message.author.id == client.user.id:
     return # Do not process our own messages
-
-  # TODO: !force_pb ? What do I use for the user ID? SRC ID is hard to know, but usernames suck to handle.
 
   # Only listen to posts in tracked channels or posts where we were explicitly mentioned.
   if message.channel.id not in client.tracked_games and client.user not in message.mentions:
