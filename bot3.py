@@ -65,21 +65,11 @@ async def handle_command(channel, args):
 
 @client.event
 async def on_ready():
-  if client.started: # This function may be called multiple times. We only should run setup once, though.
+  if client.started: # This function may be called multiple times. We only should run once, though.
     return
   client.started = True
 
   print(f'Logged in as {client.user.name} (id: {client.user.id})')
-
-  for game_name, _, __, channel_id, in database.get_all_games():
-    if not client.get_channel(channel_id):
-      print(f'Error: Could not locate channel {channel_id} for game {game_name}')
-      continue
-    client.tracked_games[channel_id] = game_name
-
-  if len(client.tracked_games) == 0:
-    print('Error: Found no valid channels')
-    return
 
   p = Path(__file__).with_name('live_channels.txt')
   if p.exists():
@@ -87,15 +77,20 @@ async def on_ready():
       client.live_channels = json.load(f)
 
   while 1: # This while loop doesn't expect to return.
-    for channel_id, game in client.tracked_games.items():
+    for game_name, channel_id, in database.get_all_games():
+      if not client.get_channel(channel_id):
+        print(f'Error: Could not locate channel {channel_id} for game {game_name}', file=sys.stderr)
+        continue
+      client.tracked_games[channel_id] = game_name
+
       try:
-        streams = generics.get_speedrunners_for_game(game)
+        streams = generics.get_speedrunners_for_game(game_name)
       except ConnectionError as e:
         print(e, file=sys.stderr)
         continue # Network connection error occurred while fetching streams, take no action (i.e. do not increase offline count)
 
       if channel := client.get_channel(channel_id):
-        await on_parsed_streams(streams, game, channel)
+        await on_parsed_streams(streams, game_name, channel)
 
     # Due to bot instability, we write this every loop, just in case we crash.
     with Path(__file__).with_name('live_channels.txt').open('w') as f:
