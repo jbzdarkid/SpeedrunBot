@@ -19,9 +19,9 @@ r = requests.post('https://id.twitch.tv/oauth2/token', params={
 access_token = r.json()['access_token']
 headers = {'client-id': client_id, 'Authorization': 'Bearer ' + access_token}
 
-def get_live_game_streams(twitch_game_id):
+def get_live_game_streams(game_id):
   streams = []
-  params = {'game_id': twitch_game_id, 'first': 100}
+  params = {'game_id': game_id, 'first': 100}
   while 1:
     j = get_json('https://api.twitch.tv/helix/streams', params=params, headers=headers)
     if 'data' not in j:
@@ -39,4 +39,11 @@ def get_game_id(game_name):
   j = get_json('https://api.twitch.tv/helix/games', params={'name': game_name}, headers=headers)
   if len(j['data']) == 0:
     raise ValueError(f'Could not find game {game_name} on Twitch')
+  return j['data'][0]['id']
+
+
+def get_user_id(username):
+  j = get_json('https://api.twitch.tv/helix/users', params={'login': username}, headers=headers)
+  if len(j['data']) == 0:
+    raise ValueError(f'Could not find user {username} on Twitch')
   return j['data'][0]['id']

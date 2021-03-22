@@ -8,11 +8,14 @@ from pathlib import Path
 from requests.exceptions import ConnectionError
 from uuid import uuid4
 
-from source import database, generics
+from source import database, generics, twitch_apis, src_apis
 
 # TODO: !force_pb ? What do I use for the user ID? SRC ID is hard to know, but usernames suck to handle.
 # TODO: [nosrl] (and associated tests)
 # TODO: Add a test for 'what if a live message got deleted'
+# TODO: Threading for user lookups will save a lot of time
+# TODO: Consider merging initial fetch by using https://api.twitch.tv/helix/streams
+#  Can specify multiple streams with ?game_id=foo&game_id=bar&game_id=baz
 
 # Globals
 client = discord.Client()
@@ -37,49 +40,40 @@ async def on_message(message):
   args = [arg for arg in args if not is_mention(arg)]
   response = None
 
-  if args[0] == '!track_game':
-    if len(args) < 2:
-      response = 'Usage of !track_game: `@SpeedrunBot !track_game Game Name` or `@SpeedrunBot !track_game #channel Game Name`\nE.g. `@SpeedrunBot !track_game The Witness` or `@SpeedrunBot !track_game #streams The Witness`'
-    else:
-      game_name = ' '.join(args[1:])
-      if len(message.channel_mentions) > 1:
-        response = 'Error: Response mentions more than one channel. Please provide only one channel name to `!track_game`'
+  try:
+    if args[0] == '!track_game':
+      if len(args) < 2:
+        response = 'Usage of !track_game: `@SpeedrunBot !track_game Game Name` or `@SpeedrunBot !track_game #channel Game Name`\nE.g. `@SpeedrunBot !track_game The Witness` or `@SpeedrunBot !track_game #streams The Witness`'
       else:
-        channel = message.channel_mentions[0] if (len(message.channel_mentions) == 1) else message.channel
-        try:
+        game_name = ' '.join(args[1:])
+        if len(message.channel_mentions) > 1:
+          response = 'Error: Response mentions more than one channel. Please provide only one channel name to `!track_game`'
+        else:
+          channel = message.channel_mentions[0] if (len(message.channel_mentions) == 1) else message.channel
           twitch_game_id, src_game_id = generics.track_game(game_name, channel.id)
           response = f'Will now announce runners of {game_name} in channel <#{channel.id}>.'
-        except ValueError as e:
-          response = f'Error: {e}'
 
-  elif args[0] == '!link':
-    if len(args) != 3:
-      response = 'Usage of !link: `!link twitch_username src_username`\nE.g. `!link jbzdarkid darkid`'
-    else:
-      users = src_apis.search_src_user(args[2])
-      if len(users) == 0:
-        response = f'Error: No speedrun.com users found matching {args[2]}'
-      elif len(users) == 1:
-        username, src_id = users[0]
+    elif args[0] == '!link':
+      if len(args) != 3:
+        response = 'Usage of !link: `!link twitch_username src_username`\nE.g. `!link jbzdarkid darkid`'
+      else:
+        twitch_apis.get_user_id(args[1]) # Will throw if there is
+        src_id = src_apis.search_src_user(args[2])
         database.add_user(args[1], src_id)
-        response = f'Successfully linked twitch user {args[1]} to speedrun.com user {username}'
-      elif len(users) > 1:
-        # TODO: What if the target username is a subset of the exact username? E.g. !link foo bar
-        # but there's "bar" and "barbell" as SRC users. We *can't* be more specific!
-        message = f'Error: Found {len(users)} possible matches for {args[2]}. Please input one of these speedrun.com users:'
-        for username, _ in users:
-          message += f'\n{username}'
-        response = message
+        response = f'Successfully linked twitch user {args[1]} to speedrun.com user {args[2]}'
 
-  elif args[0] == '!about':
-    game = client.tracked_games.get(message.channel, 'this game')
-    # You might want to change this username if you fork the code, too.
-    response = 'Speedrunning bot, created by darkid#1647.\n'
-    response += 'The bot will search for twitch streams of {game}, then check to see if the given streamer is a speedrunner, then check to see if the speedrunner has a PB in this game.\n'
-    response += 'If so, it announces their stream in this channel.'
+    elif args[0] == '!about':
+      game = client.tracked_games.get(message.channel, 'this game')
+      # You might want to change this username if you fork the code, too.
+      response = 'Speedrunning bot, created by darkid#1647.\n'
+      response += 'The bot will search for twitch streams of {game}, then check to see if the given streamer is a speedrunner, then check to see if the speedrunner has a PB in this game.\n'
+      response += 'If so, it announces their stream in this channel.'
 
-  elif args[0] == '!help':
-    response = 'Available commands: `!link`, `!about`, `!help`'
+    elif args[0] == '!help':
+      response = 'Available commands: `!link`, `!about`, `!help`'
+
+  except ValueError as e:
+    response = f'Error: {e}'
 
   if response:
     await message.channel.send(response)

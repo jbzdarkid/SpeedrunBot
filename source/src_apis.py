@@ -48,24 +48,36 @@ def runner_runs_game(src_id, src_game_id):
 def get_game_id(game_name):
   j = get_json('https://www.speedrun.com/api/v1/games', params={'name': game_name})
   if len(j['data']) == 0:
-    raise ValueError(f'Could not find game "{game_name}" on Speedrun.com')
+    raise ValueError(f'Could not find game {game_name} on Speedrun.com')
 
   if len(j['data']) == 1:
     return j['data'][0]['id']
 
   possible_matches = []
   for game in j['data']:
-    possible_matches.append(game['names']['twitch'])
-    if game['names']['twitch'] == game_name:
+    possible_match = game['names']['twitch']
+    if possible_match == game_name:
       return game['id']
+    possible_matches.append(possible_match)
 
   suggestions = ', '.join(possible_matches[:10]) # Only show a max of 10 matches, for brevity's sake
-  raise ValueError(f'Found {len(possible_matches)} possible matches for game "{game_name}" on Speedrun.com -- Try one of these options:\n' + suggestions)
+  raise ValueError(f'Found {len(possible_matches)} possible matches for game {game_name} on Speedrun.com -- Try one of these options:\n' + suggestions)
 
 
 def search_src_user(username):
   j = get_json('https://www.speedrun.com/api/v1/users', params={'name': username})
   if len(j['data']) == 0:
-    return []
+    raise ValueError(f'Could not find user {username} on Speedrun.com')
 
-  return [(user["names"]["international"], user["id"]) for user in j['data']]
+  if len(j['data']) == 1:
+    return j['data'][0]['id']
+
+  possible_matches = []
+  for user in j['data']:
+    possible_match = user['names']['international']
+    if possible_match == username:
+      return user['id']
+    possible_matches.append(possible_match)
+
+  suggestions = ', '.join(possible_matches[:10]) # Only show a max of 10 matches, for brevity's sake
+  raise ValueError(f'Found {len(possible_matches)} possible matches for user {username} on Speedrun.com -- Try one of these options:\n' + suggestions)
