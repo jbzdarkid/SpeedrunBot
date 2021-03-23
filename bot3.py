@@ -16,6 +16,8 @@ from source import database, generics, twitch_apis, src_apis
 # TODO: Threading for user lookups will save a lot of time
 # TODO: Consider merging initial fetch by using https://api.twitch.tv/helix/streams
 #  Can specify multiple streams with ?game_id=foo&game_id=bar&game_id=baz
+# TODO: database.add_user should *update* user data, using twitch_id as a pk. (and I should probably rename it)
+#  This way, !link will actually *work* for existing users... which is probably the primary use-case.
 
 # Globals
 client = discord.Client()
