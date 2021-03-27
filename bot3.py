@@ -39,8 +39,11 @@ async def on_message(message):
   def is_mention(word):
     return re.fullmatch('<(@!|#)\d{18}>', word)
   args = [arg for arg in args if not is_mention(arg)]
-  response = None
 
+  if len(args) == 0:
+    return
+
+  response = None
   try:
     if args[0] == '!track_game':
       if len(args) < 2:

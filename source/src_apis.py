@@ -2,9 +2,10 @@ from datetime import datetime
 from . import database
 from .make_request import get_json
 
-ONE_HOUR = (3600)
-ONE_DAY  = (3600 * 24)
-ONE_WEEK = (3600 * 24 * 7)
+ONE_HOUR  = (3600)
+ONE_DAY   = (3600 * 24)
+ONE_WEEK  = (3600 * 24 * 7)
+ONE_MONTH = (3600 * 24 * 7 * 30)
 
 def get_src_id(twitch_username):
   if user := database.get_user(twitch_username):
@@ -37,8 +38,10 @@ def runner_runs_game(src_id, src_game_id):
       # Last check was <1 day ago, don't fetch again
       return False
 
+  database.update_user_fetch_time(user['twitch_username'])
   pbs = get_json(f'https://www.speedrun.com/api/v1/users/{src_id}/personal-bests')
   games = {pb['run']['game'] for pb in pbs['data']}
+
   if src_game_id in games:
     database.add_personal_best(src_id, src_game_id)
     return True

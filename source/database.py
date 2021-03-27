@@ -51,8 +51,8 @@ def add_personal_best(src_id, src_game_id):
   conn.commit()
 
 
-def update_user_fetch_by_src(src_id):
-  c.execute('UPDATE FROM users WHERE src_id=? SET last_fetched=?', (src_id, datetime.now().timestamp()))
+def update_user_fetch_time(twitch_username):
+  c.execute('UPDATE FROM users WHERE twitch_username=? SET last_fetched=?', (twitch_username.lower(), datetime.now().timestamp()))
   conn.commit()
 
 
@@ -78,6 +78,7 @@ def get_user_by_src(src_id):
   return None
 
 
+# Returns (twitch_game_id, src_game_id)
 def get_game_ids(game_name):
   c.execute('SELECT * FROM tracked_games WHERE game_name LIKE ?', (game_name,))
   if data := c.fetchone():
@@ -85,6 +86,7 @@ def get_game_ids(game_name):
   return (None, None)
 
 
+# Returns (game_name, discord_channel)
 def get_all_games():
   c.execute('SELECT * FROM tracked_games')
   if data := c.fetchall():
