@@ -16,6 +16,7 @@ from source import database, generics, twitch_apis, src_apis
 # TODO: Threading for user lookups will save a lot of time
 # TODO: Consider merging initial fetch by using https://api.twitch.tv/helix/streams
 #  Can specify multiple streams with ?game_id=foo&game_id=bar&game_id=baz
+# TODO: Add tests for the database (using in-memory storage?)
 
 # Globals
 client = discord.Client()
@@ -194,17 +195,22 @@ async def on_parsed_streams(streams, game, channel):
 if __name__ == '__main__':
   if 'subtask' not in sys.argv:
     import subprocess
+    import time
     # If the file doesn't exist, it's created (a)
     # Data is read and written as bytes (b)
-    # # The file is opened in read/write mode (+),
     with Path(__file__).with_name('out.log').open('ab') as logfile:
       while 1:
         print(f'Starting subtask at {datetime.now()}')
         subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:], stdout=logfile)
+        time.sleep(60) # Sleep after exit, to prevent losing my token.
 
   else:
     sys.stdout.reconfigure(encoding='utf-8') # Inelegant, but fixes utf-8 twitch usernames
     with Path(__file__).with_name('discord_token.txt').open() as f:
       token = f.read().strip()
 
-    client.run(token, reconnect=True)
+    try:
+      client.run(token, reconnect=True)
+    except discord.errors.LoginFailure as e:
+      print(e)
+      sys.exit(1)

@@ -26,7 +26,7 @@ conn.commit()
 
 
 def add_user(twitch_username, src_id, fetch_time=datetime.now().timestamp()):
-  c.execute('INSERT INTO users VALUES (?, ?, ?)', (twitch_username.lower(), src_id, fetch_time))
+  c.execute('INSERT OR REPLACE INTO users VALUES (?, ?, ?)', (twitch_username.lower(), src_id, fetch_time))
   conn.commit()
 
 
