@@ -45,7 +45,7 @@ async def on_message(message):
 
   response = None
   try:
-    if args[0] == '!track_game':
+    if args[0] == '!track_game' and message.author.id == 83001199959216128:
       if len(args) < 2:
         response = 'Usage of !track_game: `@SpeedrunBot !track_game Game Name` or `@SpeedrunBot !track_game #channel Game Name`\nE.g. `@SpeedrunBot !track_game The Witness` or `@SpeedrunBot !track_game #streams The Witness`'
       else:
@@ -56,6 +56,15 @@ async def on_message(message):
           channel = message.channel_mentions[0] if (len(message.channel_mentions) == 1) else message.channel
           twitch_game_id, src_game_id = generics.track_game(game_name, channel.id)
           response = f'Will now announce runners of {game_name} in channel <#{channel.id}>.'
+
+    elif args[0] == '!untrack_game' and message.author.id == 83001199959216128:
+      if len(args) < 2:
+        response = 'Usage of !untrack_game: `!untrack_game Game Name`\nE.g. `!untrack_game The Witness`'
+      else:
+        game_name = ' '.join(args[1:])
+        channel = message.channel
+        database.remove_game(game_name)
+        response = f'No longer announcing runners of {game_name} in channel <#{message.channel.id}>'
 
     elif args[0] == '!link':
       if len(args) != 3:
@@ -205,6 +214,7 @@ if __name__ == '__main__':
       while 1:
         print(f'Starting subtask at {datetime.now()}')
         subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:], stdout=logfile)
+        print('Subprocess crashed, waiting for 60 seconds before restarting')
         time.sleep(60) # Sleep after exit, to prevent losing my token.
 
   else:
