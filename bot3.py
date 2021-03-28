@@ -66,6 +66,9 @@ async def on_message(message):
         database.remove_game(game_name)
         response = f'No longer announcing runners of {game_name} in channel <#{message.channel.id}>'
 
+    elif args[0] == '!restart' and message.author.id == 83001199959216128:
+      sys.exit(0)
+
     elif args[0] == '!link':
       if len(args) != 3:
         response = 'Usage of !link: `!link twitch_username src_username`\nE.g. `!link jbzdarkid darkid`'
@@ -213,9 +216,10 @@ if __name__ == '__main__':
     with Path(__file__).with_name('out.log').open('ab') as logfile:
       while 1:
         print(f'Starting subtask at {datetime.now()}')
-        subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:], stdout=logfile)
-        print('Subprocess crashed, waiting for 60 seconds before restarting')
-        time.sleep(60) # Sleep after exit, to prevent losing my token.
+        output = subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:], stdout=logfile)
+        if output.returncode != 0:
+          print('Subprocess crashed, waiting for 60 seconds before restarting')
+          time.sleep(60) # Sleep after exit, to prevent losing my token.
 
   else:
     sys.stdout.reconfigure(encoding='utf-8') # Inelegant, but fixes utf-8 twitch usernames
