@@ -25,18 +25,19 @@ def get_speedrunners_for_game(game_name):
 
   streams = twitch_apis.get_live_game_streams(twitch_game_id)
   print(f'There are currently {len(streams)} live streams of {game_name}:')
-  for stream in streams:
+  for i, stream in enumerate(streams):
     twitch_username = stream['user_name']
     src_id = src_apis.get_src_id(twitch_username)
+    prefix = f'({str(i+1).ljust(2)}) {twitch_username.ljust(20)}'
     if src_id is None:
-      print(f'{twitch_username.ljust(20)} is not a speedrunner')
+      print(f'{prefix}is not a speedrunner')
       continue
 
     if not src_apis.runner_runs_game(src_id, src_game_id):
-      print(f'{twitch_username.ljust(20)} is a speedrunner, but not of {game_name}')
+      print(f'{prefix}is a speedrunner, but not of {game_name}')
       continue
 
-    print(f'{twitch_username.ljust(20)} is a speedrunner, and runs {game_name}')
+    print(f'{prefix}is a speedrunner, and runs {game_name}')
     yield {
       'preview': stream['thumbnail_url'].format(width=320, height=180),
       'url': f'https://www.twitch.tv/{twitch_username}',
