@@ -52,7 +52,7 @@ def add_personal_best(src_id, src_game_id):
 
 
 def update_user_fetch_time(twitch_username):
-  c.execute('UPDATE users SET last_fetched=? WHERE twitch_username=?', (twitch_username.lower(), datetime.now().timestamp()))
+  c.execute('UPDATE users SET last_fetched=? WHERE twitch_username=?', (datetime.now().timestamp(), twitch_username.lower()))
   conn.commit()
 
 
