@@ -29,16 +29,16 @@ def get_src_id(twitch_username):
   return src_id
 
 
-def runner_runs_game(src_id, src_game_id):
+def runner_runs_game(twitch_username, src_id, src_game_id):
   if database.has_personal_best(src_id, src_game_id):
     return True
 
-  if user := database.get_user_by_src(src_id):
+  if user := database.get_user(twitch_username):
     if datetime.now().timestamp() < user['fetch_time'] + ONE_DAY:
       # Last check was <1 day ago, don't fetch again
       return False
 
-  database.update_user_fetch_time(user['twitch_username'])
+  database.update_user_fetch_time(twitch_username)
   pbs = get_json(f'https://www.speedrun.com/api/v1/users/{src_id}/personal-bests')
   games = {pb['run']['game'] for pb in pbs['data']}
 

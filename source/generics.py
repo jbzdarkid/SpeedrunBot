@@ -33,7 +33,7 @@ def get_speedrunners_for_game(game_name):
       print(f'{prefix}is not a speedrunner')
       continue
 
-    if not src_apis.runner_runs_game(src_id, src_game_id):
+    if not src_apis.runner_runs_game(twitch_username, src_id, src_game_id):
       print(f'{prefix}is a speedrunner, but not of {game_name}')
       continue
 
