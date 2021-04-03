@@ -1,8 +1,9 @@
-import bot3 as bot
 import asyncio
 import unittest
 import inspect
+import bot3 as bot
 from time import sleep
+from unittest.mock import patch
 
 _id = 0
 def get_id():
@@ -62,7 +63,7 @@ class MockEmbed():
   def set_image(self, url=None):
     self.image = url
 
-class Tests(unittest.TestCase):
+class BotTests(unittest.TestCase):
   async def testNoChannels(self):
     await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
     self.assertTrue(len(bot.client.live_channels) == 0)
@@ -196,16 +197,28 @@ class Tests(unittest.TestCase):
     await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
     self.assertTrue(len(bot.client.live_channels) == 1)
 
+class SrcTests(unittest.TestCase):
+  def test_ambiguous_game_id(self, mock_http):
+    mock_http.return_value = {'data': [
+      {'names': {'twitch': 'foobar'}, 'id': 0},
+      {'names': {'twitch': 'foo'},    'id': 1},
+      {'names': {'twitch': 'barfoo'}, 'id': 2},
+    ]}
+
+    from source import src_apis
+    game_id = src_apis.get_game_id('foo')
+    self.assertTrue(game_id == 1)
+
 if __name__ == '__main__':
   bot.discord.Embed = MockEmbed
-  tests = Tests()
+  tests = BotTests()
 
   loop = asyncio.get_event_loop()
-  def l(method):
+  def is_test(method):
     return inspect.ismethod(method) and method.__name__.startswith('test')
-  for test in inspect.getmembers(tests, l):
+  for test in inspect.getmembers(tests, is_test):
     # Test setup
-    print('---', test[0])
+    print('---', test[0], 'started')
     bot.client = MockClient()
     bot.client.live_channels = {}
 
@@ -213,5 +226,18 @@ if __name__ == '__main__':
     loop.run_until_complete(test[1]())
 
     # Test teardown
-    pass
+    print('===', test[0], 'passed')
   loop.close()
+
+  tests = SrcTests()
+  for test in inspect.getmembers(tests, is_test):
+    # Test setup
+    print('---', test[0], 'started')
+
+    # Test body
+    with patch('source.src_apis.get_json') as mock_http:
+      test[1](mock_http)
+
+    # Test teardown
+    print('===', test[0], 'passed')
+
