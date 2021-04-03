@@ -67,7 +67,7 @@ async def on_message(message):
         response = f'No longer announcing runners of {game_name} in channel <#{message.channel.id}>'
 
     elif args[0] == '!restart' and message.author.id == 83001199959216128:
-      sys.exit(0)
+      sys.exit(int(args[1]) if len(args) > 1 else 0)
 
     elif args[0] == '!link':
       if len(args) != 3:
