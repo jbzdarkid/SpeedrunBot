@@ -18,7 +18,7 @@ from source import database, generics, twitch_apis, src_apis
 #  Can mock the network via make_request.py
 # TODO: Try to improve performance by creating a thread for each runner
 # TODO: Try removing channel:manage:broadcast scope
-# TODO: Consider refactoring the core bot logic so that
+# TODO: Consider refactoring the core bot logic so that we don't need to filter streams by game
 
 # Globals
 client = discord.Client()
