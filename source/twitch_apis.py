@@ -19,9 +19,14 @@ r = requests.post('https://id.twitch.tv/oauth2/token', params={
 access_token = r.json()['access_token']
 headers = {'client-id': client_id, 'Authorization': 'Bearer ' + access_token}
 
-def get_live_game_streams(game_id):
+
+# game_ids is an array of twitch game ids. (max: 100)
+def get_live_game_streams2(game_ids):
+  if len(game_ids) == 0 or len(game_ids) > 100:
+    raise ValueError(f'Invalid number of game IDs: {len(game_ids)}')
+
   streams = []
-  params = {'game_id': game_id, 'first': 100}
+  params = {'game_id': game_ids, 'first': 100}
   while 1:
     j = get_json('https://api.twitch.tv/helix/streams', params=params, headers=headers)
     if 'data' not in j:

@@ -115,14 +115,21 @@ async def on_ready():
         continue
       client.tracked_games[channel_id] = game_name
 
-      try:
-        streams = generics.get_speedrunners_for_game(game_name)
-      except ConnectionError as e:
-        print(e, file=sys.stderr)
-        continue # Network connection error occurred while fetching streams, take no action (i.e. do not increase offline count)
+    tracked_games = list(client.tracked_games.values())
+    try:
+      streams = list(generics.get_speedrunners_for_game2(tracked_games))
+    except ConnectionError as e:
+      print(e, file=sys.stderr)
+      continue # Network connection error occurred while fetching streams, take no action (i.e. do not increase offline count)
+
+    for game_name, channel_id, in database.get_all_games():
+      # For simplicity, we just filter this list down for each respective game.
+      # It's not (that) costly, and it saves me having to refactor the core bot logic.
+      game_streams = [stream for stream in streams if stream['game_name'] == game_name]
+      print(f'There are {len(game_streams)} streams of {game_name}')
 
       if channel := client.get_channel(channel_id):
-        await on_parsed_streams(streams, game_name, channel)
+        await on_parsed_streams(game_streams, game_name, channel)
 
     # Due to bot instability, we write this every loop, just in case we crash.
     with Path(__file__).with_name('live_channels.txt').open('w') as f:
