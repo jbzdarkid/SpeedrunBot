@@ -1,4 +1,4 @@
-import bot
+import bot3 as bot
 import asyncio
 import unittest
 import inspect
@@ -34,10 +34,12 @@ class MockChannel:
 
 class MockClient:
   def __init__(self):
-    self.channels = {
+    self.started = False
+    self.tracked_games = {
       'game1': MockChannel(),
       'game2': MockChannel(),
     }
+    self.live_channels = {}
     self.MAX_OFFLINE = 1
 
 def MockStream(name):
@@ -62,72 +64,72 @@ class MockEmbed():
 
 class Tests(unittest.TestCase):
   async def testNoChannels(self):
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 0)
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 0)
 
   async def testOneChannelGoesLive(self):
-    await bot.on_parsed_streams([MockStream('foo')], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 1)
+    await bot.on_parsed_streams([MockStream('foo')], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
 
   async def testOneChannelGoesLiveThenOffline(self):
-    await bot.on_parsed_streams([MockStream('foo')], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 1)
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 0)
+    await bot.on_parsed_streams([MockStream('foo')], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 0)
 
   async def testChannelStillLiveOnStartup(self):
     stream = MockStream('bar')
     stream['message'] = MockMessage().id
-    bot.live_channels = {stream['name']: stream}
+    bot.client.live_channels = {stream['name']: stream}
 
-    await bot.on_parsed_streams([MockStream('bar')], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 1)
-    self.assertTrue(bot.live_channels['bar']['message'] == stream['message'])
+    await bot.on_parsed_streams([MockStream('bar')], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
+    self.assertTrue(bot.client.live_channels['bar']['message'] == stream['message'])
 
   async def testChannelChangesTitle(self):
     stream = MockStream('foo')
-    await bot.on_parsed_streams([stream], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 1)
+    await bot.on_parsed_streams([stream], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
 
     stream['title'] = 'new_title'
-    await bot.on_parsed_streams([stream], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 1)
-    self.assertTrue(bot.live_channels['foo']['title'] == 'new_title')
+    await bot.on_parsed_streams([stream], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
+    self.assertTrue(bot.client.live_channels['foo']['title'] == 'new_title')
 
   async def testChannelChangesGame(self):
     stream = MockStream('foo')
 
-    await bot.on_parsed_streams([stream], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 1)
-    self.assertTrue(bot.live_channels['foo']['game'] == 'game1')
+    await bot.on_parsed_streams([stream], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
+    self.assertTrue(bot.client.live_channels['foo']['game'] == 'game1')
 
-    await bot.on_parsed_streams([stream], 'game2', bot.client.channels['game2'])
-    self.assertTrue(len(bot.live_channels) == 0) # Not ideal, but the channels goes offline on both, briefly
+    await bot.on_parsed_streams([stream], 'game2', bot.client.tracked_games['game2'])
+    self.assertTrue(len(bot.client.live_channels) == 0) # Not ideal, but the channels goes offline on both, briefly
 
-    await bot.on_parsed_streams([stream], 'game2', bot.client.channels['game2'])
-    self.assertTrue(len(bot.live_channels) == 1)
-    self.assertTrue(bot.live_channels['foo']['game'] == 'game2')
+    await bot.on_parsed_streams([stream], 'game2', bot.client.tracked_games['game2'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
+    self.assertTrue(bot.client.live_channels['foo']['game'] == 'game2')
 
   async def testMultipleChannelsMultipleGames(self):
     stream = MockStream('foo')
     stream2 = MockStream('bar')
     stream2['game'] = 'game2'
 
-    await bot.on_parsed_streams([stream], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 1)
-    self.assertTrue(bot.live_channels['foo']['game'] == 'game1')
+    await bot.on_parsed_streams([stream], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
+    self.assertTrue(bot.client.live_channels['foo']['game'] == 'game1')
 
-    await bot.on_parsed_streams([stream2], 'game2', bot.client.channels['game2'])
-    self.assertTrue(len(bot.live_channels) == 2)
-    self.assertTrue(bot.live_channels['foo']['game'] == 'game1')
-    self.assertTrue(bot.live_channels['bar']['game'] == 'game2')
+    await bot.on_parsed_streams([stream2], 'game2', bot.client.tracked_games['game2'])
+    self.assertTrue(len(bot.client.live_channels) == 2)
+    self.assertTrue(bot.client.live_channels['foo']['game'] == 'game1')
+    self.assertTrue(bot.client.live_channels['bar']['game'] == 'game2')
 
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 1)
-    self.assertTrue(bot.live_channels['bar']['game'] == 'game2')
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
+    self.assertTrue(bot.client.live_channels['bar']['game'] == 'game2')
 
-    await bot.on_parsed_streams([], 'game2', bot.client.channels['game2'])
-    self.assertTrue(len(bot.live_channels) == 0)
+    await bot.on_parsed_streams([], 'game2', bot.client.tracked_games['game2'])
+    self.assertTrue(len(bot.client.live_channels) == 0)
 
   async def testLiveDuration(self):
     # Hook -- parsing stdout to confirm that the offline message notes the duration
@@ -135,13 +137,13 @@ class Tests(unittest.TestCase):
     import sys
     sys.stdout = TextIOWrapper(BytesIO(), sys.stdout.encoding)
 
-    await bot.on_parsed_streams([MockStream('foo')], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 1)
+    await bot.on_parsed_streams([MockStream('foo')], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
 
     sleep(2.5)
 
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 0)
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 0)
 
     # Unhook
     sys.stdout.seek(0)
@@ -152,47 +154,47 @@ class Tests(unittest.TestCase):
   async def testGoesOffline(self):
     bot.client.MAX_OFFLINE = 5
     # Stream goes live
-    await bot.on_parsed_streams([MockStream('foo')], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 1)
+    await bot.on_parsed_streams([MockStream('foo')], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
 
     # Stream still live after 4 consecutive 'offline' checks
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 1)
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
 
     # Stream finally offline after 5th consecutive
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 0)
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 0)
 
     # Stream stays offline (duh)
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 0)
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 0)
 
   async def testStreamDowntime(self):
     bot.client.MAX_OFFLINE = 5
     # Stream goes live
-    await bot.on_parsed_streams([MockStream('foo')], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 1)
+    await bot.on_parsed_streams([MockStream('foo')], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
 
     # Stream still live after 4 consecutive 'offline' checks
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 1)
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
 
     # Stream comes back online -- still live
-    await bot.on_parsed_streams([MockStream('foo')], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 1)
+    await bot.on_parsed_streams([MockStream('foo')], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
 
     # Stream almost goes down again
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    await bot.on_parsed_streams([], 'game1', bot.client.channels['game1'])
-    self.assertTrue(len(bot.live_channels) == 1)
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
 
 if __name__ == '__main__':
   bot.discord.Embed = MockEmbed
@@ -205,7 +207,7 @@ if __name__ == '__main__':
     # Test setup
     print('---', test[0])
     bot.client = MockClient()
-    bot.live_channels = {}
+    bot.client.live_channels = {}
 
     # Test body
     loop.run_until_complete(test[1]())

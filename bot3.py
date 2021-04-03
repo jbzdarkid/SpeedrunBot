@@ -25,6 +25,7 @@ client = discord.Client()
 client.started = False # Single-shot boolean to know if we've started up already
 client.tracked_games = {} # Map of channel_id : game name
 client.live_channels = {} # Contains twitch streams which are actively running (or have recently closed).
+client.MAX_OFFLINE = 5 # Consecutive minutes of checks after which a stream is announced as offline.
 
 @client.event
 async def on_message(message):
@@ -199,7 +200,7 @@ async def on_parsed_streams(streams, game, channel):
       continue # Only parse offline streams for the current game.
 
     stream['offline'] = stream.get('offline', 0) + 1
-    if stream['offline'] < 5: # MAX_OFFLINE
+    if stream['offline'] < client.MAX_OFFLINE:
       print(f'Stream {name} has been offline for {stream["offline"]} consecutive checks')
       continue
 
