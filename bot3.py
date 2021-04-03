@@ -13,10 +13,12 @@ from source import database, generics, twitch_apis, src_apis
 # TODO: !force_pb ? What do I use for the user ID? SRC ID is hard to know, but usernames suck to handle.
 # TODO: [nosrl] (and associated tests)
 # TODO: Add a test for 'what if a live message got deleted'
-# TODO: Threading for user lookups will save a lot of time
-# TODO: Consider merging initial fetch by using https://api.twitch.tv/helix/streams
-#  Can specify multiple streams with ?game_id=foo&game_id=bar&game_id=baz
+# TODO: Threading for user lookups will save a lot of time, especially as the list of games grows
 # TODO: Add tests for the database (using in-memory storage?)
+#  Can mock the network via make_request.py
+# TODO: Try to improve performance by creating a thread for each runner
+# TODO: Try removing channel:manage:broadcast scope
+# TODO: Consider refactoring the core bot logic so that
 
 # Globals
 client = discord.Client()
