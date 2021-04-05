@@ -4,6 +4,7 @@ from .make_request import get_json
 
 cached_headers = None
 def get_headers():
+  global cached_headers
   if not cached_headers:
     with Path(__file__).with_name('twitch_token.txt').open() as f:
       token = f.read().strip()

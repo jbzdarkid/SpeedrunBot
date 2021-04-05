@@ -85,7 +85,7 @@ async def on_message(message):
       game = client.tracked_games.get(message.channel, 'this game')
       # You might want to change this username if you fork the code, too.
       response = 'Speedrunning bot, created by darkid#1647.\n'
-      response += 'The bot will search for twitch streams of {game}, then check to see if the given streamer is a speedrunner, then check to see if the speedrunner has a PB in this game.\n'
+      response += f'The bot will search for twitch streams of {game}, then check to see if the given streamer is a speedrunner, then check to see if the speedrunner has a PB in {game}.\n'
       response += 'If so, it announces their stream in this channel.'
 
     elif args[0] == '!help':
