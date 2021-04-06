@@ -39,13 +39,12 @@ def runner_runs_game(twitch_username, src_id, src_game_id):
       return False
 
   database.update_user_fetch_time(twitch_username)
-  pbs = get_json(f'https://www.speedrun.com/api/v1/users/{src_id}/personal-bests')
-  games = {pb['run']['game'] for pb in pbs['data']}
+  j = get_json(f'https://www.speedrun.com/api/v1/users/{src_id}/personal-bests', params={'game': src_game_id})
+  if len(j['data']) == 0:
+    return False
 
-  if src_game_id in games:
-    database.add_personal_best(src_id, src_game_id)
-    return True
-  return False
+  database.add_personal_best(src_id, src_game_id)
+  return True
 
 
 def get_game_id(game_name):
