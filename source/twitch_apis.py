@@ -1,6 +1,6 @@
 import requests
 from pathlib import Path
-from .make_request import get_json
+from .make_request import get_json, post_json
 
 cached_headers = None
 def get_headers():
@@ -11,7 +11,7 @@ def get_headers():
     with Path(__file__).with_name('twitch_client.txt').open() as f:
       client_id = f.read().strip()
 
-    r = requests.post('https://id.twitch.tv/oauth2/token', params={
+    j = post_json('https://id.twitch.tv/oauth2/token', params={
       'grant_type': 'client_credentials',
       'client_id': client_id,
       'client_secret': token,
@@ -20,7 +20,7 @@ def get_headers():
       # channel:manage:broadcast is for ...?
       'scope': 'analytics:read:games user:read:broadcast channel:manage:broadcast',
     })
-    access_token = r.json()['access_token']
+    access_token = j['access_token']
     cached_headers = {'client-id': client_id, 'Authorization': 'Bearer ' + access_token}
   return cached_headers
 
