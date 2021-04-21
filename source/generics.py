@@ -30,6 +30,18 @@ def get_speedrunners_for_game2(game_names):
 
   streams = twitch_apis.get_live_game_streams2(twitch_game_ids)
 
+  # For performance here, instead of directly iterating the streams, pass them into a ThreadPoolExecutor.
+  # print() is only safe if it's writing to sys.stdout, which we're not actually doing here.
+  # Either change to logging (please) or just concat one large string and print it when done.
+  # pool_data = []
+  # def pool_func(stream):
+  #   output = stream.modify()
+  #   pool_data.append(output) # Thread-safety provided by the GIL
+  #
+  # with ThreadPoolExecutor(8) as pool:
+  #   pool.map(pool_func, streams)
+  # return pool_data
+  
   print('id|username            |game name           |status')
   print('--+--------------------+--------------------+--------------------------------------')
   for i, stream in enumerate(streams):
