@@ -19,6 +19,7 @@ from source import database, generics, twitch_apis, src_apis
 # TODO: Try to improve performance by creating a thread for each runner
 # TODO: Try removing channel:manage:broadcast scope
 # TODO: Consider refactoring the core bot logic so that we don't need to filter streams by game
+# TODO: Discord is not renaming embeds? Or, I'm not changing the embed title correctly on edits.
 
 # Globals
 client = discord.Client()
@@ -35,7 +36,9 @@ async def on_message(message):
     return # Do not process our own messages
 
   # Only listen to posts in tracked channels or posts where we were explicitly mentioned.
-  if message.channel.id not in client.tracked_games and client.user not in message.mentions:
+  if client.user in message.mentions:
+    await message.add_reaction('🔇')
+  elif message.channel.id not in client.tracked_games:
     return
 
   args = message.content.split(' ')
