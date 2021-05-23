@@ -83,3 +83,15 @@ def search_src_user(username):
 
   suggestions = ', '.join(possible_matches[:10]) # Only show a max of 10 matches, for brevity's sake
   raise ValueError(f'Found {len(possible_matches)} possible matches for user {username} on Speedrun.com -- Try one of these options:\n' + suggestions)
+
+# Undocumented PHP APIs:
+
+# Get latest runs for a game series (note: needs numeric ID, which comes from ???)
+# https://www.speedrun.com/ajax_latestleaderboard.php?series=18748
+# Get latest runs for all games (personalized if signed in)
+# https://www.speedrun.com/ajax_latestleaderboard.php?amount=100
+# Get the latest runs for a set of games (note: needs numeric IDs)
+# https://www.speedrun.com/ajax_latestleaderboard.php?games=1545,1546,1547,4158,1548,1549,2147,2048,2222,2223,2224,6353,2225,7967
+
+# Get game streams
+# https://www.speedrun.com/ajax_streams.php?game=talos_principle&country=&haspb=on&following=off&start=0

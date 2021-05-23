@@ -87,16 +87,6 @@ class BotTests(unittest.TestCase):
     self.assertTrue(len(bot.client.live_channels) == 1)
     self.assertTrue(bot.client.live_channels['bar']['message'] == stream['message'])
 
-  async def testChannelChangesTitle(self):
-    stream = MockStream('foo')
-    await bot.on_parsed_streams([stream], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 1)
-
-    stream['title'] = 'new_title'
-    await bot.on_parsed_streams([stream], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 1)
-    self.assertTrue(bot.client.live_channels['foo']['title'] == 'new_title')
-
   async def testChannelChangesGame(self):
     stream = MockStream('foo')
 
@@ -131,26 +121,6 @@ class BotTests(unittest.TestCase):
 
     await bot.on_parsed_streams([], 'game2', bot.client.tracked_games['game2'])
     self.assertTrue(len(bot.client.live_channels) == 0)
-
-  async def testLiveDuration(self):
-    # Hook -- parsing stdout to confirm that the offline message notes the duration
-    from io import TextIOWrapper, BytesIO
-    import sys
-    sys.stdout = TextIOWrapper(BytesIO(), sys.stdout.encoding)
-
-    await bot.on_parsed_streams([MockStream('foo')], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 1)
-
-    sleep(2.5)
-
-    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 0)
-
-    # Unhook
-    sys.stdout.seek(0)
-    out = sys.stdout.read()
-    sys.stdout = sys.__stdout__
-    self.assertTrue('went offline after 0:00:02' in out)
 
   async def testGoesOffline(self):
     bot.client.MAX_OFFLINE = 5
@@ -197,6 +167,38 @@ class BotTests(unittest.TestCase):
     await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
     self.assertTrue(len(bot.client.live_channels) == 1)
 
+class BotTestsWithStdout(unittest.TestCase):
+  async def testLiveDuration(self, get_stdout):
+    await bot.on_parsed_streams([MockStream('foo')], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
+
+    sleep(2.5) # Sleeping for the assert below about "went offline after [duration]
+
+    await bot.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 0)
+
+    stdout = get_stdout()
+    self.assertTrue('went offline after 0:00:02' in stdout)
+
+  async def testChannelChangesTitle(self, get_stdout):
+    stream = MockStream('foo')
+    await bot.on_parsed_streams([stream], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
+    self.assertTrue(bot.client.live_channels['foo']['title'] == 'foo_title')
+
+    print('===midpoint===')
+
+    stream['title'] = 'new_title'
+    await bot.on_parsed_streams([stream], 'game1', bot.client.tracked_games['game1'])
+    self.assertTrue(len(bot.client.live_channels) == 1)
+    self.assertTrue(bot.client.live_channels['foo']['title'] == 'new_title')
+
+    stdout = get_stdout()
+    stdout = stdout.split('===midpoint===')
+    self.assertTrue('foo\\_title' in stdout[0])
+    self.assertTrue('new\\_title' in stdout[1])
+
+
 class SrcTests(unittest.TestCase):
   def test_ambiguous_game_id(self, mock_http):
     mock_http.return_value = {'data': [
@@ -211,12 +213,12 @@ class SrcTests(unittest.TestCase):
 
 if __name__ == '__main__':
   bot.discord.Embed = MockEmbed
-  tests = BotTests()
 
   loop = asyncio.get_event_loop()
   def is_test(method):
     return inspect.ismethod(method) and method.__name__.startswith('test')
-  for test in inspect.getmembers(tests, is_test):
+
+  for test in inspect.getmembers(BotTests(), is_test):
     # Test setup
     print('---', test[0], 'started')
     bot.client = MockClient()
@@ -227,10 +229,36 @@ if __name__ == '__main__':
 
     # Test teardown
     print('===', test[0], 'passed')
+
+  for test in inspect.getmembers(BotTestsWithStdout(), is_test):
+    # Test setup
+    print('---', test[0], 'started')
+    bot.client = MockClient()
+    bot.client.live_channels = {}
+
+    # Hook -- parsing stdout to confirm that the offline message notes the duration
+    from io import TextIOWrapper, BytesIO
+    import sys
+    sys.stdout = TextIOWrapper(BytesIO(), sys.stdout.encoding)
+
+    # Unhook, called within tests so they can assert on data
+    def get_stdout():
+      sys.stdout.seek(0)
+      out = sys.stdout.read()
+      sys.stdout = sys.__stdout__
+      print(out, end='')
+      return out
+
+    # Test body
+    loop.run_until_complete(test[1](get_stdout))
+
+    # Test teardown
+    print('===', test[0], 'passed')
+
   loop.close()
 
-  tests = SrcTests()
-  for test in inspect.getmembers(tests, is_test):
+
+  for test in inspect.getmembers(SrcTests(), is_test):
     # Test setup
     print('---', test[0], 'started')
 
