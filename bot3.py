@@ -49,31 +49,56 @@ async def on_message(message):
   if len(args) == 0:
     return
 
+  print(args)
+
   response = None
   try:
-    if args[0] == '!track_game' and message.author.id == 83001199959216128:
-      if len(args) < 2:
-        response = 'Usage of !track_game: `@SpeedrunBot !track_game Game Name` or `@SpeedrunBot !track_game #channel Game Name`\nE.g. `@SpeedrunBot !track_game The Witness` or `@SpeedrunBot !track_game #streams The Witness`'
-      else:
-        game_name = ' '.join(args[1:])
-        if len(message.channel_mentions) > 1:
-          response = 'Error: Response mentions more than one channel. Please provide only one channel name to `!track_game`'
+    if message.author.id == 83001199959216128: # Authorized commands
+      if args[0] == '!track_game':
+        if len(args) < 2:
+          response = 'Usage of !track_game: `@SpeedrunBot !track_game Game Name` or `@SpeedrunBot !track_game #channel Game Name`\nE.g. `@SpeedrunBot !track_game The Witness` or `@SpeedrunBot !track_game #streams The Witness`'
         else:
-          channel = message.channel_mentions[0] if (len(message.channel_mentions) == 1) else message.channel
-          twitch_game_id, src_game_id = generics.track_game(game_name, channel.id)
-          response = f'Will now announce runners of {game_name} in channel <#{channel.id}>.'
+          game_name = ' '.join(args[1:])
+          if len(message.channel_mentions) > 1:
+            response = 'Error: Response mentions more than one channel. Please provide only one channel name to `!track_game`'
+          else:
+            channel = message.channel_mentions[0] if (len(message.channel_mentions) == 1) else message.channel
+            generics.track_game(game_name, channel.id)
+            response = f'Will now announce runners of {game_name} in channel <#{channel.id}>.'
 
-    elif args[0] == '!untrack_game' and message.author.id == 83001199959216128:
-      if len(args) < 2:
-        response = 'Usage of !untrack_game: `!untrack_game Game Name`\nE.g. `!untrack_game The Witness`'
-      else:
-        game_name = ' '.join(args[1:])
-        channel = message.channel
-        database.remove_game(game_name)
-        response = f'No longer announcing runners of {game_name} in channel <#{message.channel.id}>'
+      elif args[0] == '!untrack_game':
+        if len(args) < 2:
+          response = 'Usage of !untrack_game: `!untrack_game Game Name`\nE.g. `!untrack_game The Witness`'
+        else:
+          game_name = ' '.join(args[1:])
+          channel = message.channel
+          database.remove_game(game_name)
+          response = f'No longer announcing runners of {game_name} in channel <#{channel.id}>'
 
-    elif args[0] == '!restart' and message.author.id == 83001199959216128:
-      sys.exit(int(args[1]) if len(args) > 1 else 0)
+      elif args[0] == '!moderate_game':
+        if len(args) < 2:
+          response = 'Usage of !moderate_game: `@SpeedrunBot !moderate_game Game Name` or `@SpeedrunBot !moderate_game #channel Game Name`\nE.g. `@SpeedrunBot !moderate_game The Witness` or `@SpeedrunBot !moderate_game #streams The Witness`'
+        else:
+          game_name = ' '.join(args[1:])
+          if len(message.channel_mentions) > 1:
+            response = 'Error: Response mentions more than one channel. Please provide only one channel name to `!moderate_game`'
+          else:
+            channel = message.channel_mentions[0] if (len(message.channel_mentions) == 1) else message.channel
+            generics.moderate_game(game_name, channel.id)
+            response = f'Will now announce newly submitted runs of {game_name} in channel <#{channel.id}>.'
+
+      elif args[0] == '!unmoderate_game':
+        print(len(args))
+        if len(args) < 2:
+          response = 'Usage of !unmoderate_game: `!unmoderate_game Game Name`\nE.g. `!unmoderate_game The Witness`'
+        else:
+          game_name = ' '.join(args[1:])
+          channel = message.channel
+          database.unmoderate_game(game_name)
+          response = f'No longer announcing newly submitted runs of {game_name} in channel <#{channel.id}>'
+
+      elif args[0] == '!restart':
+        sys.exit(int(args[1]) if len(args) > 1 else 0)
 
     elif args[0] == '!link':
       if len(args) != 3:
@@ -115,7 +140,7 @@ async def on_ready():
       client.live_channels = json.load(f)
 
   while 1: # This while loop doesn't expect to return.
-    for game_name, channel_id, in database.get_all_games():
+    for game_name, channel_id in database.get_all_games():
       if not client.get_channel(channel_id):
         print(f'Error: Could not locate channel {channel_id} for game {game_name}', file=sys.stderr)
         continue
@@ -140,6 +165,19 @@ async def on_ready():
     # Due to bot instability, we write this every loop, just in case we crash.
     with Path(__file__).with_name('live_channels.txt').open('w') as f:
       json.dump(client.live_channels, f)
+
+    for game_name, src_game_id, discord_channel, last_update in database.get_all_moderated_games():
+      channel = client.get_channel(discord_channel)
+      if not channel:
+        print(f'Error: Could not locate channel {discord_channel} for game {game_name}', file=sys.stderr)
+        continue
+
+      try:
+        for content in generics.get_new_runs(src_game_id, last_update):
+          await channel.send(content=content)
+        database.update_game_moderation_time(game_name)
+      except discord.errors.HTTPException:
+        continue # The message will be posted next pass.
 
     await sleep(60)
 

@@ -10,10 +10,10 @@ c.execute('''CREATE TABLE IF NOT EXISTS users (
   last_fetched    REAL
 )''')
 c.execute('''CREATE TABLE IF NOT EXISTS tracked_games (
-  game_name       TEXT    NOT NULL    PRIMARY KEY,
-  twitch_game_id  TEXT    NOT NULL    UNIQUE,
-  src_game_id     TEXT    NOT NULL    UNIQUE,
-  discord_channel INTEGER NOT NULL
+  game_name        TEXT    NOT NULL    PRIMARY KEY,
+  twitch_game_id   TEXT    NOT NULL    UNIQUE,
+  src_game_id      TEXT    NOT NULL    UNIQUE,
+  discord_channel  INTEGER NOT NULL
 )''')
 c.execute('''CREATE TABLE IF NOT EXISTS personal_bests (
   src_id          TEXT    NOT NULL,
@@ -22,8 +22,13 @@ c.execute('''CREATE TABLE IF NOT EXISTS personal_bests (
   FOREIGN KEY (src_game_id) REFERENCES tracked_games (src_game_id),
   PRIMARY KEY (src_id, src_game_id)
 )''')
+c.execute('''CREATE TABLE IF NOT EXISTS moderated_games (
+  game_name        TEXT    NOT NULL    PRIMARY KEY,
+  src_game_id      TEXT    NOT NULL    UNIQUE,
+  discord_channel  INTEGER NOT NULL,
+  last_update      REAL
+)''')
 conn.commit()
-
 
 def add_user(twitch_username, src_id, fetch_time=datetime.now().timestamp()):
   c.execute('INSERT OR REPLACE INTO users VALUES (?, ?, ?)', (twitch_username.lower(), src_id, fetch_time))
@@ -32,6 +37,11 @@ def add_user(twitch_username, src_id, fetch_time=datetime.now().timestamp()):
 
 def add_game(game_name, twitch_game_id, src_game_id, discord_channel):
   c.execute('INSERT INTO tracked_games VALUES (?, ?, ?, ?)', (game_name, twitch_game_id, src_game_id, int(discord_channel)))
+  conn.commit()
+
+
+def moderate_game(game_name, src_game_id, discord_channel):
+  c.execute('INSERT INTO moderated_games VALUES (?, ?, ?, 0)', (game_name, src_game_id, int(discord_channel)))
   conn.commit()
 
 
@@ -46,6 +56,11 @@ def remove_game(game_name):
   conn.commit()
 
 
+def unmoderate_game(game_name):
+  c.execute('DELETE FROM moderated_games WHERE game_name=?', (game_name, ))
+  conn.commit()
+
+
 def add_personal_best(src_id, src_game_id):
   c.execute('INSERT INTO personal_bests VALUES (?, ?)', (src_id, src_game_id))
   conn.commit()
@@ -53,6 +68,11 @@ def add_personal_best(src_id, src_game_id):
 
 def update_user_fetch_time(twitch_username):
   c.execute('UPDATE users SET last_fetched=? WHERE twitch_username=?', (datetime.now().timestamp(), twitch_username.lower()))
+  conn.commit()
+
+
+def update_game_moderation_time(game_name):
+  c.execute('UPDATE moderated_games SET last_update=? WHERE game_name=?', (datetime.now().timestamp(), game_name))
   conn.commit()
 
 
@@ -91,6 +111,11 @@ def get_all_games():
   c.execute('SELECT * FROM tracked_games')
   if data := c.fetchall():
     return ((d[0], d[3]) for d in data)
+
+
+def get_all_moderated_games():
+  c.execute('SELECT game_name, src_game_id, discord_channel, last_update FROM moderated_games')
+  return c.fetchall()
 
 
 def has_personal_best(src_id, src_game_id):

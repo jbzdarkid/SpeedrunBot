@@ -84,6 +84,42 @@ def search_src_user(username):
   suggestions = ', '.join(possible_matches[:10]) # Only show a max of 10 matches, for brevity's sake
   raise ValueError(f'Found {len(possible_matches)} possible matches for user {username} on Speedrun.com -- Try one of these options:\n' + suggestions)
 
+
+def get_src_name(player_object):
+  if 'id' in player_object:
+    j = get_json('https://www.speedrun.com/api/v1/users/' + player_object['id'])
+    return j['data']['names']['international']
+  elif 'name' in player_object:
+    return player_object['name'] # Guests
+  else:
+    raise ValueError(f'Cannot determine name for player object {player_object}')
+
+
+def get_runs(**params):
+  params['offset'] = 0
+  params['max'] = 100 # Undocumented parameter, gets 100 runs at once.
+  if 'game' not in params and 'category' not in params:
+    raise ValueError('You can only get Speedrun.com runs with a game or a category')
+
+  runs = []
+  j = get_json('https://www.speedrun.com/api/v1/runs', params=params)
+  while 1:
+    runs += j['data']
+
+    for link in j['pagination']['links']:
+      if link['rel'] == 'next':
+        j = get_json(link['uri'])
+        continue
+    break # No more results
+
+  return runs
+
+
+def get_category_name(category_id):
+  j = get_json(f'https://www.speedrun.com/api/v1/categories/{category_id}')
+  return j['data']['name']
+
+
 # Undocumented PHP APIs:
 
 # Get latest runs for a game series (note: needs numeric ID, which comes from ???)
