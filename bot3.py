@@ -17,9 +17,9 @@ from source import database, generics, twitch_apis, src_apis
 # TODO: Add tests for the database (using in-memory storage?)
 #  Can mock the network via make_request.py
 # TODO: Try to improve performance by creating a thread for each runner
-# TODO: Try removing channel:manage:broadcast scope
 # TODO: Consider refactoring the core bot logic so that we don't need to filter streams by game
 # TODO: Discord is not renaming embeds? Or, I'm not changing the embed title correctly on edits.
+# TODO: Stop using select (*) wrong
 
 # Globals
 client = discord.Client()
