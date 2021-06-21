@@ -66,13 +66,13 @@ def add_personal_best(src_id, src_game_id):
   conn.commit()
 
 
-def update_user_fetch_time(twitch_username):
-  c.execute('UPDATE users SET last_fetched=? WHERE twitch_username=?', (datetime.now().timestamp(), twitch_username.lower()))
+def update_user_fetch_time(twitch_username, last_fetched=datetime.now().timestamp()):
+  c.execute('UPDATE users SET last_fetched=? WHERE twitch_username=?', (last_fetched, twitch_username.lower()))
   conn.commit()
 
 
-def update_game_moderation_time(game_name):
-  c.execute('UPDATE moderated_games SET last_update=? WHERE game_name=?', (datetime.now().timestamp(), game_name))
+def update_game_moderation_time(game_name, last_update=datetime.now().timestamp()):
+  c.execute('UPDATE moderated_games SET last_update=? WHERE game_name=?', (last_update, game_name))
   conn.commit()
 
 
@@ -98,19 +98,16 @@ def get_user_by_src(src_id):
   return None
 
 
-# Returns (twitch_game_id, src_game_id)
 def get_game_ids(game_name):
-  c.execute('SELECT * FROM tracked_games WHERE game_name LIKE ?', (game_name,))
+  c.execute('SELECT twitch_game_id, src_game_id FROM tracked_games WHERE game_name LIKE ?', (game_name,))
   if data := c.fetchone():
-    return (data[1], data[2])
+    return data
   return (None, None)
 
 
-# Returns (game_name, discord_channel)
 def get_all_games():
-  c.execute('SELECT * FROM tracked_games')
-  if data := c.fetchall():
-    return ((d[0], d[3]) for d in data)
+  c.execute('SELECT game_name, discord_channel FROM tracked_games')
+  return c.fetchall()
 
 
 def get_all_moderated_games():

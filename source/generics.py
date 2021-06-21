@@ -77,19 +77,25 @@ def get_speedrunners_for_game2(game_names):
     }
 
 
-def get_new_runs(src_game_id, last_update):
+def get_new_runs(game_name, src_game_id, last_update):
   runs = src_apis.get_runs(game=src_game_id, status='new')
-  print(f'Found {len(runs)} unverified runs')
+  print(f'Found {len(runs)} unverified run{"s"[:len(runs)^1]} for {game_name}')
+  new_last_update = last_update
+
   for run in runs:
     # Only announce runs which are more recent than the last announcement date.
-    # Unfortunately, there's no way to request this information from speedrun.com
+    # Unfortunately, there's no way to suggest this filter to the speedrun.com APIs.
     submitted = datetime.datetime.strptime(run['submitted'], '%Y-%m-%dT%H:%M:%SZ')
     submitted = submitted.replace(tzinfo=datetime.timezone.utc) # strptime assumes local time, which is incorrect here.
-    if submitted.timestamp() < last_update:
+    if submitted.timestamp() <= last_update:
       continue
+
+    new_last_update = max(submitted.timestamp(), new_last_update)
 
     weblink = run['weblink']
     category = src_apis.get_category_name(run['category'])
     time = datetime.timedelta(seconds=run['times']['primary_t'])
     runners = ', '.join(src_apis.get_src_name(player) for player in run['players'])
     yield f'New run submitted: {category} in {time} by {runners}: <{weblink}>'
+
+  database.update_game_moderation_time(game_name, new_last_update)

@@ -19,7 +19,9 @@ from source import database, generics, twitch_apis, src_apis
 # TODO: Try to improve performance by creating a thread for each runner
 # TODO: Consider refactoring the core bot logic so that we don't need to filter streams by game
 # TODO: Discord is not renaming embeds? Or, I'm not changing the embed title correctly on edits.
+#   Definitely broken.
 # TODO: Stop using select (*) wrong
+# TODO: Try to move the "message handlers" into a separate file -- one which can know about discord, I suppose.
 
 # Globals
 client = discord.Client()
@@ -173,9 +175,8 @@ async def on_ready():
         continue
 
       try:
-        for content in generics.get_new_runs(src_game_id, last_update):
+        for content in generics.get_new_runs(game_name, src_game_id, last_update):
           await channel.send(content=content)
-        database.update_game_moderation_time(game_name)
       except discord.errors.HTTPException:
         continue # The message will be posted next pass.
 
