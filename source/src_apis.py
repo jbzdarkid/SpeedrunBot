@@ -131,3 +131,23 @@ def get_category_name(category_id):
 
 # Get game streams
 # https://www.speedrun.com/ajax_streams.php?game=talos_principle&country=&haspb=on&following=off&start=0
+
+
+# Edit run / Submit run
+# When you submit a run, you are granted an ID (temporary, I assume) on page load. It lives in the <form id="editform"> object, and NOWHERE ELSE.
+# Also, you are given a CSRF token, as a <meta> attribute, and also inside a few <input type="hidden" name="csrftoken"> objects.
+# playerselect=0 means "I am an admin, I was not part of this run". Otherwise, 1-4 means "I was player # whatever".
+# The variable IDs are visible in the page HTML, if nothing else.
+# POST https://www.speedrun.com/ajax_editrun.php?id=abcd1234&game=2364&action=submit
+# category=All_Sigils
+# &player1=foo&playerselect=0
+# &hour=1&minute=4&second=23&milliseconds=
+# &loadshour=1&loadsminute=4&loadssecond=23&loadsmilliseconds=
+# &variable16422=54487
+# &variable12500=42106
+# &platform=31
+# &date=2021-06-12
+# &video=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3Dsomething
+# &splitsio=
+# &comment=URL+encoded+comment%0D%0AWith+Octets
+# &csrftoken=probably-important
