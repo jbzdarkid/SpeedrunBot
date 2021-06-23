@@ -2,6 +2,8 @@ import requests
 from pathlib import Path
 from .make_request import get_json, post_json
 
+logger = logging.getLogger(__name__)
+
 cached_headers = None
 def get_headers():
   global cached_headers

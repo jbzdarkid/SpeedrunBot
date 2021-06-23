@@ -1,5 +1,7 @@
 import discord
 import json
+import logging
+import logging.handlers
 import re
 import sys
 from asyncio import sleep
@@ -9,6 +11,8 @@ from requests.exceptions import ConnectionError
 from uuid import uuid4
 
 from source import database, generics, twitch_apis, src_apis
+
+logger = logging.getLogger(__name__)
 
 # TODO: !force_pb ? What do I use for the user ID? SRC ID is hard to know, but usernames suck to handle.
 # TODO: [nosrl] (and associated tests)
@@ -104,7 +108,7 @@ async def on_ready():
     return
   client.started = True
 
-  print(f'Logged in as {client.user.name} (id: {client.user.id})')
+  logger.info(f'Logged in as {client.user.name} (id: {client.user.id})')
 
   p = Path(__file__).with_name('live_channels.txt')
   if p.exists():
@@ -114,7 +118,7 @@ async def on_ready():
   while 1: # This while loop doesn't expect to return.
     for game_name, channel_id, in database.get_all_games():
       if not client.get_channel(channel_id):
-        print(f'Error: Could not locate channel {channel_id} for game {game_name}', file=sys.stderr)
+        logger.error(f'Could not locate channel {channel_id} for game {game_name}')
         continue
       client.tracked_games[channel_id] = game_name
 
@@ -122,14 +126,14 @@ async def on_ready():
     try:
       streams = list(generics.get_speedrunners_for_game2(tracked_games))
     except ConnectionError as e:
-      print(e, file=sys.stderr)
+      logger.exception(e)
       continue # Network connection error occurred while fetching streams, take no action (i.e. do not increase offline count)
 
     for game_name, channel_id, in database.get_all_games():
       # For simplicity, we just filter this list down for each respective game.
       # It's not (that) costly, and it saves me having to refactor the core bot logic.
       game_streams = [stream for stream in streams if stream['game_name'] == game_name]
-      print(f'There are {len(game_streams)} streams of {game_name}')
+      logger.info(f'There are {len(game_streams)} streams of {game_name}')
 
       if channel := client.get_channel(channel_id):
         await on_parsed_streams(game_streams, game_name, channel)
@@ -145,6 +149,7 @@ async def on_ready():
 async def on_error(event, *args, **kwargs):
   import traceback
   traceback.print_exc(chain=False)
+  logger.exception(sys.exc_info()[1])
   sys.exit(1)
 
 
@@ -162,7 +167,7 @@ async def on_parsed_streams(streams, game, channel):
     # A missing discord message is essentially equivalent to a new stream;
     # if we didn't send a message, then we weren't really live.
     if (name not in client.live_channels) or ('message' not in client.live_channels[name]):
-      print(f'Stream {name} started at {datetime.now().ctime()}')
+      logger.info(f'Stream {name} started at {datetime.now().ctime()}')
       content = f'{name} is now doing runs of {game} at {stream["url"]}'
       try:
         message = await channel.send(content=content, embed=get_embed(stream))
@@ -179,7 +184,7 @@ async def on_parsed_streams(streams, game, channel):
       stream['offline'] = 0
 
       if 'game' in stream and game == stream['game']:
-        print(f'Stream {name} is still live at {datetime.now().ctime()}')
+        logger.info(f'Stream {name} is still live at {datetime.now().ctime()}')
         # Always edit the message so that the preview updates.
         try:
           message = await channel.fetch_message(stream['message'])
@@ -187,7 +192,7 @@ async def on_parsed_streams(streams, game, channel):
         except discord.errors.HTTPException:
           continue # The message will be edited next pass.
       else:
-        print(f'Stream {name} changed games at {datetime.now().ctime()}')
+        logger.info(f'Stream {name} changed games at {datetime.now().ctime()}')
         # Send the stream offline so that it will come back online with the new game,
         # to be announced in another channel.
         offline_streams.add(name)
@@ -201,11 +206,11 @@ async def on_parsed_streams(streams, game, channel):
 
     stream['offline'] = stream.get('offline', 0) + 1
     if stream['offline'] < client.MAX_OFFLINE:
-      print(f'Stream {name} has been offline for {stream["offline"]} consecutive checks')
+      logger.info(f'Stream {name} has been offline for {stream["offline"]} consecutive checks')
       continue
 
     # Stream has been offline for (5) consecutive checks, close down the post
-    print(f'Stream {name} went offline at {datetime.now().ctime()}')
+    logger.info(f'Stream {name} went offline at {datetime.now().ctime()}')
     duration_sec = int(datetime.now().timestamp() - client.live_channels[name]['start'])
     content = f'{name} went offline after {timedelta(seconds=duration_sec)}.\r\n'
     content += 'Watch their latest videos here: <' + stream['url'] + '/videos?filter=archives>'
@@ -218,6 +223,26 @@ async def on_parsed_streams(streams, game, channel):
 
 
 if __name__ == '__main__':
+  # This logging nonsense brought to you by python. Calls to logger.error will go to stderr,
+  # and logging.* will be written to a out.log (which overflows into out.log.1)
+
+  # https://stackoverflow.com/a/6692653
+  class CustomFormatter(logging.Formatter):
+    def format(self, r):
+      current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+      return f'[{current_time}] {r.thread:5} {r.module:20} {r.funcName:20} {r.lineno:3} {r.msg % r.args}'
+
+  handler = logging.handlers.RotatingFileHandler('out.log', maxBytes=5_000_000, backupCount=1, encoding='utf-8', errors='replace')
+  handler.setLevel(logging.NOTSET)
+  handler.setFormatter(CustomFormatter())
+  logger.addHandler(handler)
+
+  handler = logging.StreamHandler(sys.stderr)
+  handler.setLevel(logging.ERROR)
+  handler.setFormatter(logging.Formatter('Error: %(message)s'))
+  logger.addHandler(handler)
+
+
   if 'subtask' not in sys.argv:
     import subprocess
     import time
@@ -225,10 +250,10 @@ if __name__ == '__main__':
     # Data is read and written as bytes (b)
     with Path(__file__).with_name('out.log').open('ab') as logfile:
       while 1:
-        print(f'Starting subtask at {datetime.now()}')
+        logger.error(f'Starting subtask at {datetime.now()}')
         output = subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:], stdout=logfile)
         if output.returncode != 0:
-          print('Subprocess crashed, waiting for 60 seconds before restarting')
+          logger.error('Subprocess crashed, waiting for 60 seconds before restarting')
           time.sleep(60) # Sleep after exit, to prevent losing my token.
 
   else:
@@ -239,5 +264,5 @@ if __name__ == '__main__':
     try:
       client.run(token, reconnect=True)
     except discord.errors.LoginFailure as e:
-      print(e)
+      logger.error(e)
       sys.exit(1)

@@ -1,8 +1,10 @@
 from . import database, src_apis, twitch_apis
 
+logger = logging.getLogger(__name__)
+
 def track_game(game_name, discord_channel):
   if database.get_game_ids(game_name)[0]:
-    print(f'Already tracking game {game_name}')
+    raise ValueError(f'Already tracking game {game_name}')
     return # Game is already tracked
 
   src_game_id = src_apis.get_game_id(game_name)
@@ -22,16 +24,16 @@ def get_speedrunners_for_game2(game_names):
   for game_name in game_names:
     twitch_game_id, src_game_id = database.get_game_ids(game_name)
     if not twitch_game_id:
-      print(f'Failed to find game IDs for game {game_name}. Skipping.')
+      logger.error(f'Failed to find game IDs for game {game_name}. Skipping.')
       continue
     twitch_game_ids.append(twitch_game_id)
     src_game_ids[game_name] = src_game_id
-    print(f'Getting speedrunners for game {game_name} ({twitch_game_id} | {src_game_id})')
+    logger.info(f'Getting speedrunners for game {game_name} ({twitch_game_id} | {src_game_id})')
 
   streams = twitch_apis.get_live_game_streams2(twitch_game_ids)
 
-  print('id|username            |game name           |status')
-  print('--+--------------------+--------------------+--------------------------------------')
+  logger.info('id|username            |game name           |status')
+  logger.info('--+--------------------+--------------------+--------------------------------------')
   for i, stream in enumerate(streams):
     twitch_username = stream['user_name']
     game_name = stream['game_name']
@@ -40,14 +42,14 @@ def get_speedrunners_for_game2(game_names):
 
     src_id = src_apis.get_src_id(twitch_username)
     if src_id is None:
-      print(f'{prefix}is not a speedrunner')
+      logger.info(f'{prefix}is not a speedrunner')
       continue
 
     if not src_apis.runner_runs_game(twitch_username, src_id, src_game_ids[game_name]):
-      print(f'{prefix}is a speedrunner, but not of this game')
+      logger.info(f'{prefix}is a speedrunner, but not of this game')
       continue
 
-    print(f'{prefix}is a speedrunner, and runs this game')
+    logger.info(f'{prefix}is a speedrunner, and runs this game')
     yield {
       'preview': stream['thumbnail_url'].format(width=320, height=180),
       'url': f'https://www.twitch.tv/{twitch_username}',
