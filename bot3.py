@@ -26,6 +26,9 @@ logger = logging.getLogger(__name__)
 #   Definitely broken.
 # TODO: Stop using select (*) wrong
 # TODO: Try to move the "message handlers" into a separate file -- one which can know about discord, I suppose.
+# TODO: Add 'git pull' command?
+# TODO: Add 'upload log file' command?
+# TODO: Auto-report last error on crash? Maybe tail the logfile as the easiest option?
 
 # Globals
 client = discord.Client()
