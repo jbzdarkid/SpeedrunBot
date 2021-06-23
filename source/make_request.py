@@ -5,6 +5,8 @@ logger = logging.getLogger(__name__)
 def get_json(url, params=None, headers=None):
   r = requests.get(url, params=params, headers=headers)
   logger.info(f'Completed GET request to {r.url} with code {r.status_code}')
+  if r.status_code >= 500 and r.status_code <= 599:
+    raise ValueError('Server Unavailable')
   return r.json()
 
 def post_json(url, params=None, headers=None):

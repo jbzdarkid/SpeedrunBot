@@ -1,21 +1,28 @@
+import datetime
+
 from . import database, src_apis, twitch_apis
 
 logger = logging.getLogger(__name__)
 
+# In order for the bot to post messages, it needs the "send_messages" permission.
+# Please use this link in to grant the permissions to a server you administrate.
+# (This is my bot's client ID. You'll need to change it to your bot's if you forked this repo.)
+# https://discord.com/oauth2/authorize?scope=bot&permissions=2048&client_id=683472204280889511
+
 def track_game(game_name, discord_channel):
-  if database.get_game_ids(game_name)[0]:
-    raise ValueError(f'Already tracking game {game_name}')
-    return # Game is already tracked
+  # Cutting this check -- hopefully we'll report errors during the database add.
+  # if database.get_game_ids(game_name)[0]:
+  #   logger.error(f'Already tracking game {game_name}')
+  #   return # Game is already tracked
 
   src_game_id = src_apis.get_game_id(game_name)
   twitch_game_id = twitch_apis.get_game_id(game_name)
   database.add_game(game_name, twitch_game_id, src_game_id, discord_channel)
 
-  # In order for the bot to post messages, it needs the "send_messages" permission.
-  # Please use this link in to grant the permissions to a server you administrate.
-  # (This is my bot's client ID. You'll need to change it to your bot's if you forked this repo.)
-  # https://discord.com/oauth2/authorize?scope=bot&permissions=2048&client_id=683472204280889511
-  return (twitch_game_id, src_game_id) # Same as database.get_game_ids, to save a SQL read
+
+def moderate_game(game_name, discord_channel):
+  src_game_id = src_apis.get_game_id(game_name)
+  database.moderate_game(game_name, src_game_id, discord_channel)
 
 
 def get_speedrunners_for_game2(game_names):
@@ -31,6 +38,17 @@ def get_speedrunners_for_game2(game_names):
     logger.info(f'Getting speedrunners for game {game_name} ({twitch_game_id} | {src_game_id})')
 
   streams = twitch_apis.get_live_game_streams2(twitch_game_ids)
+
+  # For performance here, instead of directly iterating the streams, pass them into a ThreadPoolExecutor.
+  # pool_data = []
+  # def pool_func(stream):
+  #   output = stream.modify()
+  #   pool_data.append(output) # Thread-safety provided by the GIL
+  #
+  # with ThreadPoolExecutor(8) as pool:
+  #   for i, stream in enumerate(pool.map(pool_func, streams)):
+  #     # log stuff
+  # return pool_data
 
   logger.info('id|username            |game name           |status')
   logger.info('--+--------------------+--------------------+--------------------------------------')
@@ -58,3 +76,27 @@ def get_speedrunners_for_game2(game_names):
       'viewcount': stream['viewer_count'],
       'game_name': game_name,
     }
+
+
+def get_new_runs(game_name, src_game_id, last_update):
+  runs = src_apis.get_runs(game=src_game_id, status='new')
+  logger.info(f'Found {len(runs)} unverified run{"s"[:len(runs)^1]} for {game_name}')
+  new_last_update = last_update
+
+  for run in runs:
+    # Only announce runs which are more recent than the last announcement date.
+    # Unfortunately, there's no way to suggest this filter to the speedrun.com APIs.
+    submitted = datetime.datetime.strptime(run['submitted'], '%Y-%m-%dT%H:%M:%SZ')
+    submitted = submitted.replace(tzinfo=datetime.timezone.utc) # strptime assumes local time, which is incorrect here.
+    if submitted.timestamp() <= last_update:
+      continue
+
+    new_last_update = max(submitted.timestamp(), new_last_update)
+
+    weblink = run['weblink']
+    category = src_apis.get_category_name(run['category'])
+    time = datetime.timedelta(seconds=run['times']['primary_t'])
+    runners = ', '.join(src_apis.get_src_name(player) for player in run['players'])
+    yield f'New run submitted: {category} in {time} by {runners}: <{weblink}>'
+
+  database.update_game_moderation_time(game_name, new_last_update)

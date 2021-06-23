@@ -1,4 +1,3 @@
-import requests
 from pathlib import Path
 from .make_request import get_json, post_json
 
@@ -17,10 +16,6 @@ def get_headers():
       'grant_type': 'client_credentials',
       'client_id': client_id,
       'client_secret': token,
-      # analytics:read:games is for enumerating streams
-      # user:read:broadcast is for reading stream titles
-      # channel:manage:broadcast is for ...?
-      'scope': 'analytics:read:games user:read:broadcast channel:manage:broadcast',
     })
     access_token = j['access_token']
     cached_headers = {'client-id': client_id, 'Authorization': 'Bearer ' + access_token}
