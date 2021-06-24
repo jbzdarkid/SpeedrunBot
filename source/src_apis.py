@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from . import database
 from .make_request import get_json

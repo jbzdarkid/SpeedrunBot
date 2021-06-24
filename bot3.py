@@ -274,7 +274,7 @@ if __name__ == '__main__':
       current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
       return f'[{current_time}] {r.thread:5} {r.module:20} {r.funcName:20} {r.lineno:3} {r.msg % r.args}'
 
-  handler = logging.handlers.RotatingFileHandler('out.log', maxBytes=5_000_000, backupCount=1, encoding='utf-8', errors='replace')
+  handler = logging.handlers.RotatingFileHandler(f'{__file__}/../out.log', maxBytes=5_000_000, backupCount=1, encoding='utf-8', errors='replace')
   handler.setLevel(logging.NOTSET)
   handler.setFormatter(CustomFormatter())
   logger.addHandler(handler)
@@ -284,22 +284,17 @@ if __name__ == '__main__':
   handler.setFormatter(logging.Formatter('Error: %(message)s'))
   logger.addHandler(handler)
 
-
   if 'subtask' not in sys.argv:
     import subprocess
     import time
-    # If the file doesn't exist, it's created (a)
-    # Data is read and written as bytes (b)
-    with Path(__file__).with_name('out.log').open('ab') as logfile:
-      while 1:
-        logger.error(f'Starting subtask at {datetime.now()}')
-        output = subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:], stdout=logfile)
-        if output.returncode != 0:
-          logger.error('Subprocess crashed, waiting for 60 seconds before restarting')
-          time.sleep(60) # Sleep after exit, to prevent losing my token.
+    while 1:
+      logger.error(f'Starting subtask at {datetime.now()}')
+      output = subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:])
+      if output.returncode != 0:
+        logger.error('Subprocess crashed, waiting for 60 seconds before restarting')
+        time.sleep(60) # Sleep after exit, to prevent losing my token.
 
   else:
-    sys.stdout.reconfigure(encoding='utf-8') # Inelegant, but fixes utf-8 twitch usernames
     with Path(__file__).with_name('discord_token.txt').open() as f:
       token = f.read().strip()
 

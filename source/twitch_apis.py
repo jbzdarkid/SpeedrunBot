@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from .make_request import get_json, post_json
 
