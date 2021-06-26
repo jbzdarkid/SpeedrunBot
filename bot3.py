@@ -274,7 +274,8 @@ if __name__ == '__main__':
       current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
       return f'[{current_time}] {r.thread:5} {r.module:20} {r.funcName:20} {r.lineno:3} {r.msg % r.args}'
 
-  handler = logging.handlers.RotatingFileHandler(f'{__file__}/../out.log', maxBytes=5_000_000, backupCount=1, encoding='utf-8', errors='replace')
+  logfile = Path(__file__).with_name('out.log')
+  handler = logging.handlers.RotatingFileHandler(logfile, maxBytes=5_000_000, backupCount=1, encoding='utf-8', errors='replace')
   handler.setLevel(logging.NOTSET)
   handler.setFormatter(CustomFormatter())
   logger.addHandler(handler)
