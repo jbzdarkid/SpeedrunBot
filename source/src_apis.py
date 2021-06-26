@@ -3,8 +3,6 @@ from datetime import datetime
 from . import database
 from .make_request import get_json
 
-logger = logging.getLogger(__name__)
-
 ONE_HOUR  = (3600)
 ONE_DAY   = (3600 * 24)
 ONE_WEEK  = (3600 * 24 * 7)
