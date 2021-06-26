@@ -3,8 +3,6 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
 conn = sqlite3.connect(Path(__file__).with_name('database.db'))
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS users (
