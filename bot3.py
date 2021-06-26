@@ -24,7 +24,6 @@ from source import database, generics, twitch_apis, src_apis
 #   Definitely broken.
 # TODO: Stop using select (*) wrong
 # TODO: Try to move the "message handlers" into a separate file -- one which can know about discord, I suppose.
-# TODO: Add 'git pull' command?
 # TODO: Add 'upload log file' command?
 # TODO: Auto-report last error on crash? Maybe tail the logfile as the easiest option?
 
@@ -34,100 +33,116 @@ client.started = False # Single-shot boolean to know if we've started up already
 client.tracked_games = {} # Map of channel_id : game name
 client.live_channels = {} # Contains twitch streams which are actively running (or have recently closed).
 client.MAX_OFFLINE = 5 # Consecutive minutes of checks after which a stream is announced as offline.
+client.admins = [83001199959216128]
+
 
 @client.event
 async def on_message(message):
   if not client.started:
     return
   if message.author.id == client.user.id:
-    return # Do not process our own messages
-
-  # Only listen to posts in tracked channels or posts where we were explicitly mentioned.
-  if client.user in message.mentions:
-    await message.add_reaction('🔇')
+    return # DO NOT process our own messages
+  elif client.user in message.mentions:
+    pass # DO process messages which mention us, no matter where they're sent
   elif message.channel.id not in client.tracked_games:
-    return
+    return # DO NOT process messages in unwatched channels
 
-  args = message.content.split(' ')
   def is_mention(word):
     return re.fullmatch('<(@!|#)\d{18}>', word)
-  args = [arg for arg in args if not is_mention(arg)]
+  # Since mentions can appear anywhere in the message, strip them out entirely for command processing.
+  # User and channel mentions can still be accessed via message.mentions and message.channel_mentions
+  args = [arg for arg in message.content.split(' ') if not is_mention(arg)]
+
+  try:
+    response = on_message_internal(message, args)
+    if response:
+      await message.add_reaction('🔇')
+      await message.channel.send(response)
+  except AttributeError as e: # Usage errors
+    await message.channel.send(str(e))
+  except ValueError as e: # Actual errors
+    logging.exception('Non-fatal command error')
+    await message.channel.send(f'Error: {e}')
+
+
+def on_message_internal(message, args):
+  def get_channel():
+    if len(message.channel_mentions) == 0:
+      return message.channel
+    if len(message.channel_mentions) == 1:
+      return message.channel_mentions[0]
+    if len(channel_mentions) > 1:
+      raise ValueError('Response mentions more than one channel. Please mention at most one channel name at a time.')
+
+  def assert_args(usage, *required_args, example=None):
+    if any(arg == None for arg in required_args):
+      error = f'Usage of {args[0]}): `{args[0]} {usage}`'
+      if example:
+        error += '\nFor example: `{args[0]} {example}`'
+      raise AttributeError(error)
+
+  # Actual commands here
+  def track_game(channel, game_name):
+    assert_args('#channel Game Name', channel, game_name)
+    generics.track_game(game_name, channel.id)
+    return f'Will now announce runners of {game_name} in channel <#{channel.id}>.'
+  def untrack_game(channel, game_name):
+    assert_args('#channel Game Name', channel, game_name)
+    database.remove_game(game_name)
+    return f'No longer announcing runners of {game_name} in channel <#{channel.id}>.'
+  def moderate_game(channel, game_name):
+    assert_args('#channel Game Name', channel, game_name)
+    generics.moderate_game(game_name, channel.id)
+    return f'Will now announce newly submitted runs of {game_name} in channel <#{channel.id}>.'
+  def unmoderate_game(channel, game_name):
+    assert_args('#channel Game Name', channel, game_name)
+    generics.unmoderate_game(game_name, channel.id)
+    return f'No longer announcing newly submitted runs of {game_name} in channel <#{channel.id}>.'
+  def restart():
+    sys.exit(int(args[1]) if len(args) > 1 else 0)
+  def git_update():
+    import subprocess
+    output = subprocess.run(['git', 'pull', '--ff-only'], capture_output=True, text=True)
+    return output.stdout + ('\n' if (output.stderr or output.stdout) else '') + output.stderr
+  def link(twitch_username, src_username):
+    assert_args('twitch_username src_username', twitch_username, src_username, example='jbzdarkid darkid')
+    twitch_apis.get_user_id(twitch_username) # Will throw if there is any ambiguity about the twich username
+    src_id = src_apis.search_src_user(src_username)
+    database.add_user(twitch_username, src_id)
+    return f'Successfully linked twitch user {twitch_username} to speedrun.com user {src_username}'
+  def about():
+    game = client.tracked_games.get(message.channel, 'this game')
+    response = 'Speedrunning bot, created by darkid#1647.\n'
+    response += f'The bot will search for twitch streams of {game}, then check to see if the given streamer is a speedrunner, then check to see if the speedrunner has a PB in {game}.\n'
+    response += 'If so, it announces their stream in this channel.'
+    return response
+  def help():
+    all_commands = [f'`{key}`' for key in commands]
+    if message.author.id in client.admins:
+      all_commands += [f'`{key}`' for key in admin_commands]
+    return 'Available commands: ' + ', '.join(all_commands)
+
+  admin_commands = {
+    '!track_game': lambda: track_game(get_channel(), ' '.join(args[1])),
+    '!untrack_game': lambda: untrack_game(get_channel(), ' '.join(args[1])),
+    '!moderate_game': lambda: moderate_game(get_channel(), ' '.join(args[1])),
+    '!unmoderate_game': lambda: unmoderate_game(get_channel(), ' '.join(args[1])),
+    '!restart': lambda: restart(),
+    '!git_update': lambda: git_update(),
+  }
+  commands = {
+    '!link': lambda: link(*args[1:3]),
+    '!about': lambda: about(),
+    '!help': lambda: help(),
+  }
 
   if len(args) == 0:
     return
-
-  response = None
-  try:
-    if message.author.id == 83001199959216128: # Authorized commands
-      if args[0] == '!track_game':
-        if len(args) < 2:
-          response = 'Usage of !track_game: `@SpeedrunBot !track_game Game Name` or `@SpeedrunBot !track_game #channel Game Name`\nE.g. `@SpeedrunBot !track_game The Witness` or `@SpeedrunBot !track_game #streams The Witness`'
-        else:
-          game_name = ' '.join(args[1:])
-          if len(message.channel_mentions) > 1:
-            response = 'Error: Response mentions more than one channel. Please provide only one channel name to `!track_game`'
-          else:
-            channel = message.channel_mentions[0] if (len(message.channel_mentions) == 1) else message.channel
-            generics.track_game(game_name, channel.id)
-            response = f'Will now announce runners of {game_name} in channel <#{channel.id}>.'
-
-      elif args[0] == '!untrack_game':
-        if len(args) < 2:
-          response = 'Usage of !untrack_game: `!untrack_game Game Name`\nE.g. `!untrack_game The Witness`'
-        else:
-          game_name = ' '.join(args[1:])
-          channel = message.channel
-          database.remove_game(game_name)
-          response = f'No longer announcing runners of {game_name} in channel <#{channel.id}>'
-
-      elif args[0] == '!moderate_game':
-        if len(args) < 2:
-          response = 'Usage of !moderate_game: `@SpeedrunBot !moderate_game Game Name` or `@SpeedrunBot !moderate_game #channel Game Name`\nE.g. `@SpeedrunBot !moderate_game The Witness` or `@SpeedrunBot !moderate_game #streams The Witness`'
-        else:
-          game_name = ' '.join(args[1:])
-          if len(message.channel_mentions) > 1:
-            response = 'Error: Response mentions more than one channel. Please provide only one channel name to `!moderate_game`'
-          else:
-            channel = message.channel_mentions[0] if (len(message.channel_mentions) == 1) else message.channel
-            generics.moderate_game(game_name, channel.id)
-            response = f'Will now announce newly submitted runs of {game_name} in channel <#{channel.id}>.'
-
-      elif args[0] == '!unmoderate_game':
-        if len(args) < 2:
-          response = 'Usage of !unmoderate_game: `!unmoderate_game Game Name`\nE.g. `!unmoderate_game The Witness`'
-        else:
-          game_name = ' '.join(args[1:])
-          channel = message.channel
-          database.unmoderate_game(game_name)
-          response = f'No longer announcing newly submitted runs of {game_name} in channel <#{channel.id}>'
-
-      elif args[0] == '!restart':
-        sys.exit(int(args[1]) if len(args) > 1 else 0)
-
-    elif args[0] == '!link':
-      if len(args) != 3:
-        response = 'Usage of !link: `!link twitch_username src_username`\nE.g. `!link jbzdarkid darkid`'
-      else:
-        twitch_apis.get_user_id(args[1]) # Will throw if there is
-        src_id = src_apis.search_src_user(args[2])
-        database.add_user(args[1], src_id)
-        response = f'Successfully linked twitch user {args[1]} to speedrun.com user {args[2]}'
-
-    elif args[0] == '!about':
-      game = client.tracked_games.get(message.channel, 'this game')
-      # You might want to change this username if you fork the code, too.
-      response = 'Speedrunning bot, created by darkid#1647.\n'
-      response += f'The bot will search for twitch streams of {game}, then check to see if the given streamer is a speedrunner, then check to see if the speedrunner has a PB in {game}.\n'
-      response += 'If so, it announces their stream in this channel.'
-
-    elif args[0] == '!help':
-      response = 'Available commands: `!link`, `!about`, `!help`'
-
-  except ValueError as e:
-    response = f'Error: {e}'
-
-  if response:
-    await message.channel.send(response)
+  elif message.author.id in client.admins and args[0] in admin_commands:
+    return admin_commands[args[0]]() # Allow admin versions of normal commands
+  elif args[0] in commands:
+    return commands[args[0]]()
+  return None
 
 
 @client.event
@@ -189,7 +204,7 @@ async def on_ready():
 async def on_error(event, *args, **kwargs):
   import traceback
   traceback.print_exc(chain=False)
-  logging.exception(sys.exc_info()[1])
+  logging.exception('Fatal error in program')
   sys.exit(1)
 
 
@@ -270,7 +285,14 @@ if __name__ == '__main__':
   class CustomFormatter(logging.Formatter):
     def format(self, r):
       current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-      return f'[{current_time}] {r.thread:5} {r.module:20} {r.funcName:20} {r.lineno:3} {r.msg % r.args}'
+      message = f'[{current_time}] {r.thread:5} {r.module:20} {r.funcName:20} {r.lineno:3} {r.msg % r.args}'
+
+      if r.exc_info and not r.exc_text:
+        r.exc_text = self.formatException(r.exc_info)
+      if r.exc_text:
+        message += '\n' + r.exc_text
+
+      return message
 
   logfile = Path(__file__).with_name('out.log')
   file_handler = logging.handlers.RotatingFileHandler(logfile, maxBytes=5_000_000, backupCount=1, encoding='utf-8', errors='replace')
