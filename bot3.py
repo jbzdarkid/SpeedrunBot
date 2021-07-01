@@ -287,7 +287,7 @@ if __name__ == '__main__':
     def format(self, r):
       current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
       location = f'{r.module}.{r.funcName}:{r.lineno}'
-      message = f'[{current_time}] {r.thread:05} {location:40} {r.msg % r.args}'
+      message = f'[{current_time}] {r.thread:05} {location:40} {r.msg}'
 
       if r.exc_info and not r.exc_text:
         r.exc_text = self.formatException(r.exc_info)
