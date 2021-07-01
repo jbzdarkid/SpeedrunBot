@@ -51,7 +51,7 @@ async def on_message(message):
     return re.fullmatch('<(@!|#)\d{18}>', word)
   # Since mentions can appear anywhere in the message, strip them out entirely for command processing.
   # User and channel mentions can still be accessed via message.mentions and message.channel_mentions
-  args = [arg for arg in message.content.split(' ') if not is_mention(arg)]
+  args = [arg.strip() for arg in message.content.split(' ') if not is_mention(arg)]
 
   try:
     response = on_message_internal(message, args)
