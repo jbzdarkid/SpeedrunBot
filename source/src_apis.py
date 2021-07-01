@@ -124,7 +124,7 @@ def get_category_name(category_id, run_variables):
   for variable in j['data']:
     if variable['id'] in run_variables and variable['is-subcategory']:
       value = run_variables[variable['id']]
-      subcategory = variable['values'][value]['label']
+      subcategory = variable['values']['values'][value]['label']
       category += f' ({subcategory})'
   return category
 

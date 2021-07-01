@@ -326,5 +326,5 @@ if __name__ == '__main__':
     try:
       client.run(token, reconnect=True)
     except discord.errors.LoginFailure as e:
-      logging.error(e)
+      logging.exception('Discord login failure')
       sys.exit(1)
