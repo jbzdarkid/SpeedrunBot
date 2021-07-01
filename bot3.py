@@ -123,10 +123,10 @@ def on_message_internal(message, args):
     return 'Available commands: ' + ', '.join(all_commands)
 
   admin_commands = {
-    '!track_game': lambda: track_game(get_channel(), ' '.join(args[1])),
-    '!untrack_game': lambda: untrack_game(get_channel(), ' '.join(args[1])),
-    '!moderate_game': lambda: moderate_game(get_channel(), ' '.join(args[1])),
-    '!unmoderate_game': lambda: unmoderate_game(get_channel(), ' '.join(args[1])),
+    '!track_game': lambda: track_game(get_channel(), ' '.join(args[1:])),
+    '!untrack_game': lambda: untrack_game(get_channel(), ' '.join(args[1:])),
+    '!moderate_game': lambda: moderate_game(get_channel(), ' '.join(args[1:])),
+    '!unmoderate_game': lambda: unmoderate_game(get_channel(), ' '.join(args[1:])),
     '!restart': lambda: restart(),
     '!git_update': lambda: git_update(),
   }
