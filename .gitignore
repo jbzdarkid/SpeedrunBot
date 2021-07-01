@@ -9,3 +9,4 @@ venv/
 SQLiteBrowser/
 database.db
 out.log
+out-parent.log

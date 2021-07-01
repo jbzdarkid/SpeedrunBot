@@ -280,12 +280,14 @@ async def on_parsed_streams(streams, game, channel):
 if __name__ == '__main__':
   # This logging nonsense brought to you by python. Calls to logging.error will go to stderr,
   # and logging.* will be written to a out.log (which overflows into out.log.1)
+  # Note that there are separate log files for the bootstrapper and the subtask. This is because python does not share log files between processes.
 
   # https://stackoverflow.com/a/6692653
   class CustomFormatter(logging.Formatter):
     def format(self, r):
       current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-      message = f'[{current_time}] {r.thread:5} {r.module:20} {r.funcName:20} {r.lineno:3} {r.msg % r.args}'
+      location = f'{r.module}.{r.funcName}:{r.lineno}'
+      message = f'[{current_time}] {r.thread:05} {location:40} {r.msg % r.args}'
 
       if r.exc_info and not r.exc_text:
         r.exc_text = self.formatException(r.exc_info)
@@ -294,16 +296,18 @@ if __name__ == '__main__':
 
       return message
 
-  logfile = Path(__file__).with_name('out.log')
+  logfile = Path(__file__).with_name('out.log' if 'subtask' in sys.argv else 'out-parent.log')
   file_handler = logging.handlers.RotatingFileHandler(logfile, maxBytes=5_000_000, backupCount=1, encoding='utf-8', errors='replace')
-  file_handler.setLevel(logging.NOTSET)
+  file_handler.setLevel(logging.INFO)
   file_handler.setFormatter(CustomFormatter())
 
   stream_handler = logging.StreamHandler(sys.stderr)
   stream_handler.setLevel(logging.ERROR)
   stream_handler.setFormatter(logging.Formatter('Error: %(message)s'))
 
-  logging.basicConfig(handlers=[file_handler, stream_handler])
+  # The level here acts as a global level filter. Why? I dunno.
+  # Set to info so discord/requests don't spam it too much.
+  logging.basicConfig(level=logging.INFO, handlers=[file_handler, stream_handler])
 
   if 'subtask' not in sys.argv:
     import subprocess
