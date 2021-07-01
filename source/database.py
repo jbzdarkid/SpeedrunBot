@@ -6,9 +6,9 @@ from pathlib import Path
 conn = sqlite3.connect(Path(__file__).with_name('database.db'))
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS users (
-  twitch_username TEXT    NOT NULL    PRIMARY KEY,
-  src_id          TEXT                UNIQUE,
-  last_fetched    REAL
+  twitch_username  TEXT    NOT NULL    PRIMARY KEY,
+  src_id           TEXT                UNIQUE,
+  last_fetched     REAL
 )''')
 c.execute('''CREATE TABLE IF NOT EXISTS tracked_games (
   game_name        TEXT    NOT NULL    PRIMARY KEY,
@@ -17,8 +17,8 @@ c.execute('''CREATE TABLE IF NOT EXISTS tracked_games (
   discord_channel  INTEGER NOT NULL
 )''')
 c.execute('''CREATE TABLE IF NOT EXISTS personal_bests (
-  src_id          TEXT    NOT NULL,
-  src_game_id     TEXT    NOT NULL,
+  src_id           TEXT    NOT NULL,
+  src_game_id      TEXT    NOT NULL,
   FOREIGN KEY (src_id)      REFERENCES users (src_id),
   FOREIGN KEY (src_game_id) REFERENCES tracked_games (src_game_id),
   PRIMARY KEY (src_id, src_game_id)
@@ -53,14 +53,14 @@ def moderate_game(game_name, src_game_id, discord_channel):
   try:
     execute('INSERT INTO moderated_games VALUES (?, ?, ?, 0)', game_name, src_game_id, int(discord_channel))
   except sqlite3.IntegrityError:
-    raise ValueError(f'Game {game_name} is already being moderated.')
+    raise ValueError(f'Game `{game_name}` is already being moderated.')
   conn.commit()
 
 
 def remove_game(game_name):
   _, src_game_id = get_game_ids(game_name)
   if not src_game_id:
-    raise ValueError(f'Cannot remove {game_name} as it is not currently being tracked.')
+    raise ValueError(f'Cannot remove `{game_name}` as it is not currently being tracked.')
 
   # Note: There is no need to delete users here -- users are cross-game.
   execute('DELETE FROM personal_bests WHERE src_game_id=?', src_game_id)
