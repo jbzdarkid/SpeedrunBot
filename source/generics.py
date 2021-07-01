@@ -93,7 +93,7 @@ def get_new_runs(game_name, src_game_id, last_update):
     new_last_update = max(submitted.timestamp(), new_last_update)
 
     weblink = run['weblink']
-    category = src_apis.get_category_name(run['category'])
+    category = src_apis.get_category_name(run['category'], run['variables'])
     time = datetime.timedelta(seconds=run['times']['primary_t'])
     runners = ', '.join(src_apis.get_src_name(player) for player in run['players'])
     yield f'New run submitted: {category} in {time} by {runners}: <{weblink}>'

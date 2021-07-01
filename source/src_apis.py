@@ -115,11 +115,18 @@ def get_runs(**params):
 
   return runs
 
-
-def get_category_name(category_id):
+# In theory this should also write to a database, but new runs are rare, so I don't really mind the extra network calls.
+def get_category_name(category_id, run_variables):
   j = get_json(f'https://www.speedrun.com/api/v1/categories/{category_id}')
-  return j['data']['name']
+  category = j['data']['name']
 
+  j = get_json(f'https://www.speedrun.com/api/v1/categories/{category_id}/variables')
+  for variable in j['data']:
+    if variable['id'] in run_variables and variable['is-subcategory']:
+      value = run_variables[variable['id']]
+      subcategory = variable['values'][value]['label']
+      category += f' ({subcategory})'
+  return category
 
 # Undocumented PHP APIs:
 
