@@ -29,6 +29,11 @@ c.execute('''CREATE TABLE IF NOT EXISTS moderated_games (
   discord_channel  INTEGER NOT NULL,
   last_update      REAL
 )''')
+c.execute('''CREATE TABLE IF NOT EXISTS categories (
+  category_id      TEXT    NOT NULL    PRIMARY KEY,
+  category_name    TEXT    NOT NULL,
+  variables        TEXT
+)''')
 conn.commit()
 
 def execute(sql, *args):
@@ -108,6 +113,26 @@ def get_user_by_src(src_id):
       'fetch_time': data[2],
     }
   return None
+
+
+def get_category_name(category_id):
+  execute('SELECT category_name FROM categories WHERE category_id=?', category_id)
+  return c.fetchone()
+
+
+def set_category_name(category_id, category_name):
+  execute('INSERT INTO categories VALUES (?, ?, ?)', category_id, category_name, None)
+  conn.commit()
+
+
+def get_category_variables(category_id):
+  execute('SELECT variables FROM categories WHERE category_id=?', category_id)
+  return c.fetchone()
+
+
+def set_category_name(category_id, variables):
+  execute('UPDATE categories SET variables=? WHERE category_id=?', variables, category_id)
+  conn.commit()
 
 
 def get_game_ids(game_name):
