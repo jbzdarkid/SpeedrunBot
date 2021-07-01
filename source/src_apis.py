@@ -58,10 +58,10 @@ def get_game_id(game_name):
 
   possible_matches = []
   for game in j['data']:
-    possible_match = game['names']['twitch']
+    possible_match = game['names']['international'] # This used to be game['names']['twitch'], so !add_game might break now. Not sure.
     if possible_match == game_name:
       return game['id']
-    possible_matches.append(possible_match)
+    possible_matches.append(f'`{possible_match}`')
 
   suggestions = ', '.join(possible_matches[:10]) # Only show a max of 10 matches, for brevity's sake
   raise ValueError(f'Found {len(possible_matches)} possible matches for game {game_name} on Speedrun.com -- Try one of these options:\n' + suggestions)
@@ -80,7 +80,7 @@ def search_src_user(username):
     possible_match = user['names']['international']
     if possible_match == username:
       return user['id']
-    possible_matches.append(possible_match)
+    possible_matches.append(f'`{possible_match}`')
 
   suggestions = ', '.join(possible_matches[:10]) # Only show a max of 10 matches, for brevity's sake
   raise ValueError(f'Found {len(possible_matches)} possible matches for user {username} on Speedrun.com -- Try one of these options:\n' + suggestions)
