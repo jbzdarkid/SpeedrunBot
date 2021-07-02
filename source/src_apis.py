@@ -120,21 +120,30 @@ def get_category_name(category_id):
   if category := database.get_category_name(category_id):
     return category
   j = get_json(f'https://www.speedrun.com/api/v1/categories/{category_id}')
-  category_name = j['data']['name']
+  category = j['data']['name']
   database.set_category_name(category_id, category)
   return category
 
 
-def get_subcategory_name(category_id, key, value):
+def get_subcategory_name(category_id, variable_id, value_id):
+  def get_value_name(variable, value_id):
+    if variable['is-subcategory'] and value_id in variable['values']['values']:
+      return variable['values']['values'][value_id]['label']
+    return '' # Variable found, but is not a subcategory
+
   if variables := database.get_category_variables(category_id):
-    if value := variables.get(key, None):
-      return value['label'] if value['is-subcategory'] else ''
+    if variable := variables.get(variable_id, None):
+      return get_value_name(variable, value_id)
 
   j = get_json(f'https://www.speedrun.com/api/v1/categories/{category_id}/variables')
-  database.set_category_variables(category_id, j)
+  # Slight data manipulation to make lookups a bit easier.
+  variables = {row['id']: row for row in j['data']}
 
-  value = j['key']
-  return value['label'] if value['is-subcategory'] else ''
+  database.set_category_variables(category_id, variables)
+
+  if variable := variables.get(variable_id, None):
+    return get_value_name(variable, value_id)
+  return '' # Should not happen, variable_id should always be present after a fetch.
 
 
 # Undocumented PHP APIs:

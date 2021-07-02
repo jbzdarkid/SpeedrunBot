@@ -1,3 +1,4 @@
+import json
 import logging
 import sqlite3
 from datetime import datetime
@@ -117,7 +118,8 @@ def get_user_by_src(src_id):
 
 def get_category_name(category_id):
   execute('SELECT category_name FROM categories WHERE category_id=?', category_id)
-  return c.fetchone()
+  data = c.fetchone()
+  return data[0] if data else None
 
 
 def set_category_name(category_id, category_name):
@@ -127,11 +129,14 @@ def set_category_name(category_id, category_name):
 
 def get_category_variables(category_id):
   execute('SELECT variables FROM categories WHERE category_id=?', category_id)
-  return c.fetchone()
+  data = c.fetchone()
+  if data and data[0]:
+    return json.loads(data[0])
+  return None
 
 
-def set_category_name(category_id, variables):
-  execute('UPDATE categories SET variables=? WHERE category_id=?', variables, category_id)
+def set_category_variables(category_id, variables):
+  execute('UPDATE categories SET variables=? WHERE category_id=?', json.dumps(variables), category_id)
   conn.commit()
 
 

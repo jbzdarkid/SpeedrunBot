@@ -93,8 +93,8 @@ def get_new_runs(game_name, src_game_id, last_update):
     new_last_update = max(submitted.timestamp(), new_last_update)
 
     category = src_apis.get_category_name(run['category'])
-    for variable in run['values']:
-      subcategory = src_apis.get_subcategory_name(variable)
+    for subcategory_id, value_id in run['values'].items():
+      subcategory = src_apis.get_subcategory_name(run['category'], subcategory_id, value_id)
       if subcategory:
         category += f' ({subcategory})'
 
