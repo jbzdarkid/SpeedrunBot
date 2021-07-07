@@ -78,7 +78,7 @@ def on_message_internal(message, args):
     if any(arg == None for arg in required_args):
       error = f'Usage of {args[0]}): `{args[0]} {usage}`'
       if example:
-        error += '\nFor example: `{args[0]} {example}`'
+        error += f'\nFor example: `{args[0]} {example}`'
       raise AttributeError(error)
 
   # Actual commands here
@@ -316,6 +316,7 @@ if __name__ == '__main__':
       logging.error(f'Starting subtask at {datetime.now()}')
       output = subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:])
       if output.returncode != 0:
+        subprocess.run([sys.executable, Path(__file__).with_name('send_error.py'), str(client.admins[0])])
         logging.error('Subprocess crashed, waiting for 60 seconds before restarting')
         time.sleep(60) # Sleep after exit, to prevent losing my token.
 
