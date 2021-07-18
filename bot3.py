@@ -32,6 +32,7 @@ from source import database, generics, twitch_apis, src_apis
 #   Start with the simple stuff (send a message, edit a message, get a channel)
 #   Move on to the harder stuff (on_message, HTTP errors, auth errors)
 # TODO: I can use ?embed=property to ask SRC APIs to expand the property (and include it in the results).
+#   https://github.com/speedruncomorg/api/blob/master/version1/embedding.md
 #   https://www.speedrun.com/api/v1/runs/ydr4xdjz?embed=players,platforms,variables,game,category
 #   Should mean I no longer need category/variable DB (for !moderate_game announcements)
 # TODO: <t:1626594025> is apparently a thing discord supports. Maybe useful somehow?
