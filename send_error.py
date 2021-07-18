@@ -12,7 +12,7 @@ headers = {
 }
 
 user = sys.argv[1]
-num_lines = int(sys.argv[2]) if len(sys.argv) > 2 else 10
+num_lines = int(sys.argv[2]) if len(sys.argv) > 2 else 20
 
 with Path(__file__).with_name('out.log').open('r') as f:
   last_lines = '\n'.join(f.read().split('\n')[-num_lines:])
