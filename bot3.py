@@ -12,20 +12,25 @@ from uuid import uuid4
 
 from source import database, generics, twitch_apis, src_apis
 
-# TODO: !force_pb ? What do I use for the user ID? SRC ID is hard to know, but usernames suck to handle.
 # TODO: [nosrl] (and associated tests)
 # TODO: Add a test for 'what if a live message got deleted'
 # TODO: Threading for user lookups will save a lot of time, especially as the list of games grows
+# TODO: Try to improve performance by creating a thread for each runner
 # TODO: Add tests for the database (using in-memory storage?)
 #  Can mock the network via make_request.py
-# TODO: Try to improve performance by creating a thread for each runner
 # TODO: Consider refactoring the core bot logic so that we don't need to filter streams by game
+#  Specifically, I want to simplify on_parsed_streams so that it is only called once, with the complete list of streams.
 # TODO: Discord is not renaming embeds? Or, I'm not changing the embed title correctly on edits.
-#   Definitely broken.
+#   Definitely broken. Try without discord.py
 # TODO: Stop using select (*) wrong
-# TODO: Try to move the "message handlers" into a separate file -- one which can know about discord, I suppose.
-# TODO: Add 'upload log file' command?
-# TODO: Auto-report last error on crash? Maybe tail the logfile as the easiest option?
+# TODO: Stop hardcoding the admins list
+#   Ensure that "self" (owner of the discord API token) is an admin by default.
+#   Change client.admins to a function (is_admin?)
+#   Provide !op <user> and !deop <user>
+# TODO: Move client.live_channels into a database? It's OK if all we ever do with it is full read / full write.
+# TODO: Try to wean off of discord.py? (I guess also create source/discord_apis.py)
+#   Start with the simple stuff (send a message, edit a message, get a channel)
+#   Move on to the harder stuff (on_message, HTTP errors, auth errors)
 
 # Globals
 client = discord.Client()
