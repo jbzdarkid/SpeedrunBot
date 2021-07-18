@@ -31,6 +31,9 @@ from source import database, generics, twitch_apis, src_apis
 # TODO: Try to wean off of discord.py? (I guess also create source/discord_apis.py)
 #   Start with the simple stuff (send a message, edit a message, get a channel)
 #   Move on to the harder stuff (on_message, HTTP errors, auth errors)
+# TODO: I can use ?embed=property to ask SRC APIs to expand the property (and include it in the results).
+#   https://www.speedrun.com/api/v1/runs/ydr4xdjz?embed=players,platforms,variables,game,category
+#   Should mean I no longer need category/variable DB (for !moderate_game announcements)
 
 # Globals
 client = discord.Client()
