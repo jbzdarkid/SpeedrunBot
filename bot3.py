@@ -56,6 +56,9 @@ async def on_message(message):
   elif message.author.id == client.user.id:
     return # DO NOT process our own messages
   elif client.user in message.mentions:
+    logging.info(message.channel)
+    logging.info(message.channel.type)
+    logging.info(message.channel.recipient)
     pass # DO process messages which mention us, no matter where they're sent
   elif message.channel.type == 'dm':
     logging.info(message.channel.recipient.id)
@@ -66,7 +69,8 @@ async def on_message(message):
     return # DO NOT process messages in unwatched channels
 
   def is_mention(word):
-    return re.fullmatch('<(@!|#)\d{18}>', word)
+    # Match length according to discord.py
+    return re.fullmatch('<(@!|@&|#)\d{17,20}>', word)
   # Since mentions can appear anywhere in the message, strip them out entirely for command processing.
   # User and channel mentions can still be accessed via message.mentions and message.channel_mentions
   args = [arg.strip() for arg in message.content.split(' ') if not is_mention(arg)]
