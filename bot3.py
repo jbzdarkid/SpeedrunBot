@@ -59,6 +59,7 @@ async def on_message(message):
     logging.info(message.channel)
     logging.info(message.channel.type)
     logging.info(message.channel.recipient)
+    await message.add_reaction('🚫')
     pass # DO process messages which mention us, no matter where they're sent
   elif message.channel.type == 'dm':
     logging.info(message.channel.recipient.id)
