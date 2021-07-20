@@ -118,6 +118,10 @@ def on_message_internal(message, args):
     return f'No longer announcing newly submitted runs of {game_name} in channel <#{channel.id}>.'
   def restart():
     sys.exit(int(args[1]) if len(args) > 1 else 0)
+  def git_update():
+    import subprocess
+    output = subprocess.run(['git', 'pull', '--ff-only'], capture_output=True, text=True, cwd=Path(__file__).parent)
+    return '```' + output.stdout + ('\n' if (output.stderr or output.stdout) else '') + output.stderr + '```'
   def link(twitch_username, src_username):
     assert_args('twitch_username src_username', twitch_username, src_username, example='jbzdarkid darkid')
     twitch_apis.get_user_id(twitch_username) # Will throw if there is any ambiguity about the twich username
