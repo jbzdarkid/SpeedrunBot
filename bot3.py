@@ -3,6 +3,7 @@ import json
 import logging
 import logging.handlers
 import re
+import subprocess
 import sys
 from asyncio import sleep
 from datetime import datetime, timedelta
@@ -119,9 +120,10 @@ def on_message_internal(message, args):
   def restart():
     sys.exit(int(args[1]) if len(args) > 1 else 0)
   def git_update():
-    import subprocess
     output = subprocess.run(['git', 'pull', '--ff-only'], capture_output=True, text=True, cwd=Path(__file__).parent)
     return '```' + output.stdout + ('\n' if (output.stderr or output.stdout) else '') + output.stderr + '```'
+  def send_last_lines(num_lines=None):
+    subprocess.run([sys.executable, Path(__file__).with_name('send_error.py'), str(client.admins[0])])
   def link(twitch_username, src_username):
     assert_args('twitch_username src_username', twitch_username, src_username, example='jbzdarkid darkid')
     twitch_apis.get_user_id(twitch_username) # Will throw if there is any ambiguity about the twich username
@@ -147,6 +149,7 @@ def on_message_internal(message, args):
     '!unmoderate_game': lambda: unmoderate_game(get_channel(), ' '.join(args[1:])),
     '!restart': lambda: restart(),
     '!git_update': lambda: git_update(),
+    '!send_last_lines': lambda: send_last_lines(),
   }
   commands = {
     '!link': lambda: link(*args[1:3]),
@@ -328,7 +331,6 @@ if __name__ == '__main__':
   logging.basicConfig(level=logging.INFO, handlers=[file_handler, stream_handler])
 
   if 'subtask' not in sys.argv:
-    import subprocess
     import time
     while 1:
       logging.info(f'Starting subtask at {datetime.now()}')
