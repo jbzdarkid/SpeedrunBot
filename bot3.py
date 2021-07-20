@@ -68,7 +68,10 @@ async def on_message(message):
   try:
     response = on_message_internal(message, args)
     if response:
-      await message.add_reaction('🔇')
+      try:
+        await message.add_reaction('🔇')
+      except discord.errors.Forbidden: # Bot may or may not have permission to add reactions
+        pass
       await message.channel.send(response)
   except AttributeError as e: # Usage errors
     await message.channel.send(str(e))
