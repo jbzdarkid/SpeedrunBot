@@ -50,6 +50,7 @@ client.admins = [83001199959216128]
 
 @client.event
 async def on_message(message):
+  logging.info(message.channel.type)
   if not client.started:
     return
   elif message.author.id == client.user.id:
