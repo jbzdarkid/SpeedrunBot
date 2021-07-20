@@ -38,7 +38,6 @@ from source import database, generics, twitch_apis, src_apis
 #   Should mean I no longer need category/variable DB (for !moderate_game announcements)
 # TODO: <t:1626594025> is apparently a thing discord supports. Maybe useful somehow?
 #   See https://github.com/Rapptz/discord.py/commit/d1a2ee46209917000e57612c0bdce29b5035e15a
-# TODO:  if(message.channel.type == "dm"){
 
 # Globals
 client = discord.Client()
@@ -58,6 +57,8 @@ async def on_message(message):
   elif client.user in message.mentions:
     pass # DO process messages which mention us, no matter where they're sent
   elif message.channel.type == 'dm':
+    logging.info(message.channel.recipient.id)
+    logging.info(message.channel.recipient)
     if message.channel.recipient.id not in client.admins:
       return # DO NOT process DMs from non-admins (For safety. It might be fine to process all DMs.)
   elif message.channel.id not in client.tracked_games:
