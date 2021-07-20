@@ -56,6 +56,7 @@ async def on_message(message):
   elif message.author.id == client.user.id:
     return # DO NOT process our own messages
   elif client.user in message.mentions:
+    logging.info(message.channel.type)
     pass # DO process messages which mention us, no matter where they're sent
   elif message.channel.type == 'private':
     logging.info(message.channel.recipient.id)
