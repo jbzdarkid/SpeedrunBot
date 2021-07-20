@@ -52,10 +52,13 @@ client.admins = [83001199959216128]
 async def on_message(message):
   if not client.started:
     return
-  if message.author.id == client.user.id:
+  elif message.author.id == client.user.id:
     return # DO NOT process our own messages
   elif client.user in message.mentions:
     pass # DO process messages which mention us, no matter where they're sent
+  elif message.channel.type == 'dm':
+    if message.channel.recipient.id not in client.admins:
+      return # DO NOT process DMs from non-admins (For safety. It might be fine to process all DMs.)
   elif message.channel.id not in client.tracked_games:
     return # DO NOT process messages in unwatched channels
 
