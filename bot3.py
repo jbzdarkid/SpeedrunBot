@@ -50,18 +50,13 @@ client.admins = [83001199959216128]
 
 @client.event
 async def on_message(message):
-  logging.info(message.channel.type)
   if not client.started:
     return
   elif message.author.id == client.user.id:
     return # DO NOT process our own messages
   elif client.user in message.mentions:
-    logging.info(message.channel)
-    logging.info(message.channel.type)
-    logging.info(message.channel.recipient)
-    await message.add_reaction('🚫')
     pass # DO process messages which mention us, no matter where they're sent
-  elif message.channel.type == 'dm':
+  elif message.channel.type == 'private':
     logging.info(message.channel.recipient.id)
     logging.info(message.channel.recipient)
     if message.channel.recipient.id not in client.admins:
