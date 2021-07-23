@@ -1,0 +1,10 @@
+wget https://www.python.org/ftp/python/3.9.6/Python-3.9.6.tgz
+tar -xvf Python-3.9.6.tgz
+cd Python-3.9.6
+./configure --enable-optimizations --with-lto --with-openssl=/usr/bin/openssl
+# This takes a while
+make -j -l 4
+make test
+make install
+
+cd ~/Documents/Github/SpeedrunBot && venv/bin/python bot3.py

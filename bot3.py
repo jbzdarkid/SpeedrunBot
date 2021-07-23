@@ -3,6 +3,7 @@ import json
 import logging
 import logging.handlers
 import re
+import subprocess
 import sys
 from asyncio import sleep
 from datetime import datetime, timedelta
@@ -37,7 +38,6 @@ from source import database, generics, twitch_apis, src_apis
 #   Should mean I no longer need category/variable DB (for !moderate_game announcements)
 # TODO: <t:1626594025> is apparently a thing discord supports. Maybe useful somehow?
 #   See https://github.com/Rapptz/discord.py/commit/d1a2ee46209917000e57612c0bdce29b5035e15a
-# TODO:  if(message.channel.type == "dm"){
 
 # Globals
 client = discord.Client()
@@ -52,15 +52,19 @@ client.admins = [83001199959216128]
 async def on_message(message):
   if not client.started:
     return
-  if message.author.id == client.user.id:
+  elif message.author.id == client.user.id:
     return # DO NOT process our own messages
   elif client.user in message.mentions:
     pass # DO process messages which mention us, no matter where they're sent
+  elif message.channel.type == discord.ChannelType.private:
+    if message.channel.recipient.id not in client.admins:
+      return # DO NOT process DMs from non-admins (For safety. It might be fine to process all DMs.)
   elif message.channel.id not in client.tracked_games:
     return # DO NOT process messages in unwatched channels
 
   def is_mention(word):
-    return re.fullmatch('<(@!|#)\d{18}>', word)
+    # Match length according to discord.py
+    return re.fullmatch('<(@!|@&|#)\d{17,20}>', word)
   # Since mentions can appear anywhere in the message, strip them out entirely for command processing.
   # User and channel mentions can still be accessed via message.mentions and message.channel_mentions
   args = [arg.strip() for arg in message.content.split(' ') if not is_mention(arg)]
@@ -68,7 +72,10 @@ async def on_message(message):
   try:
     response = on_message_internal(message, args)
     if response:
-      await message.add_reaction('🔇')
+      try:
+        await message.add_reaction('🔇')
+      except discord.errors.Forbidden: # Bot may or may not have permission to add reactions
+        pass
       await message.channel.send(response)
   except AttributeError as e: # Usage errors
     await message.channel.send(str(e))
@@ -113,9 +120,10 @@ def on_message_internal(message, args):
   def restart():
     sys.exit(int(args[1]) if len(args) > 1 else 0)
   def git_update():
-    import subprocess
     output = subprocess.run(['git', 'pull', '--ff-only'], capture_output=True, text=True, cwd=Path(__file__).parent)
     return '```' + output.stdout + ('\n' if (output.stderr or output.stdout) else '') + output.stderr + '```'
+  def send_last_lines(num_lines=None):
+    subprocess.run([sys.executable, Path(__file__).with_name('send_error.py'), str(client.admins[0])])
   def link(twitch_username, src_username):
     assert_args('twitch_username src_username', twitch_username, src_username, example='jbzdarkid darkid')
     twitch_apis.get_user_id(twitch_username) # Will throw if there is any ambiguity about the twich username
@@ -141,6 +149,7 @@ def on_message_internal(message, args):
     '!unmoderate_game': lambda: unmoderate_game(get_channel(), ' '.join(args[1:])),
     '!restart': lambda: restart(),
     '!git_update': lambda: git_update(),
+    '!send_last_lines': lambda: send_last_lines(),
   }
   commands = {
     '!link': lambda: link(*args[1:3]),
@@ -322,10 +331,14 @@ if __name__ == '__main__':
   logging.basicConfig(level=logging.INFO, handlers=[file_handler, stream_handler])
 
   if 'subtask' not in sys.argv:
-    import subprocess
     import time
     while 1:
-      logging.error(f'Starting subtask at {datetime.now()}')
+      logging.info(f'Starting subtask at {datetime.now()}')
+      output = subprocess.run(['git', 'pull', '--ff-only'], capture_output=True, text=True, cwd=Path(__file__).parent)
+      if output.stdout:
+        logging.info(output.stdout)
+      if output.stderr:
+        logging.error(output.stderr)
       output = subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:])
       if output.returncode != 0:
         subprocess.run([sys.executable, Path(__file__).with_name('send_error.py'), str(client.admins[0])])

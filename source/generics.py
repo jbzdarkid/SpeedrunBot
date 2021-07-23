@@ -36,6 +36,9 @@ def get_speedrunners_for_game2(game_names):
     src_game_ids[game_name] = src_game_id
     logging.info(f'Getting speedrunners for game {game_name} ({twitch_game_id} | {src_game_id})')
 
+  if len(twitch_game_ids) == 0:
+    return
+
   streams = twitch_apis.get_live_game_streams2(twitch_game_ids)
 
   # For performance here, instead of directly iterating the streams, pass them into a ThreadPoolExecutor.

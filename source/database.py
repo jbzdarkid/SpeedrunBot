@@ -51,7 +51,10 @@ def add_user(twitch_username, src_id, fetch_time=datetime.now().timestamp()):
 
 
 def add_game(game_name, twitch_game_id, src_game_id, discord_channel):
-  execute('INSERT INTO tracked_games VALUES (?, ?, ?, ?)', game_name, twitch_game_id, src_game_id, int(discord_channel))
+  try:
+    execute('INSERT INTO tracked_games VALUES (?, ?, ?, ?)', game_name, twitch_game_id, src_game_id, int(discord_channel))
+  except sqlite3.IntegrityError:
+    raise ValueError(f'Game `{game_name}` is already being tracked.')
   conn.commit()
 
 
