@@ -11,7 +11,7 @@ from pathlib import Path
 from requests.exceptions import ConnectionError
 from uuid import uuid4
 
-from source import database, generics, twitch_apis, src_apis
+from source import database, generics, twitch_apis, src_apis, discord_apis
 
 # TODO: [nosrl] (and associated tests)
 # TODO: Add a test for 'what if a live message got deleted'
@@ -37,7 +37,7 @@ from source import database, generics, twitch_apis, src_apis
 #   https://www.speedrun.com/api/v1/runs/ydr4xdjz?embed=players,platforms,variables,game,category
 #   Should mean I no longer need category/variable DB (for !moderate_game announcements)
 # TODO: <t:1626594025> is apparently a thing discord supports. Maybe useful somehow?
-#   See https://github.com/Rapptz/discord.py/commit/d1a2ee46209917000e57612c0bdce29b5035e15a
+#   See https://discord.com/developers/docs/reference#message-formatting
 
 # Globals
 client = discord.Client()
@@ -73,9 +73,9 @@ async def on_message(message):
     response = on_message_internal(message, args)
     if response:
       try:
-        await message.add_reaction('🔇')
-      except discord.errors.Forbidden: # Bot may or may not have permission to add reactions
-        pass
+        discord_apis.add_reaction(message, '🔇')
+      except ConnectionError: # Bot may or may not have permission to add reactions
+        logging.exception('Error while attempting to add a reaction')
       await message.channel.send(response)
   except AttributeError as e: # Usage errors
     await message.channel.send(str(e))
