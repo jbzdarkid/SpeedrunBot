@@ -50,6 +50,10 @@ client.admins = [83001199959216128]
 
 @client.event
 async def on_message(message):
+  # For use in discord_apis (as opposed to discordpy)
+  new_message = {'id': message.id, 'channel_id': message.channel.id}
+  new_channel = {'id': message.channel.id}
+
   if not client.started:
     return
   elif message.author.id == client.user.id:
@@ -73,15 +77,15 @@ async def on_message(message):
     response = on_message_internal(message, args)
     if response:
       try:
-        discord_apis.add_reaction({'id': message.id, 'channel_id': message.channel.id}, '🔇')
+        discord_apis.add_reaction(new_message, '🔇')
       except ConnectionError: # Bot may or may not have permission to add reactions
         logging.exception('Error while attempting to add a reaction')
-      await message.channel.send(response)
+      discord_apis.send_message(new_channel, response)
   except AttributeError as e: # Usage errors
-    await message.channel.send(str(e))
+    discord_apis.send_message(new_channel, str(e))
   except ValueError as e: # Actual errors
     logging.exception('Non-fatal command error')
-    await message.channel.send(f'Error: {e}')
+    discord_apis.send_message(new_channel, f'Error: {e}')
 
 
 def on_message_internal(message, args):
