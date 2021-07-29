@@ -220,7 +220,7 @@ async def on_ready():
         for content in generics.get_new_runs(game_name, src_game_id, last_update):
           await channel.send(content=content)
       except (discord.errors.HTTPException, ConnectionError):
-        logging.execption('Network connection error occurred while fetching new runs')
+        logging.exception('Network connection error occurred while fetching new runs')
         continue # The message will be posted next pass.
 
     await sleep(60)
