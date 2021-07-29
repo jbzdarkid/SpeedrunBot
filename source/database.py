@@ -38,14 +38,19 @@ c.execute('''CREATE TABLE IF NOT EXISTS categories (
 conn.commit()
 
 
+# Simple helper to pack *args (because SQL wants it like that)
+def execute(sql, *args):
+  c.execute(sql, args)
+
+
 def add_user(twitch_username, src_id, fetch_time=datetime.now().timestamp()):
-  c.execute('INSERT OR REPLACE INTO users VALUES (?, ?, ?)', twitch_username.lower(), src_id, fetch_time)
+  execute('INSERT OR REPLACE INTO users VALUES (?, ?, ?)', twitch_username.lower(), src_id, fetch_time)
   conn.commit()
 
 
 def add_game(game_name, twitch_game_id, src_game_id, discord_channel):
   try:
-    c.execute('INSERT INTO tracked_games VALUES (?, ?, ?, ?)', game_name, twitch_game_id, src_game_id, int(discord_channel))
+    execute('INSERT INTO tracked_games VALUES (?, ?, ?, ?)', game_name, twitch_game_id, src_game_id, int(discord_channel))
   except sqlite3.IntegrityError:
     logging.exception('SQL error')
     raise ValueError(f'Game `{game_name}` is already being tracked.')
@@ -54,7 +59,7 @@ def add_game(game_name, twitch_game_id, src_game_id, discord_channel):
 
 def moderate_game(game_name, src_game_id, discord_channel):
   try:
-    c.execute('INSERT INTO moderated_games VALUES (?, ?, ?, 0)', game_name, src_game_id, int(discord_channel))
+    execute('INSERT INTO moderated_games VALUES (?, ?, ?, 0)', game_name, src_game_id, int(discord_channel))
   except sqlite3.IntegrityError:
     logging.exception('SQL error')
     raise ValueError(f'Game `{game_name}` is already being moderated.')
@@ -67,33 +72,33 @@ def remove_game(game_name):
     raise ValueError(f'Cannot remove `{game_name}` as it is not currently being tracked.')
 
   # Note: There is no need to delete users here -- users are cross-game.
-  c.execute('DELETE FROM personal_bests WHERE src_game_id=?', src_game_id)
-  c.execute('DELETE FROM tracked_games WHERE src_game_id=?', src_game_id)
+  execute('DELETE FROM personal_bests WHERE src_game_id=?', src_game_id)
+  execute('DELETE FROM tracked_games WHERE src_game_id=?', src_game_id)
   conn.commit()
 
 
 def unmoderate_game(game_name):
-  c.execute('DELETE FROM moderated_games WHERE game_name=?', game_name)
+  execute('DELETE FROM moderated_games WHERE game_name=?', game_name)
   conn.commit()
 
 
 def add_personal_best(src_id, src_game_id):
-  c.execute('INSERT INTO personal_bests VALUES (?, ?)', src_id, src_game_id)
+  execute('INSERT INTO personal_bests VALUES (?, ?)', src_id, src_game_id)
   conn.commit()
 
 
 def update_user_fetch_time(twitch_username, last_fetched=datetime.now().timestamp()):
-  c.execute('UPDATE users SET last_fetched=? WHERE twitch_username=?', last_fetched, twitch_username.lower())
+  execute('UPDATE users SET last_fetched=? WHERE twitch_username=?', last_fetched, twitch_username.lower())
   conn.commit()
 
 
 def update_game_moderation_time(game_name, last_update=datetime.now().timestamp()):
-  c.execute('UPDATE moderated_games SET last_update=? WHERE game_name=?', last_update, game_name)
+  execute('UPDATE moderated_games SET last_update=? WHERE game_name=?', last_update, game_name)
   conn.commit()
 
 
 def get_user(twitch_username):
-  c.execute('SELECT * FROM users WHERE twitch_username=?', twitch_username.lower())
+  execute('SELECT * FROM users WHERE twitch_username=?', twitch_username.lower())
   if data := c.fetchone():
     return {
       'twitch_username': data[0],
@@ -104,7 +109,7 @@ def get_user(twitch_username):
 
 
 def get_user_by_src(src_id):
-  c.execute('SELECT * FROM users WHERE src_id=?', src_id)
+  execute('SELECT * FROM users WHERE src_id=?', src_id)
   if data := c.fetchone():
     return {
       'twitch_username': data[0],
@@ -115,18 +120,18 @@ def get_user_by_src(src_id):
 
 
 def get_category_name(category_id):
-  c.execute('SELECT category_name FROM categories WHERE category_id=?', category_id)
+  execute('SELECT category_name FROM categories WHERE category_id=?', category_id)
   data = c.fetchone()
   return data[0] if data else None
 
 
 def set_category_name(category_id, category_name):
-  c.execute('INSERT INTO categories VALUES (?, ?, ?)', category_id, category_name, None)
+  execute('INSERT INTO categories VALUES (?, ?, ?)', category_id, category_name, None)
   conn.commit()
 
 
 def get_category_variables(category_id):
-  c.execute('SELECT variables FROM categories WHERE category_id=?', category_id)
+  execute('SELECT variables FROM categories WHERE category_id=?', category_id)
   data = c.fetchone()
   if data and data[0]:
     return json.loads(data[0])
@@ -134,27 +139,27 @@ def get_category_variables(category_id):
 
 
 def set_category_variables(category_id, variables):
-  c.execute('UPDATE categories SET variables=? WHERE category_id=?', json.dumps(variables), category_id)
+  execute('UPDATE categories SET variables=? WHERE category_id=?', json.dumps(variables), category_id)
   conn.commit()
 
 
 def get_game_ids(game_name):
-  c.execute('SELECT twitch_game_id, src_game_id FROM tracked_games WHERE game_name LIKE ?', game_name)
+  execute('SELECT twitch_game_id, src_game_id FROM tracked_games WHERE game_name LIKE ?', game_name)
   if data := c.fetchone():
     return data
   return (None, None)
 
 
 def get_all_games():
-  c.execute('SELECT game_name, discord_channel FROM tracked_games')
+  execute('SELECT game_name, discord_channel FROM tracked_games')
   return c.fetchall()
 
 
 def get_all_moderated_games():
-  c.execute('SELECT game_name, src_game_id, discord_channel, last_update FROM moderated_games')
+  execute('SELECT game_name, src_game_id, discord_channel, last_update FROM moderated_games')
   return c.fetchall()
 
 
 def has_personal_best(src_id, src_game_id):
-  c.execute('SELECT * FROM personal_bests WHERE src_id=? AND src_game_id=?', src_id, src_game_id)
+  execute('SELECT * FROM personal_bests WHERE src_id=? AND src_game_id=?', src_id, src_game_id)
   return c.fetchone() != None
