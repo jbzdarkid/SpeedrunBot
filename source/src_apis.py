@@ -1,12 +1,15 @@
 import logging
 from datetime import datetime
+
 from . import database
-from .make_request import get_json
+from .make_request import make_request
 
 ONE_HOUR  = (3600)
 ONE_DAY   = (3600 * 24)
 ONE_WEEK  = (3600 * 24 * 7)
 ONE_MONTH = (3600 * 24 * 7 * 30)
+
+api = 'https://www.speedrun.com/api/v1'
 
 def get_src_id(twitch_username):
   if user := database.get_user(twitch_username):
@@ -19,7 +22,7 @@ def get_src_id(twitch_username):
       return user['src_id']
 
   # Make a network call to determine if the streamer is a speedrunner.
-  j = get_json('https://www.speedrun.com/api/v1/users', params={'twitch': twitch_username})
+  j = make_request('GET', f'{api}/users', params={'twitch': twitch_username})
   if len(j['data']) == 0:
     database.add_user(twitch_username, None)
     return None
@@ -40,7 +43,7 @@ def runner_runs_game(twitch_username, src_id, src_game_id):
       return False
 
   database.update_user_fetch_time(twitch_username)
-  j = get_json(f'https://www.speedrun.com/api/v1/users/{src_id}/personal-bests', params={'game': src_game_id})
+  j = make_request('GET', f'{api}/users/{src_id}/personal-bests', params={'game': src_game_id})
   if len(j['data']) == 0:
     return False
 
@@ -49,7 +52,7 @@ def runner_runs_game(twitch_username, src_id, src_game_id):
 
 
 def get_game_id(game_name):
-  j = get_json('https://www.speedrun.com/api/v1/games', params={'name': game_name})
+  j = make_request('GET', f'{api}/games', params={'name': game_name})
   if len(j['data']) == 0:
     raise ValueError(f'Could not find game {game_name} on Speedrun.com')
 
@@ -68,7 +71,7 @@ def get_game_id(game_name):
 
 
 def search_src_user(username):
-  j = get_json('https://www.speedrun.com/api/v1/users', params={'name': username})
+  j = make_request('GET', f'{api}/users', params={'name': username})
   if len(j['data']) == 0:
     raise ValueError(f'Could not find user {username} on Speedrun.com')
 
@@ -88,7 +91,7 @@ def search_src_user(username):
 
 def get_src_name(player_object):
   if 'id' in player_object:
-    j = get_json('https://www.speedrun.com/api/v1/users/' + player_object['id'])
+    j = make_request('GET', f'{api}/users/' + player_object['id'])
     return j['data']['names']['international']
   elif 'name' in player_object:
     return player_object['name'] # Guests
@@ -103,13 +106,13 @@ def get_runs(**params):
     raise ValueError('You can only get Speedrun.com runs with a game or a category')
 
   runs = []
-  j = get_json('https://www.speedrun.com/api/v1/runs', params=params)
+  j = make_request('GET', f'{api}/runs', params=params)
   while 1:
     runs += j['data']
 
     for link in j['pagination']['links']:
       if link['rel'] == 'next':
-        j = get_json(link['uri'])
+        j = make_request('GET', link['uri'])
         continue
     break # No more results
 
@@ -119,7 +122,7 @@ def get_runs(**params):
 def get_category_name(category_id):
   if category := database.get_category_name(category_id):
     return category
-  j = get_json(f'https://www.speedrun.com/api/v1/categories/{category_id}')
+  j = make_request('GET', f'{api}/categories/{category_id}')
   category = j['data']['name']
   database.set_category_name(category_id, category)
   return category
@@ -135,7 +138,7 @@ def get_subcategory_name(category_id, variable_id, value_id):
     if variable := variables.get(variable_id, None):
       return get_value_name(variable, value_id)
 
-  j = get_json(f'https://www.speedrun.com/api/v1/categories/{category_id}/variables')
+  j = make_request('GET', f'{api}/categories/{category_id}/variables')
   # Slight data manipulation to make lookups a bit easier.
   variables = {row['id']: row for row in j['data']}
 

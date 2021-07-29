@@ -263,7 +263,7 @@ if __name__ == '__main__':
     print('---', test[0], 'started')
 
     # Test body
-    with patch('source.src_apis.get_json') as mock_http:
+    with patch('source.src_apis.make_request') as mock_http:
       test[1](mock_http)
 
     # Test teardown

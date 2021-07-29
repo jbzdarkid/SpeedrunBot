@@ -1,6 +1,9 @@
 import logging
 from pathlib import Path
-from .make_request import get_json, post_json
+
+from .make_request import make_request
+
+api = 'https://api.twitch.tv/helix'
 
 cached_headers = None
 def get_headers():
@@ -11,13 +14,15 @@ def get_headers():
     with Path(__file__).with_name('twitch_client.txt').open() as f:
       client_id = f.read().strip()
 
-    j = post_json('https://id.twitch.tv/oauth2/token', params={
+    j = make_request('POST', 'https://id.twitch.tv/oauth2/token', params={
       'grant_type': 'client_credentials',
       'client_id': client_id,
       'client_secret': token,
     })
-    access_token = j['access_token']
-    cached_headers = {'client-id': client_id, 'Authorization': 'Bearer ' + access_token}
+    cached_headers = {
+      'client-id': client_id,
+      'Authorization': 'Bearer ' + j['access_token']
+    }
   return cached_headers
 
 
@@ -29,7 +34,7 @@ def get_live_game_streams2(game_ids):
   streams = []
   params = {'game_id': game_ids, 'first': 100}
   while 1:
-    j = get_json('https://api.twitch.tv/helix/streams', params=params, headers=get_headers())
+    j = make_request('GET', f'{api}/streams', params=params, headers=get_headers())
     if 'data' not in j:
       break
     streams += [stream for stream in j['data'] if stream['type'] == 'live']
@@ -42,14 +47,14 @@ def get_live_game_streams2(game_ids):
 
 
 def get_game_id(game_name):
-  j = get_json('https://api.twitch.tv/helix/games', params={'name': game_name}, headers=get_headers())
+  j = make_request('GET', f'{api}/games', params={'name': game_name}, headers=get_headers())
   if len(j['data']) == 0:
     raise ValueError(f'Could not find game {game_name} on Twitch')
   return j['data'][0]['id']
 
 
 def get_user_id(username):
-  j = get_json('https://api.twitch.tv/helix/users', params={'login': username}, headers=get_headers())
+  j = make_request('GET', f'{api}/users', params={'login': username}, headers=get_headers())
   if len(j['data']) == 0:
     raise ValueError(f'Could not find user {username} on Twitch')
   return j['data'][0]['id']
