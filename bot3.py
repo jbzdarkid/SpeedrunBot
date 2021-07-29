@@ -189,9 +189,9 @@ async def on_ready():
     tracked_games = list(client.tracked_games.values())
     try:
       streams = list(generics.get_speedrunners_for_game2(tracked_games))
-    except ConnectionError as e:
-      logging.exception(e)
-      continue # Network connection error occurred while fetching streams, take no action (i.e. do not increase offline count)
+    except ConnectionError:
+      logging.exception('Network connection error occurred while fetching streams')
+      continue # The message will be posted next pass.
 
     for game_name, channel_id, in database.get_all_games():
       # For simplicity, we just filter this list down for each respective game.
@@ -215,8 +215,8 @@ async def on_ready():
       try:
         for content in generics.get_new_runs(game_name, src_game_id, last_update):
           await channel.send(content=content)
-      except (discord.errors.HTTPException, ConnectionError) as e:
-        logging.execption(e)
+      except discord.errors.HTTPException, ConnectionError:
+        logging.execption('Network connection error occurred while fetching new runs')
         continue # The message will be posted next pass.
 
     await sleep(60)
@@ -249,6 +249,7 @@ async def on_parsed_streams(streams, game, channel):
       try:
         message = await channel.send(content=content, embed=get_embed(stream))
       except discord.errors.HTTPException:
+        logging.exception('Network error while announcing new stream')
         continue # The message will be posted next pass.
       stream['message'] = message.id
       stream['start'] = datetime.now().timestamp()
@@ -267,6 +268,7 @@ async def on_parsed_streams(streams, game, channel):
           message = await channel.fetch_message(stream['message'])
           await message.edit(embed=get_embed(stream))
         except discord.errors.HTTPException:
+          logging.exception('Network error while updating stream message')
           continue # The message will be edited next pass.
       else:
         logging.info(f'Stream {name} changed games at {datetime.now().ctime()}')
@@ -295,6 +297,7 @@ async def on_parsed_streams(streams, game, channel):
       message = await channel.fetch_message(stream['message'])
       await message.edit(content=content, embed=None)
     except discord.errors.HTTPException:
+      logging.exception('Network error while sending a stream offline')
       continue # The stream can go offline next pass. The offline count will increase, which is OK.
     del client.live_channels[name]
 
@@ -352,6 +355,6 @@ if __name__ == '__main__':
 
     try:
       client.run(token, reconnect=True)
-    except discord.errors.LoginFailure as e:
+    except discord.errors.LoginFailure:
       logging.exception('Discord login failure')
       sys.exit(1)
