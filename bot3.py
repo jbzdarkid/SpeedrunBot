@@ -73,7 +73,7 @@ async def on_message(message):
     response = on_message_internal(message, args)
     if response:
       try:
-        discord_apis.add_reaction({'id': message.id}, '🔇')
+        discord_apis.add_reaction({'id': message.id, 'channel_id': message.channel.id}, '🔇')
       except ConnectionError: # Bot may or may not have permission to add reactions
         logging.exception('Error while attempting to add a reaction')
       await message.channel.send(response)
