@@ -215,7 +215,8 @@ async def on_ready():
       try:
         for content in generics.get_new_runs(game_name, src_game_id, last_update):
           await channel.send(content=content)
-      except discord.errors.HTTPException:
+      except (discord.errors.HTTPException, ConnectionError) as e:
+        logging.execption(e)
         continue # The message will be posted next pass.
 
     await sleep(60)
