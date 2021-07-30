@@ -1,6 +1,7 @@
 import logging
 import requests
 
+from . import exceptions
 
 def handle_completed_request(r):
   if r.request.method == 'POST': # Strip postdata arguments from the URL since they usually contain secrets.
@@ -11,7 +12,7 @@ def handle_completed_request(r):
 
   # Probably a bit overzealous but we'll see if it's every actually a problem.
   if (r.status_code >= 400 and r.status_code <= 599):
-    raise requests.exceptions.ConnectionError(f'{r.status_code} {r.reason.upper()}')
+    raise exceptions.NetworkError(f'{r.status_code} {r.reason.upper()}')
 
   if r.status_code >= 400 and r.status_code <= 499:
     logging.error(f'Client error while talking to {url}: {r.text}')

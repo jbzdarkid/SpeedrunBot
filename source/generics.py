@@ -1,7 +1,7 @@
 import datetime
 import logging
 
-from . import database, src_apis, twitch_apis
+from . import database, src_apis, twitch_apis, exceptions
 
 # In order for the bot to post messages, it needs the "send_messages" permission.
 # Please use this link in to grant the permissions to a server you administrate.
@@ -20,7 +20,10 @@ def track_game(game_name, discord_channel):
 
 
 def moderate_game(game_name, discord_channel):
-  src_game_id = src_apis.get_game_id(game_name)
+  try:
+    src_game_id = src_apis.get_game_id(game_name)
+  except exceptions.NetworkError as e:
+    raise exceptions.CommandError(f'Could not moderate game due to network error {e}')
   database.moderate_game(game_name, src_game_id, discord_channel)
 
 
