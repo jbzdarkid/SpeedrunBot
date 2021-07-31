@@ -30,11 +30,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS moderated_games (
   discord_channel  INTEGER NOT NULL,
   last_update      REAL
 )''')
-c.execute('''CREATE TABLE IF NOT EXISTS categories (
-  category_id      TEXT    NOT NULL    PRIMARY KEY,
-  category_name    TEXT    NOT NULL,
-  variables        TEXT
-)''')
 conn.commit()
 
 
