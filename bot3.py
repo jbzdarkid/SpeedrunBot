@@ -132,6 +132,8 @@ def on_message_internal(message, args):
     return '```' + output.stdout + ('\n' if (output.stderr or output.stdout) else '') + output.stderr + '```'
   def send_last_lines(num_lines=None):
     subprocess.run([sys.executable, Path(__file__).with_name('send_error.py'), str(client.admins[0])])
+  def sql(command, *args):
+    return '\n'.join(map(str, database.execute(sql, *args)))
   def link(twitch_username, src_username):
     assert_args('twitch_username src_username', twitch_username, src_username, example='jbzdarkid darkid')
     twitch_apis.get_user_id(twitch_username) # Will throw if there is any ambiguity about the twich username
@@ -158,6 +160,7 @@ def on_message_internal(message, args):
     '!restart': lambda: restart(),
     '!git_update': lambda: git_update(),
     '!send_last_lines': lambda: send_last_lines(),
+    '!sql': lambda: sql(*args[1:]),
   }
   commands = {
     '!link': lambda: link(*args[1:3]),

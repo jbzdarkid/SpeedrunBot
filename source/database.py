@@ -40,7 +40,7 @@ conn.commit()
 
 # Simple helper to pack *args (because SQL wants it like that)
 def execute(sql, *args):
-  c.execute(sql, args)
+  return c.execute(sql, args)
 
 
 def add_user(twitch_username, src_id, fetch_time=datetime.now().timestamp()):
