@@ -20,10 +20,7 @@ def track_game(game_name, discord_channel):
 
 
 def moderate_game(game_name, discord_channel):
-  try:
-    src_game_id = src_apis.get_game_id(game_name)
-  except exceptions.NetworkError as e:
-    raise exceptions.CommandError(f'Could not moderate game due to network error {e}')
+  src_game_id = src_apis.get_game_id(game_name)
   database.moderate_game(game_name, src_game_id, discord_channel)
 
 
