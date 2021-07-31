@@ -36,6 +36,7 @@ from source import database, generics, twitch_apis, src_apis, discord_apis
 #   https://github.com/speedruncomorg/api/blob/master/version1/embedding.md
 #   https://www.speedrun.com/api/v1/runs/ydr4xdjz?embed=players,platforms,variables,game,category
 #   Should mean I no longer need category/variable DB (for !moderate_game announcements)
+#   Could also mean I can put real pronouns in twitch announcements...
 # TODO: <t:1626594025> is apparently a thing discord supports. Maybe useful somehow?
 #   See https://discord.com/developers/docs/reference#message-formatting
 

@@ -89,21 +89,13 @@ def search_src_user(username):
   raise ValueError(f'Found {len(possible_matches)} possible matches for user {username} on Speedrun.com -- Try one of these options:\n' + suggestions)
 
 
-def get_src_name(player_object):
-  if 'id' in player_object:
-    j = make_request('GET', f'{api}/users/' + player_object['id'])
-    return j['data']['names']['international']
-  elif 'name' in player_object:
-    return player_object['name'] # Guests
-  else:
-    raise ValueError(f'Cannot determine name for player object {player_object}')
-
-
 def get_runs(**params):
-  params['offset'] = 0
-  params['max'] = 100 # Undocumented parameter, gets 100 runs at once.
   if 'game' not in params and 'category' not in params:
     raise ValueError('You can only get Speedrun.com runs with a game or a category')
+
+  params['offset'] = 0
+  params['max'] = 100 # Undocumented parameter, gets 100 runs at once.
+  params['embed'] = 'players,category,category.variables'
 
   runs = []
   j = make_request('GET', f'{api}/runs', params=params)
@@ -119,34 +111,29 @@ def get_runs(**params):
   return runs
 
 
-def get_category_name(category_id):
-  if category := database.get_category_name(category_id):
-    return category
-  j = make_request('GET', f'{api}/categories/{category_id}')
-  category = j['data']['name']
-  database.set_category_name(category_id, category)
-  return category
+# NOTE: Run data must be fetched with embed=players,category,category.variables
+def run_to_string(run):
+    category = run['category']['data']['name']
 
+    subcategories = {}
+    for variable in run['category']['data']['variables']['data']:
+      if not variable['is-subcategory']:
+        continue
+      subcategories[variable['id']] = variable['values']['values']
 
-def get_subcategory_name(category_id, variable_id, value_id):
-  def get_value_name(variable, value_id):
-    if variable['is-subcategory'] and value_id in variable['values']['values']:
-      return variable['values']['values'][value_id]['label']
-    return '' # Variable found, but is not a subcategory
+    for subcategory_id, value_id in run['values'].items():
+      if subcategory := subcategories.get(subcategory_id, None):
+        category += f' ({subcategory[value_id]["label"]})'
 
-  if variables := database.get_category_variables(category_id):
-    if variable := variables.get(variable_id, None):
-      return get_value_name(variable, value_id)
+    time = datetime.timedelta(seconds=run['times']['primary_t'])
 
-  j = make_request('GET', f'{api}/categories/{category_id}/variables')
-  # Slight data manipulation to make lookups a bit easier.
-  variables = {row['id']: row for row in j['data']}
+    def get_name(player):
+      return player['names']['international'] if player['rel'] == 'user' else player['name']
+    runners = ', '.join(map(get_name, run['players']['data']))
 
-  database.set_category_variables(category_id, variables)
+    weblink = run['weblink']
 
-  if variable := variables.get(variable_id, None):
-    return get_value_name(variable, value_id)
-  return '' # Should not happen, variable_id should always be present after a fetch.
+    return f'`{category}` in {time} by {runners}: <{weblink}>'
 
 
 # Undocumented PHP APIs:

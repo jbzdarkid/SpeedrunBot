@@ -119,30 +119,6 @@ def get_user_by_src(src_id):
   return None
 
 
-def get_category_name(category_id):
-  execute('SELECT category_name FROM categories WHERE category_id=?', category_id)
-  data = c.fetchone()
-  return data[0] if data else None
-
-
-def set_category_name(category_id, category_name):
-  execute('INSERT INTO categories VALUES (?, ?, ?)', category_id, category_name, None)
-  conn.commit()
-
-
-def get_category_variables(category_id):
-  execute('SELECT variables FROM categories WHERE category_id=?', category_id)
-  data = c.fetchone()
-  if data and data[0]:
-    return json.loads(data[0])
-  return None
-
-
-def set_category_variables(category_id, variables):
-  execute('UPDATE categories SET variables=? WHERE category_id=?', json.dumps(variables), category_id)
-  conn.commit()
-
-
 def get_game_ids(game_name):
   execute('SELECT twitch_game_id, src_game_id FROM tracked_games WHERE game_name LIKE ?', game_name)
   if data := c.fetchone():

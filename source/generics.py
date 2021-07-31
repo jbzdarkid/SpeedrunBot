@@ -88,6 +88,7 @@ def get_new_runs(game_name, src_game_id, last_update):
   for run in runs:
     # Only announce runs which are more recent than the last announcement date.
     # Unfortunately, there's no way to suggest this filter to the speedrun.com APIs.
+    # It might be possible using one of the undocumented PHP APIs.
     submitted = datetime.datetime.strptime(run['submitted'], '%Y-%m-%dT%H:%M:%SZ')
     submitted = submitted.replace(tzinfo=datetime.timezone.utc) # strptime assumes local time, which is incorrect here.
     if submitted.timestamp() <= last_update:
@@ -95,15 +96,6 @@ def get_new_runs(game_name, src_game_id, last_update):
 
     new_last_update = max(submitted.timestamp(), new_last_update)
 
-    category = src_apis.get_category_name(run['category'])
-    for subcategory_id, value_id in run['values'].items():
-      subcategory = src_apis.get_subcategory_name(run['category'], subcategory_id, value_id)
-      if subcategory:
-        category += f' ({subcategory})'
-
-    weblink = run['weblink']
-    time = datetime.timedelta(seconds=run['times']['primary_t'])
-    runners = ', '.join(src_apis.get_src_name(player) for player in run['players'])
-    yield f'New run submitted: {category} in {time} by {runners}: <{weblink}>'
+    yield f'New run submitted: {src_apis.run_to_string(run)}'
 
   database.update_game_moderation_time(game_name, new_last_update)
