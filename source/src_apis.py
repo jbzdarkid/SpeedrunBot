@@ -95,7 +95,7 @@ def get_runs(**params):
 
   params['offset'] = 0
   params['max'] = 100 # Undocumented parameter, gets 100 runs at once.
-  params['embed'] = 'players,category,category.variables'
+  params['embed'] = 'players,level,category,category.variables'
 
   runs = []
   j = make_request('GET', f'{api}/runs', params=params)
@@ -111,9 +111,12 @@ def get_runs(**params):
   return runs
 
 
-# NOTE: Run data must be fetched with embed=players,category,category.variables
+# NOTE: Run data must be fetched with all parameters in get_runs above
 def run_to_string(run):
     category = run['category']['data']['name']
+
+    if isinstance(run['level']['data'], dict):
+      category = run['level']['data']['name'] + f': {category}'
 
     subcategories = {}
     for variable in run['category']['data']['variables']['data']:
