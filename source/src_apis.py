@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from . import database
 from .make_request import make_request
@@ -125,7 +125,7 @@ def run_to_string(run):
       if subcategory := subcategories.get(subcategory_id, None):
         category += f' ({subcategory[value_id]["label"]})'
 
-    time = datetime.timedelta(seconds=run['times']['primary_t'])
+    time = timedelta(seconds=run['times']['primary_t'])
 
     def get_name(player):
       return player['names']['international'] if player['rel'] == 'user' else player['name']
