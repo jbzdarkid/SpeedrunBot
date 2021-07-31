@@ -84,7 +84,7 @@ async def on_message(message):
       discord_apis.send_message(new_channel, response)
   except AttributeError as e: # Usage errors
     discord_apis.send_message(new_channel, str(e))
-  except requests.exceptions.ConnectionError as e: # Server / connectivity errors
+  except ConnectionError as e: # Server / connectivity errors
     logging.exception('Network error')
     raise exceptions.CommandError(f'Could not track game due to network error {e}')
   except ValueError as e: # Actual errors
