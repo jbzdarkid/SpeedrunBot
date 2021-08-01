@@ -14,7 +14,8 @@ headers = {
 user = sys.argv[1]
 num_lines = int(sys.argv[2]) if len(sys.argv) > 2 else 20
 
-with Path(__file__).with_name('out.log').open('r') as f:
+with Path(__file__).with_name('out.log').open('r', encoding='utf-8') as f:
+  content = f.read()
   last_lines = '\n'.join(f.read().split('\n')[-num_lines:])
   if len(last_lines) >= 1900: # Discord character limit, with enough space for the wrapper text.
     last_lines = last_lines[-1900:]
