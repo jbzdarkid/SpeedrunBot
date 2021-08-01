@@ -12,6 +12,7 @@ def handle_completed_request(r):
 
   # Probably a bit overzealous but we'll see if it's every actually a problem.
   if (r.status_code >= 400 and r.status_code <= 599):
+    logging.info(f'Response: {r.text}')
     raise exceptions.NetworkError(f'{r.status_code} {r.reason.upper()}')
 
   if r.status_code >= 400 and r.status_code <= 499:

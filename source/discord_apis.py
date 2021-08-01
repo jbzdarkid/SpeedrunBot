@@ -21,13 +21,42 @@ def get_headers():
 
 
 def send_message(channel, content, embed=None):
-  json = {'content': content}
-  return make_request('POST', f'{api}/channels/{channel["id"]}/messages', json=json, headers=get_headers())
+  return send_message_ids(channel['id'], content, embed)
 
 
-def edit_message(message, content, embed=None):
+def send_message_ids(channel_id, content, embed=None):
   json = {'content': content}
-  return make_request('PATCH', f'{api}/channels/{message["channel_id"]}/messages/{message["id"]}', json=json, headers=get_headers())
+
+  if embed:
+    # See https://discordjs.guide/popular-topics/embeds.html#embed-preview
+    json['embeds'] = [{
+      'type': 'image',
+      'color': embed.get('color'),
+      'title': embed.get('title'),
+      'url': embed.get('title_link'),
+      'image': {'url': embed.get('image')}
+    }]
+  return make_request('POST', f'{api}/channels/{channel_id}/messages', json=json, headers=get_headers())
+
+
+def edit_message(message, content=None, embed=None):
+  return edit_message_ids(message['channel_id'], message['id'], content=content, embed=embed)
+
+
+def edit_message_ids(channel_id, message_id, content=None, embed=None):
+  json = {}
+  if content:
+    json['content'] = content
+  if embed:
+    # See https://discordjs.guide/popular-topics/embeds.html#embed-preview
+    json['embeds'] = [{
+      'type': 'image',
+      'color': embed.get('color'),
+      'title': embed.get('title'),
+      'url': embed.get('title_link'),
+      'image': {'url': embed.get('image')}
+    }]
+  return make_request('PATCH', f'{api}/channels/{channel_id}/messages/{message_id}', json=json, headers=get_headers())
 
 
 def add_reaction(message, emoji):
