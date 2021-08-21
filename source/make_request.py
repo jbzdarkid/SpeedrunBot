@@ -18,6 +18,7 @@ def handle_completed_request(r):
   if (r.status_code >= 400 and r.status_code <= 599):
     sleep(backoff)
     backoff *= 2
+    logging.info(f'Response: {r.text}')
     raise exceptions.NetworkError(f'{r.status_code} {r.reason.upper()}')
 
   if backoff > 1:
