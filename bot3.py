@@ -234,10 +234,12 @@ async def on_error(event, *args, **kwargs):
 
 def on_parsed_streams(streams, game, channel_id):
   def get_embed(stream):
-    embed = discord.Embed(title=discord.utils.escape_markdown(stream['title']), url=stream['url'])
-    # Add random data to the end of the image URL to force Discord to regenerate the preview.
-    embed.set_image(url=stream['preview'] + '?' + uuid4().hex)
-    return embed
+    return {
+      'title': discord.utils.escape_markdown(stream['title']),
+      'url': stream['url'],
+      # Add random data to the end of the image URL to force Discord to regenerate the preview.
+      'image': stream['preview'] + '?' + uuid4().hex,
+    }
 
   offline_streams = set(client.live_channels.keys())
 
