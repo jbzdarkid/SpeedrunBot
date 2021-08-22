@@ -249,7 +249,7 @@ def on_parsed_streams(streams, game, channel_id):
       logging.info(f'Stream {name} started at {datetime.now().ctime()}')
       content = f'{name} is now doing runs of {game} at {stream["url"]}'
       try:
-        message = discord_apis.send_message(new_channel, content, get_embed(stream))
+        message = discord_apis.send_message_ids(channel_id, content, get_embed(stream))
       except ConnectionError:
         logging.exception('Network error while announcing new stream')
         continue # The message will be posted next pass.
