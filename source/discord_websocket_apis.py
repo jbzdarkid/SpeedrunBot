@@ -5,10 +5,13 @@ import random
 import websockets
 from datetime import datetime, timedelta
 from pathlib import Path
+from threading import Thread
 
 class WebSocket():
-  def __init__(self, on_message_recieved=None):
-    self.on_message_recieved = on_message_recieved
+  def __init__(self, on_message_create=None, on_message_reaction=None):
+    self.on_message_create = on_message_create
+    self.on_message_reaction = on_message_reaction
+
     self.intents = (1 << 9) | (1 << 10) | (1 << 12) # GUILD_MESSAGES, GUILD_MESSAGE_REACTIONS, DIRECT_MESSAGES
     self.sequence = None
     self.connected = False
@@ -58,33 +61,31 @@ class WebSocket():
         continue
 
     # https://discord.com/developers/docs/topics/gateway#identifying
-    identify = {'op': 2, 'd': {
-        'token': self.token,
-        'intents': self.intents,
-        'properties': {
-          '$os': 'windows',
-          '$browser': 'speedrunbot-jbzdarkid',
-          '$device': 'speedrunbot-jbzdarkid',
-        },
-      }
+    identify = {
+      'token': self.token,
+      'intents': self.intents,
+      'properties': {
+        '$os': 'windows',
+        '$browser': 'speedrunbot-jbzdarkid',
+        '$device': 'speedrunbot-jbzdarkid',
+      },
     }
-    await websocket.send(json.dumps(identify))
+    await self.send_message(websocket, 2, identify)
 
     # https://discord.com/developers/docs/topics/gateway#resuming
     if self.session_id:
       logging.info(f'Resuming {self.session_id} at {self.sequence}')
-      resume = {'op': 6, 'd': {
-          'token': self.token,
-          'session_id': self.session_id,
-          'seq': self.sequence,
-        }
+      resume = {
+        'token': self.token,
+        'session_id': self.session_id,
+        'seq': self.sequence,
       }
-      await websocket.send(json.dumps(resume)) # Note that resuming might return Invalid Session.
+      await self.send_message(websocket, 6, resume)
     return websocket
 
 
   async def heartbeat(self, websocket):
-    await websocket.send(json.dumps({'op': 1, 'd': self.sequence}))
+    await self.send_message(websocket, 1, self.sequence)
     ack = await self.get_message(websocket, timeout=self.heartbeat_interval.total_seconds())
     if ack and json.loads(ack)['op'] == 11:
       self.next_heartbeat = datetime.now() + self.heartbeat_interval
@@ -105,18 +106,20 @@ class WebSocket():
       self.disconnected = True
 
 
+  async def send_message(self, websocket, op, data):
+    await websocket.send(json.dumps({'op': op, 'd': data}))
+
   async def handle_message(self, msg):
     msg = json.loads(msg)
     if msg['op'] == 0: # Dispatch
+      self.sequence = msg['s']
       if msg['t'] == 'READY':
         logging.info('Signed in as ' + msg['d']['user']['username'])
         self.session_id = msg['d']['session_id']
-      elif msg['t'] == 'RESUMED':
-        pass
       elif msg['t'] == 'MESSAGE_CREATE':
-        # TODO: Since I neither need to nor want to see this connection, can I post messages into a thread?
-        # That way, the main program can just be sync and slow.
-        self.on_message_recieved(msg['d'])
+        Thread(target=self.on_message_create, args=(msg['d'],)).run()
+      elif msg['t'] == 'MESSAGE_REACTION_ADD':
+        Thread(target=self.on_message_reaction, args=(msg['d'],)).run()
       else:
         logging.error('Not handling message type ' + msg['t'])
 
