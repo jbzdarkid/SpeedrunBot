@@ -31,7 +31,7 @@ def send_message_ids(channel_id, content, embed=None):
     # See https://discordjs.guide/popular-topics/embeds.html#embed-preview
     json['embeds'] = [{
       'type': 'image',
-      'color': embed.get('color'),
+      'color': embed.get('color', '#6441A4'),
       'title': embed.get('title'),
       'url': embed.get('title_link'),
       'image': {'url': embed.get('image')}
@@ -51,7 +51,7 @@ def edit_message_ids(channel_id, message_id, content=None, embed=None):
     # See https://discordjs.guide/popular-topics/embeds.html#embed-preview
     json['embeds'] = [{
       'type': 'image',
-      'color': embed.get('color'),
+      'color': embed.get('color', '#6441A4'),
       'title': embed.get('title'),
       'url': embed.get('title_link'),
       'image': {'url': embed.get('image')}
