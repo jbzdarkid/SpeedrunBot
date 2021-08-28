@@ -19,6 +19,10 @@ def get_headers():
     }
   return cached_headers
 
+# You should probably only use this for testing. Bots should not be in the habit of sending DMs.
+def test_get_dm_channel(user):
+  return make_request('POST', f'{api}/users/@me/channels', json={'recipient_id': user}, headers=get_headers())
+
 
 def send_message(channel, content, embed=None):
   return send_message_ids(channel['id'], content, embed)
@@ -31,7 +35,7 @@ def send_message_ids(channel_id, content, embed=None):
     # See https://discordjs.guide/popular-topics/embeds.html#embed-preview
     json['embeds'] = [{
       'type': 'image',
-      'color': embed.get('color', '#6441A4'),
+      'color': embed.get('color', 0x6441A4),
       'title': embed.get('title'),
       'url': embed.get('title_link'),
       'image': {'url': embed.get('image')}
@@ -51,7 +55,7 @@ def edit_message_ids(channel_id, message_id, content=None, embed=None):
     # See https://discordjs.guide/popular-topics/embeds.html#embed-preview
     json['embeds'] = [{
       'type': 'image',
-      'color': embed.get('color', '#6441A4'),
+      'color': embed.get('color', 0x6441A4),
       'title': embed.get('title'),
       'url': embed.get('title_link'),
       'image': {'url': embed.get('image')}
