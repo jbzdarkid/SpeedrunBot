@@ -10,18 +10,17 @@ from threading import Thread
 class WebSocket():
   def __init__(self, on_message=None, on_reaction=None, on_direct_message=None, on_message_edit=None):
     self.intents = 0
+    self.on_message = on_message
+    self.on_reaction = on_reaction
+    self.on_direct_message = on_direct_message
+    self.on_message_edit = on_message_edit
+
     if on_message:
-      self.on_message = on_message
       self.intents |= (1 << 9) # GUID_MESSAGES
     if on_reaction:
-      self.on_reaction = on_reaction
       self.intents |= (1 << 10) # GUILD_MESSAGE_REACTIONS
     if on_direct_message:
-      self.on_direct_message = on_direct_message
       self.intents |= (1 << 12) # DIRECT_MESSAGES
-    if on_message_edit:
-      self.on_message_edit = on_message_edit
-      # self.intents |= (1 << 9) # GUID_MESSAGES
       
 
     self.sequence = None
