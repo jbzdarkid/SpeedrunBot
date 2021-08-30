@@ -61,7 +61,7 @@ def add_game(game_name, twitch_game_id, src_game_id, discord_channel):
     execute('INSERT INTO tracked_games VALUES (?, ?, ?, ?)', game_name, twitch_game_id, src_game_id, int(discord_channel))
   except sqlite3.IntegrityError:
     logging.exception('SQL error')
-    raise ValueError(f'Game `{game_name}` is already being tracked.')
+    raise exceptions.CommandError(f'Game `{game_name}` is already being tracked.')
   conn.commit()
 
 
@@ -70,14 +70,14 @@ def moderate_game(game_name, src_game_id, discord_channel):
     execute('INSERT INTO moderated_games VALUES (?, ?, ?, 0)', game_name, src_game_id, int(discord_channel))
   except sqlite3.IntegrityError:
     logging.exception('SQL error')
-    raise ValueError(f'Game `{game_name}` is already being moderated.')
+    raise exceptions.CommandError(f'Game `{game_name}` is already being moderated.')
   conn.commit()
 
 
 def remove_game(game_name):
   _, src_game_id = get_game_ids(game_name)
   if not src_game_id:
-    raise ValueError(f'Cannot remove `{game_name}` as it is not currently being tracked.')
+    raise exceptions.CommandError(f'Cannot remove `{game_name}` as it is not currently being tracked.')
 
   # Note: There is no need to delete users here -- users are cross-game.
   execute('DELETE FROM personal_bests WHERE src_game_id=?', src_game_id)

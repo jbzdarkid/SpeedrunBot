@@ -54,7 +54,7 @@ def runner_runs_game(twitch_username, src_id, src_game_id):
 def get_game_id(game_name):
   j = make_request('GET', f'{api}/games', params={'name': game_name})
   if len(j['data']) == 0:
-    raise ValueError(f'Could not find game `{game_name}` on Speedrun.com')
+    raise exceptions.CommandError(f'Could not find game `{game_name}` on Speedrun.com')
 
   if len(j['data']) == 1:
     return j['data'][0]['id']
@@ -67,13 +67,13 @@ def get_game_id(game_name):
     possible_matches.append(f'`{possible_match}`')
 
   suggestions = ', '.join(possible_matches[:10]) # Only show a max of 10 matches, for brevity's sake
-  raise ValueError(f'Found {len(possible_matches)} possible matches for game `{game_name}` on Speedrun.com -- Try one of these options:\n' + suggestions)
+  raise exceptions.CommandError(f'Found {len(possible_matches)} possible matches for game `{game_name}` on Speedrun.com -- Try one of these options:\n' + suggestions)
 
 
 def search_src_user(username):
   j = make_request('GET', f'{api}/users', params={'name': username})
   if len(j['data']) == 0:
-    raise ValueError(f'Could not find user {username} on Speedrun.com')
+    raise exceptions.CommandError(f'Could not find user {username} on Speedrun.com')
 
   if len(j['data']) == 1:
     return j['data'][0]['id']
@@ -86,12 +86,12 @@ def search_src_user(username):
     possible_matches.append(f'`{possible_match}`')
 
   suggestions = ', '.join(possible_matches[:10]) # Only show a max of 10 matches, for brevity's sake
-  raise ValueError(f'Found {len(possible_matches)} possible matches for user {username} on Speedrun.com -- Try one of these options:\n' + suggestions)
+  raise exceptions.CommandError(f'Found {len(possible_matches)} possible matches for user {username} on Speedrun.com -- Try one of these options:\n' + suggestions)
 
 
 def get_runs(**params):
   if 'game' not in params and 'category' not in params:
-    raise ValueError('You can only get Speedrun.com runs with a game or a category')
+    raise exceptions.CommandError('You can only get Speedrun.com runs with a game or a category')
 
   params['offset'] = 0
   params['max'] = 100 # Undocumented parameter, gets 100 runs at once.

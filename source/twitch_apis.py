@@ -29,7 +29,7 @@ def get_headers():
 # game_ids is an array of twitch game ids. (max: 100)
 def get_live_game_streams2(game_ids):
   if len(game_ids) == 0 or len(game_ids) > 100:
-    raise ValueError(f'Invalid number of game IDs: {len(game_ids)}')
+    raise exceptions.CommandError(f'Invalid number of game IDs: {len(game_ids)}')
 
   streams = []
   params = {'game_id': game_ids, 'first': 100}
@@ -49,12 +49,12 @@ def get_live_game_streams2(game_ids):
 def get_game_id(game_name):
   j = make_request('GET', f'{api}/games', params={'name': game_name}, headers=get_headers())
   if len(j['data']) == 0:
-    raise ValueError(f'Could not find game {game_name} on Twitch')
+    raise exceptions.CommandError(f'Could not find game {game_name} on Twitch')
   return j['data'][0]['id']
 
 
 def get_user_id(username):
   j = make_request('GET', f'{api}/users', params={'login': username}, headers=get_headers())
   if len(j['data']) == 0:
-    raise ValueError(f'Could not find user {username} on Twitch')
+    raise exceptions.CommandError(f'Could not find user {username} on Twitch')
   return j['data'][0]['id']

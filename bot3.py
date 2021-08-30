@@ -7,34 +7,38 @@ import sys
 import threading
 from datetime import datetime, timedelta
 from pathlib import Path
-from requests.exceptions import ConnectionError
 from time import sleep
 from uuid import uuid4
 
 from source import database, generics, twitch_apis, src_apis, discord_apis, discord_websocket_apis, exceptions
 
+# WANT
+# TODO: Consider refactoring the core bot logic so that we don't need to filter streams by game
+#  Specifically, I want to simplify on_parsed_streams so that it is only called once, with the complete list of streams.
+#  That way I can also move live_channels into on_parsed_streams, where it belongs.
+#  Then move client.live_channels into a database. Just full read/write JSON is ok.
+# TODO: Discord is not renaming embeds? Or, I'm not changing the embed title correctly on edits.
+#   Definitely broken. Test again now that I'm off discordpy?
 # TODO: [nosrl] (and associated tests)
+# MAYBE
 # TODO: Add a test for 'what if a live message got deleted'
 # TODO: Threading for user lookups will save a lot of time, especially as the list of games grows
 # TODO: Try to improve performance by creating a thread for each runner
 # TODO: Add tests for the database (using in-memory storage?)
 #  Can mock the network via make_request.py
-# TODO: Consider refactoring the core bot logic so that we don't need to filter streams by game
-#  Specifically, I want to simplify on_parsed_streams so that it is only called once, with the complete list of streams.
-#  That way I can also move live_channels into on_parsed_streams, where it belongs.
-# TODO: Discord is not renaming embeds? Or, I'm not changing the embed title correctly on edits.
-#   Definitely broken. Try without discord.py
 # TODO: Stop using select (*) wrong
-# TODO: Move client.live_channels into a database? It's OK if all we ever do with it is full read / full write.
+#  Didn't I fix this? Who knows.
 # TODO: <t:1626594025> is apparently a thing discord supports. Maybe useful somehow?
 #   See https://discord.com/developers/docs/reference#message-formatting
+# TODO: Consider using urrlib3 over requests? I'm barely using requests now.
 
 # Global, since it's referenced in both systems.
 tracked_games = {}
 client = None
+admins = []
 
 def on_direct_message(message):
-  if message['author']['id'] not in client.admins:
+  if message['author']['id'] not in admins:
     return # DO NOT process DMs from non-admins (For safety. It might be fine to process all DMs, I just don't want people spamming the bot without my knowledge.)
     
   on_message_internal(message)
@@ -67,7 +71,7 @@ def on_message_internal(message):
     if len(channel_mentions) == 1:
       return channel_mentions[0]
     if len(channel_mentions) > 1:
-      raise ValueError('Response mentions more than one channel. Please mention at most one channel name at a time.')
+      raise exceptions.CommandError('Response mentions more than one channel. Please mention at most one channel name at a time.')
 
   def assert_args(usage, *required_args, example=None):
     if any((arg == None or arg == '') for arg in required_args):
@@ -98,9 +102,6 @@ def on_message_internal(message):
   def git_update():
     output = subprocess.run(['git', 'pull', '--ff-only'], capture_output=True, text=True, cwd=Path(__file__).parent)
     return '```' + output.stdout + ('\n' if (output.stderr or output.stdout) else '') + output.stderr + '```'
-  # def send_last_lines() # Defined at root scope, since it is broadly used.
-  #   # Hack, should be client.admins[0]? Is there some way to determine this from the discord token?
-  #   subprocess.run([sys.executable, Path(__file__).with_name('send_error.py'), '83001199959216128'])
   def sql(command, *args):
     return '\n'.join(map(str, database.execute(command, *args)))
   def link(twitch_username, src_username):
@@ -117,7 +118,7 @@ def on_message_internal(message):
     return response
   def help():
     all_commands = [f'`{key}`' for key in commands]
-    if message['author']['id'] in client.admins:
+    if message['author']['id'] in admins:
       all_commands += [f'`{key}`' for key in admin_commands]
     return 'Available commands: ' + ', '.join(all_commands)
 
@@ -139,7 +140,7 @@ def on_message_internal(message):
 
   if len(args) == 0:
     return
-  elif message['author']['id'] in client.admins and args[0] in admin_commands:
+  elif message['author']['id'] in admins and args[0] in admin_commands:
     command = admin_commands[args[0]] # Allow admin versions of normal commands
   elif args[0] in commands:
     command = commands[args[0]]
@@ -156,17 +157,19 @@ def on_message_internal(message):
       discord_apis.send_message_ids(message['channel_id'], response)
   except exceptions.UsageError as e: # Usage errors
     discord_apis.send_message_ids(message['channel_id'], str(e))
-  except ConnectionError as e: # Server / connectivity errors
+  except exceptions.NetworkError as e: # Server / connectivity errors
     logging.exception('Network error')
     raise exceptions.CommandError(f'Could not track game due to network error {e}')
-  except ValueError as e: # Actual errors
+  except exceptions.CommandError as e: # Actual errors
     discord_apis.send_message_ids(message['channel_id'], f'Error: {e}')
 
 
 send_error = Path(__file__).with_name('send_error.py')
 def send_last_lines():
-  # Can I move the user ID into send_error? Ideally, we'd determine this from the discord token.
-  subprocess.run([sys.executable, send_error, '83001199959216128'])
+  output = subprocess.run([sys.executable, send_error], capture_output=True, text=True)
+  if output.returncode != 0:
+    logging.error('Sending last lines failed:')
+    logging.error(output.stdout)
 
 
 # If we encounter an uncaught exception, we need to log it, and send details.
@@ -216,37 +219,10 @@ def announce_live_channels():
       json.dump(live_channels, f)
 
 
-# https://github.com/Rapptz/discord.py/blob/master/discord/utils.py#L697
-_MARKDOWN_ESCAPE_SUBREGEX = '|'.join(r'\{0}(?=([\s\S]*((?<!\{0})\{0})))'.format(c) for c in '*`_~|')
-_MARKDOWN_ESCAPE_COMMON = r'^>(?:>>)?\s|\[.+\]\(.+\)'
-_MARKDOWN_ESCAPE_REGEX = re.compile(fr'(?P<markdown>{_MARKDOWN_ESCAPE_SUBREGEX}|{_MARKDOWN_ESCAPE_COMMON})', re.MULTILINE)
-_URL_REGEX = r'(?P<url><[^: >]+:\/[^ >]+>|(?:https?|steam):\/\/[^\s<]+[^<.,:;\"\'\]\s])'
-_MARKDOWN_STOCK_REGEX = fr'(?P<markdown>[_\\~|\*`]|{_MARKDOWN_ESCAPE_COMMON})'
-
-# https://github.com/Rapptz/discord.py/blob/master/discord/utils.py#L743
-def escape_markdown(text, *, as_needed=False, ignore_links=True):
-  if not as_needed:
-
-    def replacement(match):
-      groupdict = match.groupdict()
-      is_url = groupdict.get('url')
-      if is_url:
-        return is_url
-      return '\\' + groupdict['markdown']
-
-    regex = _MARKDOWN_STOCK_REGEX
-    if ignore_links:
-      regex = f'(?:{_URL_REGEX}|{regex})'
-    return re.sub(regex, replacement, text, 0, re.MULTILINE)
-  else:
-    text = re.sub(r'\\', r'\\\\', text)
-    return _MARKDOWN_ESCAPE_REGEX.sub(r'\\\1', text)
-
-
 def on_parsed_streams(live_channels, streams, game, channel_id):
   def get_embed(stream):
     return {
-      'title': escape_markdown(stream['title']),
+      'title': discord_apis.escape_markdown(stream['title']),
       'url': stream['url'],
       # Add random data to the end of the image URL to force Discord to regenerate the preview.
       'image': stream['preview'] + '?' + uuid4().hex,
@@ -263,7 +239,7 @@ def on_parsed_streams(live_channels, streams, game, channel_id):
       content = f'{name} is now doing runs of {game} at {stream["url"]}'
       try:
         message = discord_apis.send_message_ids(channel_id, content, get_embed(stream))
-      except ConnectionError:
+      except exceptions.NetworkError:
         logging.exception('Network error while announcing new stream')
         continue # The message will be posted next pass.
       stream['message'] = message['id']
@@ -285,7 +261,7 @@ def on_parsed_streams(live_channels, streams, game, channel_id):
             message_id=stream['message'],
             embed=get_embed(stream)
           )
-        except ConnectionError:
+        except exceptions.NetworkError:
           logging.exception('Network error while updating stream message')
           continue # The message will be edited next pass.
       else:
@@ -317,7 +293,7 @@ def on_parsed_streams(live_channels, streams, game, channel_id):
         message_id=stream['message'],
         content=content
       )
-    except ConnectionError:
+    except exceptions.NetworkError:
       logging.exception('Network error while sending a stream offline')
       continue # The stream can go offline next pass. The offline count will increase, which is OK.
     del live_channels[name]
@@ -387,11 +363,10 @@ if __name__ == '__main__':
     threading.Thread(target=forever_thread, args=(announce_live_channels, 60)).start()
     threading.Thread(target=forever_thread, args=(announce_new_runs,      600)).start()
 
+    admins = [discord_apis.get_owner()['id']]
+
     client = discord_websocket_apis.WebSocket(
       on_message = on_message,
       on_direct_message = on_direct_message,
     )
-    # Semi-sketchy storage location. But, whatever.
-    client.admins = ['83001199959216128']
-
     client.run()

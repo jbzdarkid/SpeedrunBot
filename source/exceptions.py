@@ -1,12 +1,8 @@
-import requests
-
-# As an interim step, these exceptions inherit from the existing exceptions, at least until I erradicate them.
-
-class NetworkError(requests.exceptions.ConnectionError):
+class NetworkError(Exception):
   pass
 
-class CommandError(ValueError):
+class CommandError(Exception):
   pass
 
-class UsageError(AttributeError):
+class UsageError(Exception):
   pass

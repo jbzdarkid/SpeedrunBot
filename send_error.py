@@ -1,6 +1,7 @@
 import requests
-import sys
 from pathlib import Path
+
+# As tempting as it may be, DO NOT import any non-system modules -- this file needs to be stable!
 
 with Path(__file__).with_name('discord_token.txt').open() as f:
   token = f.read().strip()
@@ -11,8 +12,12 @@ headers = {
   'Content-Type': 'application/json',
 }
 
-user = sys.argv[1]
-num_lines = int(sys.argv[2]) if len(sys.argv) > 2 else 20
+r = requests.get('GET', f'{api}/oauth2/applications/@me', headers=headers)
+if r.status_code != 200:
+  print(r.text)
+  exit(1)
+user = r.json()['owner']['id']
+num_lines = 20
 
 with Path(__file__).with_name('out.log').open('r', encoding='utf-8') as f:
   content = f.read()
