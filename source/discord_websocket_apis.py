@@ -114,11 +114,15 @@ class WebSocket():
       return None
     except websockets.exceptions.ConnectionClosed as e:
       logging.exception(f'Websocket connection closed: {e.code} {e.reason}')
-      self.disconnected = True
+      self.connected = False
 
 
   async def send_message(self, websocket, op, data):
-    await websocket.send(json.dumps({'op': op, 'd': data}))
+    try:
+      await websocket.send(json.dumps({'op': op, 'd': data}))
+    except websockets.exceptions.ConnectionClosedOK:
+      logging.exception(f'Websocket connection closed: {e.code} {e.reason}')
+      self.connected = False
 
 
   async def handle_message(self, msg):
