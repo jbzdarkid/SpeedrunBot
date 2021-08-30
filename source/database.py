@@ -40,6 +40,16 @@ def execute(sql, *args):
   with lock:
     return c.execute(sql, args)
 
+    
+def fetchone():
+  with lock:
+    return c.fetchone()
+
+
+def fetchall():
+  with lock:
+    return c.fetchall()
+
 
 def add_user(twitch_username, src_id, fetch_time=datetime.now().timestamp()):
   execute('INSERT OR REPLACE INTO users VALUES (?, ?, ?)', twitch_username.lower(), src_id, fetch_time)
@@ -97,7 +107,7 @@ def update_game_moderation_time(game_name, last_update=datetime.now().timestamp(
 
 def get_user(twitch_username):
   execute('SELECT * FROM users WHERE twitch_username=?', twitch_username.lower())
-  if data := c.fetchone():
+  if data := fetchone():
     return {
       'twitch_username': data[0],
       'src_id': data[1],
@@ -108,7 +118,7 @@ def get_user(twitch_username):
 
 def get_user_by_src(src_id):
   execute('SELECT * FROM users WHERE src_id=?', src_id)
-  if data := c.fetchone():
+  if data := fetchone():
     return {
       'twitch_username': data[0],
       'src_id': data[1],
@@ -119,21 +129,21 @@ def get_user_by_src(src_id):
 
 def get_game_ids(game_name):
   execute('SELECT twitch_game_id, src_game_id FROM tracked_games WHERE game_name LIKE ?', game_name)
-  if data := c.fetchone():
+  if data := fetchone():
     return data
   return (None, None)
 
 
 def get_all_games():
   execute('SELECT game_name, discord_channel FROM tracked_games')
-  return c.fetchall()
+  return fetchall()
 
 
 def get_all_moderated_games():
   execute('SELECT game_name, src_game_id, discord_channel, last_update FROM moderated_games')
-  return c.fetchall()
+  return fetchall()
 
 
 def has_personal_best(src_id, src_game_id):
   execute('SELECT * FROM personal_bests WHERE src_id=? AND src_game_id=?', src_id, src_game_id)
-  return c.fetchone() != None
+  return fetchone() != None
