@@ -1,17 +1,17 @@
-import discord
 import json
 import logging
 import logging.handlers
 import re
 import subprocess
 import sys
-from asyncio import sleep
+import threading
 from datetime import datetime, timedelta
 from pathlib import Path
 from requests.exceptions import ConnectionError
+from time import sleep
 from uuid import uuid4
 
-from source import database, generics, twitch_apis, src_apis, discord_apis
+from source import database, generics, twitch_apis, src_apis, discord_apis, discord_websocket_apis, exceptions
 
 # TODO: [nosrl] (and associated tests)
 # TODO: Add a test for 'what if a live message got deleted'
@@ -24,114 +24,82 @@ from source import database, generics, twitch_apis, src_apis, discord_apis
 # TODO: Discord is not renaming embeds? Or, I'm not changing the embed title correctly on edits.
 #   Definitely broken. Try without discord.py
 # TODO: Stop using select (*) wrong
-# TODO: Stop hardcoding the admins list
-#   Ensure that "self" (owner of the discord API token) is an admin by default.
-#   Change client.admins to a function (is_admin?)
-#   Provide !op <user> and !deop <user>
 # TODO: Move client.live_channels into a database? It's OK if all we ever do with it is full read / full write.
-# TODO: Try to wean off of discord.py? (I guess also create source/discord_apis.py)
-#   Start with the simple stuff (send a message, edit a message, get a channel)
-#   Move on to the harder stuff (on_message, HTTP errors, auth errors)
-# TODO: I can use ?embed=property to ask SRC APIs to expand the property (and include it in the results).
-#   https://github.com/speedruncomorg/api/blob/master/version1/embedding.md
-#   https://www.speedrun.com/api/v1/runs/ydr4xdjz?embed=players,platforms,variables,game,category
-#   Should mean I no longer need category/variable DB (for !moderate_game announcements)
-#   Could also mean I can put real pronouns in twitch announcements...
 # TODO: <t:1626594025> is apparently a thing discord supports. Maybe useful somehow?
 #   See https://discord.com/developers/docs/reference#message-formatting
 
-# Globals
-client = discord.Client()
-client.started = False # Single-shot boolean to know if we've started up already
-client.tracked_games = {} # Map of channel_id : game name
-client.live_channels = {} # Contains twitch streams which are actively running (or have recently closed).
-client.MAX_OFFLINE = 5 # Consecutive minutes of checks after which a stream is announced as offline.
-client.admins = [83001199959216128]
+# Global, since it's referenced in both systems.
+tracked_games = {}
+client = None
+
+def on_direct_message(message):
+  if message['author']['id'] not in client.admins:
+    return # DO NOT process DMs from non-admins (For safety. It might be fine to process all DMs, I just don't want people spamming the bot without my knowledge.)
+    
+  on_message_internal(message)
 
 
-@client.event
-async def on_message(message):
-  # For use in discord_apis (as opposed to discordpy)
-  new_message = {'id': message.id, 'channel_id': message.channel.id}
-  new_channel = {'id': message.channel.id}
-
-  if not client.started:
-    return
-  elif message.author.id == client.user.id:
+def on_message(message):
+  if message['author']['id'] == client.user['id']:
     return # DO NOT process our own messages
-  elif client.user in message.mentions:
-    pass # DO process messages which mention us, no matter where they're sent
-  elif message.channel.type == discord.ChannelType.private:
-    if message.channel.recipient.id not in client.admins:
-      return # DO NOT process DMs from non-admins (For safety. It might be fine to process all DMs.)
-  elif message.channel.id not in client.tracked_games:
+  elif any(client.user['id'] == mention['id'] for mention in message['mentions']):
+    pass # DO process messages which mention us, no matter which channel they're sent
+  elif message['channel_id'] not in tracked_games:
     return # DO NOT process messages in unwatched channels
 
+  on_message_internal(message)
+
+
+def on_message_internal(message):
   def is_mention(word):
-    # Match length according to discord.py
-    return re.fullmatch('<(@!|@&|#)\d{17,20}>', word)
+    # https://github.com/Rapptz/discord.py/blob/master/discord/message.py#L882
+    return re.fullmatch('<(@!|@&|#)\d{15,20}>', word)
   # Since mentions can appear anywhere in the message, strip them out entirely for command processing.
   # User and channel mentions can still be accessed via message.mentions and message.channel_mentions
-  args = [arg.strip() for arg in message.content.split(' ') if not is_mention(arg)]
+  args = [arg.strip() for arg in message['content'].split(' ') if not is_mention(arg)]
 
-  try:
-    response = on_message_internal(message, args)
-    if response:
-      try:
-        discord_apis.add_reaction(new_message, '🔇')
-      except ConnectionError: # Bot may or may not have permission to add reactions
-        logging.exception('Error while attempting to add a reaction')
-      discord_apis.send_message(new_channel, response)
-  except AttributeError as e: # Usage errors
-    discord_apis.send_message(new_channel, str(e))
-  except ConnectionError as e: # Server / connectivity errors
-    logging.exception('Network error')
-    raise exceptions.CommandError(f'Could not track game due to network error {e}')
-  except ValueError as e: # Actual errors
-    logging.exception('Non-fatal command error')
-    discord_apis.send_message(new_channel, f'Error: {e}')
-
-
-def on_message_internal(message, args):
   def get_channel():
-    if len(message.channel_mentions) == 0:
-      return message.channel
-    if len(message.channel_mentions) == 1:
-      return message.channel_mentions[0]
+    # https://github.com/Rapptz/discord.py/blob/master/discord/message.py#L892
+    channel_mentions = [m[1] for m in re.findall('<#([0-9]{15,20})>', message['content'])]
+    if len(channel_mentions) == 0:
+      return message['channel_id']
+    if len(channel_mentions) == 1:
+      return channel_mentions[0]
     if len(channel_mentions) > 1:
       raise ValueError('Response mentions more than one channel. Please mention at most one channel name at a time.')
 
   def assert_args(usage, *required_args, example=None):
-    if any(arg == None for arg in required_args):
-      error = f'Usage of {args[0]}): `{args[0]} {usage}`'
+    if any((arg == None or arg == '') for arg in required_args):
+      error = f'Usage of {args[0]}: `{args[0]} {usage}`'
       if example:
         error += f'\nFor example: `{args[0]} {example}`'
-      raise AttributeError(error)
+      raise exceptions.UsageError(error)
 
   # Actual commands here
-  def track_game(channel, game_name):
-    assert_args('#channel Game Name', channel, game_name)
-    generics.track_game(game_name, channel.id)
-    return f'Will now announce runners of {game_name} in channel <#{channel.id}>.'
-  def untrack_game(channel, game_name):
-    assert_args('#channel Game Name', channel, game_name)
+  def track_game(channel_id, game_name):
+    assert_args('#channel Game Name', channel_id, game_name)
+    generics.track_game(game_name, channel_id)
+    return f'Will now announce runners of {game_name} in channel <#{channel_id}>.'
+  def untrack_game(channel_id, game_name):
+    assert_args('#channel Game Name', channel_id, game_name)
     database.remove_game(game_name)
-    return f'No longer announcing runners of {game_name} in channel <#{channel.id}>.'
-  def moderate_game(channel, game_name):
-    assert_args('#channel Game Name', channel, game_name)
-    generics.moderate_game(game_name, channel.id)
-    return f'Will now announce newly submitted runs of {game_name} in channel <#{channel.id}>.'
-  def unmoderate_game(channel, game_name):
-    assert_args('#channel Game Name', channel, game_name)
-    generics.unmoderate_game(game_name, channel.id)
-    return f'No longer announcing newly submitted runs of {game_name} in channel <#{channel.id}>.'
+    return f'No longer announcing runners of {game_name} in channel <#{channel_id}>.'
+  def moderate_game(channel_id, game_name):
+    assert_args('#channel Game Name', channel_id, game_name)
+    generics.moderate_game(game_name, channel_id)
+    return f'Will now announce newly submitted runs of {game_name} in channel <#{channel_id}>.'
+  def unmoderate_game(channel_id, game_name):
+    assert_args('#channel Game Name', channel_id, game_name)
+    generics.unmoderate_game(game_name, channel_id)
+    return f'No longer announcing newly submitted runs of {game_name} in channel <#{channel_id}>.'
   def restart():
     sys.exit(int(args[1]) if len(args) > 1 else 0)
   def git_update():
     output = subprocess.run(['git', 'pull', '--ff-only'], capture_output=True, text=True, cwd=Path(__file__).parent)
     return '```' + output.stdout + ('\n' if (output.stderr or output.stdout) else '') + output.stderr + '```'
-  def send_last_lines(num_lines=None):
-    subprocess.run([sys.executable, Path(__file__).with_name('send_error.py'), str(client.admins[0])])
+  # def send_last_lines() # Defined at root scope, since it is broadly used.
+  #   # Hack, should be client.admins[0]? Is there some way to determine this from the discord token?
+  #   subprocess.run([sys.executable, Path(__file__).with_name('send_error.py'), '83001199959216128'])
   def sql(command, *args):
     return '\n'.join(map(str, database.execute(command, *args)))
   def link(twitch_username, src_username):
@@ -141,14 +109,14 @@ def on_message_internal(message, args):
     database.add_user(twitch_username, src_id)
     return f'Successfully linked twitch user {twitch_username} to speedrun.com user {src_username}'
   def about():
-    game = client.tracked_games.get(message.channel, 'this game')
+    game = tracked_games.get(message['channel_id'], 'this game')
     response = 'Speedrunning bot, created by darkid#1647.\n'
     response += f'The bot will search for twitch streams of {game}, then check to see if the given streamer is a speedrunner, then check to see if the speedrunner has a PB in {game}.\n'
     response += 'If so, it announces their stream in this channel.'
     return response
   def help():
     all_commands = [f'`{key}`' for key in commands]
-    if message.author.id in client.admins:
+    if message['author']['id'] in client.admins:
       all_commands += [f'`{key}`' for key in admin_commands]
     return 'Available commands: ' + ', '.join(all_commands)
 
@@ -170,34 +138,64 @@ def on_message_internal(message, args):
 
   if len(args) == 0:
     return
-  elif message.author.id in client.admins and args[0] in admin_commands:
-    return admin_commands[args[0]]() # Allow admin versions of normal commands
+  elif message['author']['id'] in client.admins and args[0] in admin_commands:
+    command = admin_commands[args[0]] # Allow admin versions of normal commands
   elif args[0] in commands:
-    return commands[args[0]]()
-  return None
-
-
-@client.event
-async def on_ready():
-  if client.started: # This function may be called multiple times. We only should run once, though.
+    command = commands[args[0]]
+  elif args[0].startswith('!'):
+    discord_apis.send_message_ids(message['channel_id'], f'Unknown command: `{args[0]}`')
     return
-  client.started = True
+  else:
+    return # Not a command
+  
+  try:
+    response = command()
+    if response:
+      discord_apis.add_reaction(message, '🔇')
+      discord_apis.send_message_ids(message['channel_id'], response)
+  except exceptions.UsageError as e: # Usage errors
+    discord_apis.send_message_ids(message['channel_id'], str(e))
+  except ConnectionError as e: # Server / connectivity errors
+    logging.exception('Network error')
+    raise exceptions.CommandError(f'Could not track game due to network error {e}')
+  except ValueError as e: # Actual errors
+    discord_apis.send_message_ids(message['channel_id'], f'Error: {e}')
 
-  logging.info(f'Logged in as {client.user.name} (id: {client.user.id})')
 
+send_error = Path(__file__).with_name('send_error.py')
+def send_last_lines():
+  # Can I move the user ID into send_error? Ideally, we'd determine this from the discord token.
+  subprocess.run([sys.executable, send_error, '83001199959216128'])
+
+
+# If we encounter an uncaught exception, we need to log it, and send details.
+__threading_excepthook__ = threading.excepthook
+def uncaught_thread_exception(args):
+  if args.exc_type == SystemExit:
+    __threading_excepthook__(args)
+    return
+  logging.exception(f'Uncaught exception in {args.thread.name}')
+  send_last_lines()
+threading.excepthook = uncaught_thread_exception
+
+
+def announce_live_channels():
+  # Contains twitch streams which are actively running (or have recently closed).
   p = Path(__file__).with_name('live_channels.txt')
   if p.exists():
     with p.open('r') as f:
-      client.live_channels = json.load(f)
+      live_channels = json.load(f)
+  else:
+    live_channels = {}
 
-  while 1: # This while loop doesn't expect to return.
+  while 1: # This loop does not exit
     for game_name, channel_id in database.get_all_games():
-      client.tracked_games[channel_id] = game_name
+      global tracked_games
+      tracked_games[channel_id] = game_name
 
-    tracked_games = list(client.tracked_games.values())
     streams = None
     try:
-      streams = list(generics.get_speedrunners_for_game2(tracked_games))
+      streams = list(generics.get_speedrunners_for_game2(list(tracked_games.values())))
     except ConnectionError: # The message will be posted next pass.
       logging.exception('Network connection error occurred while fetching streams')
 
@@ -208,11 +206,11 @@ async def on_ready():
         game_streams = [stream for stream in streams if stream['game_name'] == game_name]
         logging.info(f'There are {len(game_streams)} streams of {game_name}')
 
-        on_parsed_streams(game_streams, game_name, channel_id)
+        on_parsed_streams(live_channels, game_streams, game_name, channel_id)
 
     # Due to bot instability, we write this every loop, just in case we crash.
     with Path(__file__).with_name('live_channels.txt').open('w') as f:
-      json.dump(client.live_channels, f)
+      json.dump(live_channels, f)
 
     for game_name, src_game_id, channel_id, last_update in database.get_all_moderated_games():
       try:
@@ -221,18 +219,10 @@ async def on_ready():
       except ConnectionError: # The message will be posted next pass.
         logging.exception('Network connection error occurred while fetching new runs')
 
-    await sleep(60)
+    sleep(60)
 
 
-@client.event
-async def on_error(event, *args, **kwargs):
-  import traceback
-  traceback.print_exc(chain=False)
-  logging.exception('Fatal error in program')
-  sys.exit(1)
-
-
-def on_parsed_streams(streams, game, channel_id):
+def on_parsed_streams(live_channels, streams, game, channel_id):
   def get_embed(stream):
     return {
       'title': discord.utils.escape_markdown(stream['title']),
@@ -241,13 +231,13 @@ def on_parsed_streams(streams, game, channel_id):
       'image': stream['preview'] + '?' + uuid4().hex,
     }
 
-  offline_streams = set(client.live_channels.keys())
+  offline_streams = set(live_channels.keys())
 
   for stream in streams:
     name = discord.utils.escape_markdown(stream['name'])
     # A missing discord message is essentially equivalent to a new stream;
     # if we didn't send a message, then we weren't really live.
-    if (name not in client.live_channels) or ('message' not in client.live_channels[name]):
+    if (name not in live_channels) or ('message' not in live_channels[name]):
       logging.info(f'Stream {name} started at {datetime.now().ctime()}')
       content = f'{name} is now doing runs of {game} at {stream["url"]}'
       try:
@@ -259,9 +249,9 @@ def on_parsed_streams(streams, game, channel_id):
       stream['start'] = datetime.now().timestamp()
       stream['game'] = game
       stream['offline'] = 0
-      client.live_channels[name] = stream
+      live_channels[name] = stream
     else:
-      stream = client.live_channels[name]
+      stream = live_channels[name]
       offline_streams.remove(name)
       stream['offline'] = 0
 
@@ -286,18 +276,18 @@ def on_parsed_streams(streams, game, channel_id):
         stream['game'] = game
 
   for name in offline_streams:
-    stream = client.live_channels[name]
+    stream = live_channels[name]
     if stream['game'] != game:
       continue # Only parse offline streams for the current game.
 
     stream['offline'] = stream.get('offline', 0) + 1
-    if stream['offline'] < client.MAX_OFFLINE:
+    if stream['offline'] < 5: # MAX_OFFLINE
       logging.info(f'Stream {name} has been offline for {stream["offline"]} consecutive checks')
       continue
 
     # Stream has been offline for (5) consecutive checks, close down the post
     logging.info(f'Stream {name} went offline at {datetime.now().ctime()}')
-    duration_sec = int(datetime.now().timestamp() - client.live_channels[name]['start'])
+    duration_sec = int(datetime.now().timestamp() - live_channels[name]['start'])
     content = f'{name} went offline after {timedelta(seconds=duration_sec)}.\r\n'
     content += 'Watch their latest videos here: <' + stream['url'] + '/videos?filter=archives>'
     try:
@@ -309,7 +299,7 @@ def on_parsed_streams(streams, game, channel_id):
     except ConnectionError:
       logging.exception('Network error while sending a stream offline')
       continue # The stream can go offline next pass. The offline count will increase, which is OK.
-    del client.live_channels[name]
+    del live_channels[name]
 
 
 if __name__ == '__main__':
@@ -355,7 +345,7 @@ if __name__ == '__main__':
         logging.error(output.stderr)
       output = subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:])
       if output.returncode != 0:
-        subprocess.run([sys.executable, Path(__file__).with_name('send_error.py'), str(client.admins[0])])
+        send_last_lines()
         logging.error('Subprocess crashed, waiting for 60 seconds before restarting')
         time.sleep(60) # Sleep after exit, to prevent losing my token.
 
@@ -363,8 +353,13 @@ if __name__ == '__main__':
     with Path(__file__).with_name('discord_token.txt').open() as f:
       token = f.read().strip()
 
-    try:
-      client.run(token, reconnect=True)
-    except discord.errors.LoginFailure:
-      logging.exception('Discord login failure')
-      sys.exit(1)
+    threading.Thread(target=announce_live_channels).start()
+
+    client = discord_websocket_apis.WebSocket(
+      on_message = on_message,
+      on_direct_message = on_direct_message,
+    )
+    # Semi-sketchy storage location. But, whatever.
+    client.admins = ['83001199959216128']
+
+    client.run()

@@ -8,11 +8,18 @@ from pathlib import Path
 from threading import Thread
 
 class WebSocket():
-  def __init__(self, on_message_create=None, on_message_reaction=None):
-    self.on_message_create = on_message_create
-    self.on_message_reaction = on_message_reaction
+  def __init__(self, on_message=None, on_reaction=None, on_direct_message=None):
+    self.intents = 0
+    if on_message:
+      self.on_message = on_message
+      self.intents |= (1 << 9) # GUID_MESSAGES
+    if on_reaction:
+      self.on_reaction = on_reaction
+      self.intents |= (1 << 10) # GUILD_MESSAGE_REACTIONS
+    if on_direct_message:
+      self.on_direct_message = on_direct_message
+      self.intents |= (1 << 12) # DIRECT_MESSAGES
 
-    self.intents = (1 << 9) | (1 << 10) | (1 << 12) # GUILD_MESSAGES, GUILD_MESSAGE_REACTIONS, DIRECT_MESSAGES
     self.sequence = None
     self.connected = False
     self.session_id = None
@@ -22,11 +29,11 @@ class WebSocket():
 
 
   def run(self):
-    asyncio.get_event_loop().run_until_complete(self.run())
+    asyncio.get_event_loop().run_until_complete(self.run_async())
 
 
-  async def run(self):
-    while 1:
+  async def run_async(self):
+    while 1: # This loop does not exit
       websocket = await self.connect_and_resume()
 
       # Main loop: Wait for messages, interrupting for heartbeats.
@@ -52,7 +59,7 @@ class WebSocket():
 
       # https://discord.com/developers/docs/topics/gateway#heartbeating
       random_startup = self.heartbeat_interval.total_seconds() * random.random()
-      logging.info(f'Connecting in {random_startup} seconds')
+      logging.error(f'Connecting in {random_startup} seconds')
       await asyncio.sleep(random_startup)
       await self.heartbeat(websocket)
 
@@ -109,17 +116,22 @@ class WebSocket():
   async def send_message(self, websocket, op, data):
     await websocket.send(json.dumps({'op': op, 'd': data}))
 
+
   async def handle_message(self, msg):
     msg = json.loads(msg)
     if msg['op'] == 0: # Dispatch
       self.sequence = msg['s']
       if msg['t'] == 'READY':
-        logging.info('Signed in as ' + msg['d']['user']['username'])
+        logging.error('Signed in as ' + msg['d']['user']['username'])
+        self.user = msg['d']['user']
         self.session_id = msg['d']['session_id']
       elif msg['t'] == 'MESSAGE_CREATE':
-        Thread(target=self.on_message_create, args=(msg['d'],)).run()
+        if 'guild_id' in msg['d']:
+          Thread(target=self.on_message, args=(msg['d'],)).start()
+        else:
+          Thread(target=self.on_direct_message, args=(msg['d'],)).start()
       elif msg['t'] == 'MESSAGE_REACTION_ADD':
-        Thread(target=self.on_message_reaction, args=(msg['d'],)).run()
+        Thread(target=self.on_reaction, args=(msg['d'],)).start()
       else:
         logging.error('Not handling message type ' + msg['t'])
 

@@ -7,3 +7,6 @@ class NetworkError(requests.exceptions.ConnectionError):
 
 class CommandError(ValueError):
   pass
+
+class UsageError(AttributeError):
+  pass

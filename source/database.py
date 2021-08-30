@@ -4,7 +4,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-conn = sqlite3.connect(Path(__file__).with_name('database.db'))
+conn = sqlite3.connect(Path(__file__).with_name('database.db'), check_same_thread=False)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS users (
   twitch_username  TEXT    NOT NULL    PRIMARY KEY,

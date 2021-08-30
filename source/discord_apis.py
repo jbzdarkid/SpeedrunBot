@@ -64,7 +64,10 @@ def edit_message_ids(channel_id, message_id, content=None, embed=None):
 
 
 def add_reaction(message, emoji):
-  make_request('PUT', f'{api}/channels/{message["channel_id"]}/messages/{message["id"]}/reactions/{emoji}/@me', headers=get_headers())
+  try:
+    make_request('PUT', f'{api}/channels/{message["channel_id"]}/messages/{message["id"]}/reactions/{emoji}/@me', headers=get_headers())
+  except ConnectionError: # Bot may or may not have permission to add reactions
+    logging.exception('Error while attempting to add a reaction')
   return None
 
 
