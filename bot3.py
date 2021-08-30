@@ -21,6 +21,7 @@ from source import database, generics, twitch_apis, src_apis, discord_apis, disc
 #  Can mock the network via make_request.py
 # TODO: Consider refactoring the core bot logic so that we don't need to filter streams by game
 #  Specifically, I want to simplify on_parsed_streams so that it is only called once, with the complete list of streams.
+#  That way I can also move live_channels into on_parsed_streams, where it belongs.
 # TODO: Discord is not renaming embeds? Or, I'm not changing the embed title correctly on edits.
 #   Definitely broken. Try without discord.py
 # TODO: Stop using select (*) wrong
@@ -179,53 +180,73 @@ def uncaught_thread_exception(args):
 threading.excepthook = uncaught_thread_exception
 
 
+def announce_new_runs():
+  for game_name, src_game_id, channel_id, last_update in database.get_all_moderated_games():
+    for content in generics.get_new_runs(game_name, src_game_id, last_update):
+      discord_apis.send_message_ids(channel_id, content)
+
+
+p = Path(__file__).with_name('live_channels.txt')
 def announce_live_channels():
   # Contains twitch streams which are actively running (or have recently closed).
-  p = Path(__file__).with_name('live_channels.txt')
-  if p.exists():
+  if not p.exists():
+    with p.open('w') as f:
+      p.write('{}')
+
+  for game_name, channel_id in database.get_all_games():
+    global tracked_games
+    tracked_games[channel_id] = game_name
+
+  # Calls to list() make me sad.
+  streams = list(generics.get_speedrunners_for_game2(list(tracked_games.values())))
+
+  if streams:
     with p.open('r') as f:
       live_channels = json.load(f)
-  else:
-    live_channels = {}
 
-  while 1: # This loop does not exit
-    for game_name, channel_id in database.get_all_games():
-      global tracked_games
-      tracked_games[channel_id] = game_name
+    for game_name, channel_id, in database.get_all_games():
+      # For simplicity, we just filter this list down for each respective game.
+      # It's not (that) costly, and it saves me having to refactor the core bot logic.
+      game_streams = [stream for stream in streams if stream['game_name'] == game_name]
+      logging.info(f'There are {len(game_streams)} streams of {game_name}')
 
-    streams = None
-    try:
-      streams = list(generics.get_speedrunners_for_game2(list(tracked_games.values())))
-    except ConnectionError: # The message will be posted next pass.
-      logging.exception('Network connection error occurred while fetching streams')
+      on_parsed_streams(live_channels, game_streams, game_name, channel_id)
 
-    if streams:
-      for game_name, channel_id, in database.get_all_games():
-        # For simplicity, we just filter this list down for each respective game.
-        # It's not (that) costly, and it saves me having to refactor the core bot logic.
-        game_streams = [stream for stream in streams if stream['game_name'] == game_name]
-        logging.info(f'There are {len(game_streams)} streams of {game_name}')
-
-        on_parsed_streams(live_channels, game_streams, game_name, channel_id)
-
-    # Due to bot instability, we write this every loop, just in case we crash.
-    with Path(__file__).with_name('live_channels.txt').open('w') as f:
+    with p.open('w') as f:
       json.dump(live_channels, f)
 
-    for game_name, src_game_id, channel_id, last_update in database.get_all_moderated_games():
-      try:
-        for content in generics.get_new_runs(game_name, src_game_id, last_update):
-          discord_apis.send_message_ids(channel_id, content)
-      except ConnectionError: # The message will be posted next pass.
-        logging.exception('Network connection error occurred while fetching new runs')
 
-    sleep(60)
+# https://github.com/Rapptz/discord.py/blob/master/discord/utils.py#L697
+_MARKDOWN_ESCAPE_SUBREGEX = '|'.join(r'\{0}(?=([\s\S]*((?<!\{0})\{0})))'.format(c) for c in '*`_~|')
+_MARKDOWN_ESCAPE_COMMON = r'^>(?:>>)?\s|\[.+\]\(.+\)'
+_MARKDOWN_ESCAPE_REGEX = re.compile(fr'(?P<markdown>{_MARKDOWN_ESCAPE_SUBREGEX}|{_MARKDOWN_ESCAPE_COMMON})', re.MULTILINE)
+_URL_REGEX = r'(?P<url><[^: >]+:\/[^ >]+>|(?:https?|steam):\/\/[^\s<]+[^<.,:;\"\'\]\s])'
+_MARKDOWN_STOCK_REGEX = fr'(?P<markdown>[_\\~|\*`]|{_MARKDOWN_ESCAPE_COMMON})'
+
+# https://github.com/Rapptz/discord.py/blob/master/discord/utils.py#L743
+def escape_markdown(text, *, as_needed=False, ignore_links=True):
+  if not as_needed:
+
+    def replacement(match):
+      groupdict = match.groupdict()
+      is_url = groupdict.get('url')
+      if is_url:
+        return is_url
+      return '\\' + groupdict['markdown']
+
+    regex = _MARKDOWN_STOCK_REGEX
+    if ignore_links:
+      regex = f'(?:{_URL_REGEX}|{regex})'
+    return re.sub(regex, replacement, text, 0, re.MULTILINE)
+  else:
+    text = re.sub(r'\\', r'\\\\', text)
+    return _MARKDOWN_ESCAPE_REGEX.sub(r'\\\1', text)
 
 
 def on_parsed_streams(live_channels, streams, game, channel_id):
   def get_embed(stream):
     return {
-      'title': discord.utils.escape_markdown(stream['title']),
+      'title': escape_markdown(stream['title']),
       'url': stream['url'],
       # Add random data to the end of the image URL to force Discord to regenerate the preview.
       'image': stream['preview'] + '?' + uuid4().hex,
@@ -234,7 +255,7 @@ def on_parsed_streams(live_channels, streams, game, channel_id):
   offline_streams = set(live_channels.keys())
 
   for stream in streams:
-    name = discord.utils.escape_markdown(stream['name'])
+    name = escape_markdown(stream['name'])
     # A missing discord message is essentially equivalent to a new stream;
     # if we didn't send a message, then we weren't really live.
     if (name not in live_channels) or ('message' not in live_channels[name]):
@@ -285,7 +306,7 @@ def on_parsed_streams(live_channels, streams, game, channel_id):
       logging.info(f'Stream {name} has been offline for {stream["offline"]} consecutive checks')
       continue
 
-    # Stream has been offline for (5) consecutive checks, close down the post
+    # Stream has been offline for MAX_OFFLINE consecutive checks, close down the post
     logging.info(f'Stream {name} went offline at {datetime.now().ctime()}')
     duration_sec = int(datetime.now().timestamp() - live_channels[name]['start'])
     content = f'{name} went offline after {timedelta(seconds=duration_sec)}.\r\n'
@@ -331,7 +352,7 @@ if __name__ == '__main__':
   stream_handler.setFormatter(logging.Formatter('Error: %(message)s'))
 
   # The level here acts as a global level filter. Why? I dunno.
-  # Set to info so discord/requests don't spam it too much.
+  # Set to info so requests doesn't spam it too much.
   logging.basicConfig(level=logging.INFO, handlers=[file_handler, stream_handler])
 
   if 'subtask' not in sys.argv:
@@ -353,7 +374,18 @@ if __name__ == '__main__':
     with Path(__file__).with_name('discord_token.txt').open() as f:
       token = f.read().strip()
 
-    threading.Thread(target=announce_live_channels).start()
+    def forever_thread(func, sleep_time):
+      while 1: # This loop does not exit
+        try:
+          func()
+        except:
+          logging.exception('catch-all for forever_thread')
+          send_last_lines()
+
+        sleep(sleep_time)
+
+    threading.Thread(target=forever_thread, args=(announce_live_channels, 60)).start()
+    threading.Thread(target=forever_thread, args=(announce_new_runs,      600)).start()
 
     client = discord_websocket_apis.WebSocket(
       on_message = on_message,

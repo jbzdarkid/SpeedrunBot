@@ -8,7 +8,7 @@ from pathlib import Path
 from threading import Thread
 
 class WebSocket():
-  def __init__(self, on_message=None, on_reaction=None, on_direct_message=None):
+  def __init__(self, on_message=None, on_reaction=None, on_direct_message=None, on_message_edit=None):
     self.intents = 0
     if on_message:
       self.on_message = on_message
@@ -19,6 +19,10 @@ class WebSocket():
     if on_direct_message:
       self.on_direct_message = on_direct_message
       self.intents |= (1 << 12) # DIRECT_MESSAGES
+    if on_message_edit:
+      self.on_message_edit = on_message_edit
+      # self.intents |= (1 << 9) # GUID_MESSAGES
+      
 
     self.sequence = None
     self.connected = False
@@ -121,19 +125,25 @@ class WebSocket():
     msg = json.loads(msg)
     if msg['op'] == 0: # Dispatch
       self.sequence = msg['s']
+      target = None
       if msg['t'] == 'READY':
         logging.error('Signed in as ' + msg['d']['user']['username'])
         self.user = msg['d']['user']
         self.session_id = msg['d']['session_id']
       elif msg['t'] == 'MESSAGE_CREATE':
         if 'guild_id' in msg['d']:
-          Thread(target=self.on_message, args=(msg['d'],)).start()
+          target = self.on_message
         else:
-          Thread(target=self.on_direct_message, args=(msg['d'],)).start()
+          target = self.on_direct_message
       elif msg['t'] == 'MESSAGE_REACTION_ADD':
-        Thread(target=self.on_reaction, args=(msg['d'],)).start()
+        target = self.on_reaction
+      elif msg['t'] == 'MESSAGE_UPDATE':
+        target = self.on_message_edit
       else:
         logging.error('Not handling message type ' + msg['t'])
+
+      if target:
+        Thread(target=target, args=(msg['d'],)).start()
 
     elif msg['op'] == 1: # Heartbeat
       await self.heartbeat()
