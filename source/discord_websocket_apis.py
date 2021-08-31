@@ -21,7 +21,7 @@ class WebSocket():
       self.intents |= (1 << 10) # GUILD_MESSAGE_REACTIONS
     if on_direct_message:
       self.intents |= (1 << 12) # DIRECT_MESSAGES
-      
+
 
     self.sequence = None
     self.connected = False
@@ -109,7 +109,7 @@ class WebSocket():
   async def get_message(self, websocket, timeout):
     try:
       return await asyncio.wait_for(websocket.recv(), timeout=timeout)
-    except asyncio.TimeoutError:
+    except (asyncio.TimeoutError, asyncio.CancelledError) as e:
       return None
     except websockets.exceptions.ConnectionClosed as e:
       logging.exception(f'Websocket connection closed: {e.code} {e.reason}')
