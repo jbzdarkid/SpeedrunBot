@@ -231,7 +231,7 @@ def on_parsed_streams(live_channels, streams, game, channel_id):
   offline_streams = set(live_channels.keys())
 
   for stream in streams:
-    name = escape_markdown(stream['name'])
+    name = discord_apis.escape_markdown(stream['name'])
     # A missing discord message is essentially equivalent to a new stream;
     # if we didn't send a message, then we weren't really live.
     if (name not in live_channels) or ('message' not in live_channels[name]):
