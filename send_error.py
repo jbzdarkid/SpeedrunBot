@@ -12,7 +12,7 @@ headers = {
   'Content-Type': 'application/json',
 }
 
-r = requests.get('GET', f'{api}/oauth2/applications/@me', headers=headers)
+r = requests.get(f'{api}/oauth2/applications/@me', headers=headers)
 if r.status_code != 200:
   print(r.text)
   exit(1)
