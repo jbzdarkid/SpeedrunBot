@@ -223,9 +223,10 @@ def on_parsed_streams(live_channels, streams, game, channel_id):
   def get_embed(stream):
     return {
       'title': discord_apis.escape_markdown(stream['title']),
-      'url': stream['url'],
+      'title_link': stream['url'],
       # Add random data to the end of the image URL to force Discord to regenerate the preview.
       'image': stream['preview'] + '?' + uuid4().hex,
+      'color': 0x6441A4, # Twitch branding color
     }
 
   offline_streams = set(live_channels.keys())
@@ -369,4 +370,8 @@ if __name__ == '__main__':
       on_message = on_message,
       on_direct_message = on_direct_message,
     )
-    client.run()
+    try:
+      client.run()
+    except:
+      logging.exception('catch-all for client.run')
+      send_last_lines()

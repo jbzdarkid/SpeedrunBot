@@ -56,7 +56,7 @@ class WebSocket():
   async def connect_and_resume(self):
     while not self.connected:
       websocket = await websockets.connect('wss://gateway.discord.gg/?v=9&encoding=json')
-      hello = json.loads(await websocket.recv())
+      hello = self.get_message(websocket)
       self.heartbeat_interval = timedelta(milliseconds=hello['d']['heartbeat_interval'])
       self.connected = True # Set connected early, since both heartbeat and identify can trigger a disconnection.
 
@@ -106,21 +106,21 @@ class WebSocket():
       self.connected = False
 
 
-  async def get_message(self, websocket, timeout):
+  async def get_message(self, websocket, timeout=None):
     try:
       return await asyncio.wait_for(websocket.recv(), timeout=timeout)
     except (asyncio.TimeoutError, asyncio.CancelledError) as e:
       return None
-    except websockets.exceptions.ConnectionClosed as e:
-      logging.exception(f'Websocket connection closed: {e.code} {e.reason}')
+    except websockets.exceptions.WebSocketException as e:
+      logging.exception(f'Websocket connection closed: {str(e)}')
       self.connected = False
 
 
   async def send_message(self, websocket, op, data):
     try:
       await websocket.send(json.dumps({'op': op, 'd': data}))
-    except websockets.exceptions.ConnectionClosedOK:
-      logging.exception(f'Websocket connection closed: {e.code} {e.reason}')
+    except websockets.exceptions.WebSocketException as e:
+      logging.exception(f'Websocket connection closed: {str(e)}')
       self.connected = False
 
 
