@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timedelta
 
-from . import database
+from . import database, exceptions
 from .make_request import make_request
 
 ONE_HOUR  = (3600)
@@ -22,7 +22,11 @@ def get_src_id(twitch_username):
       return user['src_id']
 
   # Make a network call to determine if the streamer is a speedrunner.
-  j = make_request('GET', f'{api}/users', params={'twitch': twitch_username})
+  try:
+    j = make_request('GET', f'{api}/users', params={'twitch': twitch_username})
+  except exceptions.NetworkError:
+    return None
+
   if len(j['data']) == 0:
     database.add_user(twitch_username, None)
     return None
