@@ -56,7 +56,7 @@ class WebSocket():
   async def connect_and_resume(self):
     while not self.connected:
       websocket = await websockets.connect('wss://gateway.discord.gg/?v=9&encoding=json')
-      hello = self.get_message(websocket)
+      hello = await self.get_message(websocket)
       self.heartbeat_interval = timedelta(milliseconds=hello['d']['heartbeat_interval'])
       self.connected = True # Set connected early, since both heartbeat and identify can trigger a disconnection.
 
