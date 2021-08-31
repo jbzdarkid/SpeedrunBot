@@ -4,28 +4,13 @@ from time import sleep
 
 from . import exceptions
 
-backoff = 1
+def make_request_unsafe(method, url, *args, **kwargs):
+  r = requests.request(method, url, *args, **kwargs)
+  r.raise_for_status() # Raise an exception for any 400 or 500 class response
 
-def handle_completed_request(r):
   if r.request.method == 'POST': # Strip postdata arguments from the URL since they usually contain secrets.
-    url = r.url.split('?')[0]
-  else:
-    url = r.url
+    url = url.split('?')[0]
   logging.info(f'Completed {r.request.method} request to {url} with code {r.status_code}')
-
-  global backoff
-  # Probably a bit overzealous but we'll see if it's every actually a problem.
-  if (r.status_code >= 400 and r.status_code <= 599):
-    sleep(backoff)
-    backoff *= 2
-    logging.info(f'Response: {r.text}')
-    raise exceptions.NetworkError(f'{r.status_code} {r.reason.upper()}')
-
-  if backoff > 1:
-    backoff //= 2
-
-  if r.status_code >= 400 and r.status_code <= 499:
-    logging.error(f'Client error while talking to {url}: {r.text}')
 
   if r.status_code == 204: # 204 NO CONTENT
     return ''
@@ -33,6 +18,22 @@ def handle_completed_request(r):
     return r.json()
 
 
+backoff = 1
 def make_request(method, url, *args, **kwargs):
-  r = requests.request(method, url, *args, **kwargs)
-  return handle_completed_request(r)
+  global backoff
+
+  try:
+    response = make_requests_unsafe(method, url, *args, **kwargs)
+    backoff = max(1, backoff // 2)
+    return response
+
+  except requests.exceptions.RequestException as e:
+    sleep(backoff)
+    backoff = min(60, backoff * 2)
+
+    r = e.response
+    if r:
+      logging.error(f'Error response text: {r.text}')
+      raise exceptions.NetworkError(f'{r.status_code} {r.reason.upper()}')
+    else:
+      raise exceptions.NetworkError(f'{e.request.method.upper()} "{e.request.url}" failed')
