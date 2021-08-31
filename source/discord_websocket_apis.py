@@ -57,7 +57,7 @@ class WebSocket():
     while not self.connected:
       websocket = await websockets.connect('wss://gateway.discord.gg/?v=9&encoding=json')
       hello = await self.get_message(websocket)
-      self.heartbeat_interval = timedelta(milliseconds=hello['d']['heartbeat_interval'])
+      self.heartbeat_interval = timedelta(milliseconds=json.loads(hello)['d']['heartbeat_interval'])
       self.connected = True # Set connected early, since both heartbeat and identify can trigger a disconnection.
 
       # https://discord.com/developers/docs/topics/gateway#heartbeating
