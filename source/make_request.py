@@ -23,7 +23,7 @@ def make_request(method, url, *args, **kwargs):
   global backoff
 
   try:
-    response = make_requests_unsafe(method, url, *args, **kwargs)
+    response = make_request_unsafe(method, url, *args, **kwargs)
     backoff = max(1, backoff // 2)
     return response
 
