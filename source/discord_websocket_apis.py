@@ -114,6 +114,7 @@ class WebSocket():
     except websockets.exceptions.WebSocketException as e:
       logging.exception(f'Websocket connection closed: {str(e)}')
       self.connected = False
+      return None
 
 
   async def send_message(self, websocket, op, data):
@@ -151,9 +152,9 @@ class WebSocket():
     elif msg['op'] == 1: # Heartbeat
       await self.heartbeat()
     elif msg['op'] == 7: # Reconnect
-      self.disconnected = True
+      self.connected = False
     elif msg['op'] == 9: # Invalid Session
-      self.disconnected = True
+      self.connected = False
       if not msg['d']: # Session is not resumable
         self.session_id = None
     else:
