@@ -166,7 +166,7 @@ def on_message_internal(message):
 
 send_error = Path(__file__).with_name('send_error.py')
 def send_last_lines():
-  output = subprocess.run([sys.executable, send_error], capture_output=True, text=True)
+  output = subprocess.run([sys.executable, send_error], stderr=subprocess.STDOUT, stdout=subprocess.PIPE, text=True)
   if output.returncode != 0:
     logging.error('Sending last lines failed:')
     logging.error(output.stdout)
