@@ -22,7 +22,6 @@ class WebSocket():
     if on_direct_message:
       self.intents |= (1 << 12) # DIRECT_MESSAGES
 
-
     self.sequence = None
     self.connected = False
     self.session_id = None
@@ -78,7 +77,7 @@ class WebSocket():
         '$os': 'windows',
         '$browser': 'speedrunbot-jbzdarkid',
         '$device': 'speedrunbot-jbzdarkid',
-      },
+      }
     }
     await self.send_message(websocket, 2, identify)
 
@@ -108,10 +107,14 @@ class WebSocket():
 
   async def get_message(self, websocket, timeout=None):
     try:
-      return await asyncio.wait_for(websocket.recv(), timeout=timeout)
+      msg = await asyncio.wait_for(websocket.recv(), timeout=timeout)
+      logging.info(f'Received: {msg}')
+      return msg
     except (asyncio.TimeoutError, asyncio.CancelledError) as e:
+      logging.info(e)
       return None
     except websockets.exceptions.ConnectionClosedError as e:
+      logging.info(e)
       if e.code == 1011:
         return None # Discord sometimes returns this code to ask for a reconnection.
       logging.exception(f'Websocket connection closed: {e}')
@@ -123,6 +126,7 @@ class WebSocket():
 
 
   async def send_message(self, websocket, op, data):
+    logging.info(f'Sending: {op}, {data}')
     try:
       await websocket.send(json.dumps({'op': op, 'd': data}))
     except websockets.exceptions.WebSocketException as e:
