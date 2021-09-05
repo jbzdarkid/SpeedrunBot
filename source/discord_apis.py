@@ -81,7 +81,9 @@ def edit_message_ids(channel_id, message_id, content=None, embed=None):
   json = {}
   if content:
     json['content'] = content
-  if embed:
+  if embed == []: # Signal value to remove embed
+    json['embeds'] = []
+  elif embed:
     # See https://discordjs.guide/popular-topics/embeds.html#embed-preview
     json['embeds'] = [{
       'type': 'image',

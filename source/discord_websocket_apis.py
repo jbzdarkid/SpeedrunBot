@@ -111,7 +111,7 @@ class WebSocket():
       return await asyncio.wait_for(websocket.recv(), timeout=timeout)
     except (asyncio.TimeoutError, asyncio.CancelledError) as e:
       return None
-    except websockets.exceptions.WebSocketException as e:
+    except (websockets.exceptions.WebSocketException, websockets.exceptions.ConnectionClosedError) as e:
       logging.exception(f'Websocket connection closed: {str(e)}')
       self.connected = False
       return None

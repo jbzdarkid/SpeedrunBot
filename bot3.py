@@ -12,6 +12,10 @@ from uuid import uuid4
 
 from source import database, generics, twitch_apis, src_apis, discord_apis, discord_websocket_apis, exceptions
 
+# BUG
+# If a user is a speedrunner (but not of a tracked game) we check for PB on every call.
+
+
 # WANT
 # TODO: Consider refactoring the core bot logic so that we don't need to filter streams by game
 #  Specifically, I want to simplify on_parsed_streams so that it is only called once, with the complete list of streams.
@@ -292,7 +296,8 @@ def on_parsed_streams(live_channels, streams, game, channel_id):
       discord_apis.edit_message_ids(
         channel_id=channel_id,
         message_id=stream['message'],
-        content=content
+        content=content,
+        embed=[], # Remove the embed
       )
     except exceptions.NetworkError:
       logging.exception('Network error while sending a stream offline')
