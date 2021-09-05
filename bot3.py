@@ -12,9 +12,8 @@ from uuid import uuid4
 
 from source import database, generics, twitch_apis, src_apis, discord_apis, discord_websocket_apis, exceptions
 
-# BUG
+# BUGS
 # If a user is a speedrunner (but not of a tracked game) we check for PB on every call.
-
 
 # WANT
 # TODO: Consider refactoring the core bot logic so that we don't need to filter streams by game
@@ -24,6 +23,7 @@ from source import database, generics, twitch_apis, src_apis, discord_apis, disc
 # TODO: Discord is not renaming embeds? Or, I'm not changing the embed title correctly on edits.
 #   Definitely broken. Test again now that I'm off discordpy?
 # TODO: [nosrl] (and associated tests)
+
 # MAYBE
 # TODO: Add a test for 'what if a live message got deleted'
 # TODO: Threading for user lookups will save a lot of time, especially as the list of games grows

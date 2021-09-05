@@ -111,8 +111,13 @@ class WebSocket():
       return await asyncio.wait_for(websocket.recv(), timeout=timeout)
     except (asyncio.TimeoutError, asyncio.CancelledError) as e:
       return None
-    except (websockets.exceptions.WebSocketException, websockets.exceptions.ConnectionClosedError) as e:
-      logging.exception(f'Websocket connection closed: {str(e)}')
+    except websockets.exceptions.ConnectionClosedError as e:
+      if e.code == 1011:
+        return None # Discord sometimes returns this code to ask for a reconnection.
+      logging.exception(f'Websocket connection closed: {e}')
+      self.connected = False
+    except websockets.exceptions.WebSocketException as e:
+      logging.exception(f'Generic websocket connection error: {e}')
       self.connected = False
       return None
 
