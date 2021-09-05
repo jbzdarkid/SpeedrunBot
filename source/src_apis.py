@@ -42,14 +42,14 @@ def runner_runs_game(twitch_username, src_id, src_game_id):
     return True
 
   if user := database.get_user(twitch_username):
-    logging.info(f'Found user for {twitch_username}, last fetched: ' + user['fetch_time'])
+    logging.info(f'Found user for {twitch_username}, last fetched: ' + str(user['fetch_time']))
     logging.info(f'(current time: {datetime.now().timestamp()})')
     if datetime.now().timestamp() < user['fetch_time'] + ONE_DAY:
       # Last check was <1 day ago, don't fetch again
       return False
 
   database.update_user_fetch_time(twitch_username)
-  logging.info('Updated fetch_time to ' + database.get_user(twitch_username)['fetch_time'])
+  logging.info('Updated fetch_time to ' + str(database.get_user(twitch_username)['fetch_time']))
   j = make_request('GET', f'{api}/users/{src_id}/personal-bests', params={'game': src_game_id})
   if len(j['data']) == 0:
     return False
