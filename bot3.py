@@ -182,7 +182,8 @@ def send_last_lines():
 def uncaught_thread_exception(args):
   if args.exc_type == SystemExit: # Calling sys.exit from a thread does not kill the main process, so we must use os.kill
     import os
-    os.kill(os.getpid(), args.exc_value.code)
+    code = 0 if (args.exc_value and args.exc_value.code == 0) else 1
+    os.kill(os.getpid(), code)
     return
   logging.exception(f'Uncaught exception in {args.thread.name}')
   send_last_lines()
