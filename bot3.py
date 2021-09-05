@@ -177,11 +177,10 @@ def send_last_lines():
 
 
 # If we encounter an uncaught exception, we need to log it, and send details.
-__threading_excepthook__ = threading.excepthook
 def uncaught_thread_exception(args):
-  if args.exc_type == SystemExit:
-    __threading_excepthook__(args)
-    return
+  if args.exc_type == SystemExit: # Calling sys.exit from a thread does not kill the main process, so we must use os.kill
+    import os
+    os.kill(os.getpid(), args.exc_value.code)
   logging.exception(f'Uncaught exception in {args.thread.name}')
   send_last_lines()
 threading.excepthook = uncaught_thread_exception
