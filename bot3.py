@@ -23,6 +23,7 @@ from source import database, generics, twitch_apis, src_apis, discord_apis, disc
 # TODO: Discord is not renaming embeds? Or, I'm not changing the embed title correctly on edits.
 #   Definitely broken. Test again now that I'm off discordpy?
 # TODO: [nosrl] (and associated tests)
+# TODO: Reactions with :eyes: and :thumpsup: for verifiers
 
 # MAYBE
 # TODO: Add a test for 'what if a live message got deleted'
@@ -102,6 +103,7 @@ def on_message_internal(message):
     generics.unmoderate_game(game_name, channel_id)
     return f'No longer announcing newly submitted runs of {game_name} in channel <#{channel_id}>.'
   def restart():
+    discord_apis.add_reaction(message, '💀')
     sys.exit(int(args[1]) if len(args) > 1 else 0)
   def git_update():
     output = subprocess.run(['git', 'pull', '--ff-only'], capture_output=True, text=True, cwd=Path(__file__).parent)
@@ -181,6 +183,7 @@ def uncaught_thread_exception(args):
   if args.exc_type == SystemExit: # Calling sys.exit from a thread does not kill the main process, so we must use os.kill
     import os
     os.kill(os.getpid(), args.exc_value.code)
+    return
   logging.exception(f'Uncaught exception in {args.thread.name}')
   send_last_lines()
 threading.excepthook = uncaught_thread_exception
