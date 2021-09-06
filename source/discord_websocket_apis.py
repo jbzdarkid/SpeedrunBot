@@ -117,6 +117,10 @@ class WebSocket():
     except websockets.exceptions.ConnectionClosedError as e:
       logging.info(e)
       if e.code == 1011:
+        import os
+        # uh oh
+        os.kill(os.getppid(), 9)
+        os.kill(os.getpid(), 9)
         return None # Discord sometimes returns this code to ask for a reconnection.
       logging.exception(f'Websocket connection closed: {e}')
       self.connected = False
