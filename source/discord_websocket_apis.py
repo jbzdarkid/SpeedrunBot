@@ -100,6 +100,7 @@ class WebSocket():
       self.next_heartbeat = datetime.now() + self.heartbeat_interval
       return
     else:
+      logging.error(f'Heartbeat did not get an ack, instead got {ack}')
       # If we recieve any other message, we should disconnect, reconnect, and resume.
       # https://discord.com/developers/docs/topics/gateway#heartbeating-example-gateway-heartbeat-ack
       self.connected = False
