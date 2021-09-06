@@ -7,7 +7,7 @@ This bot uses the twitch.tv and speedrun.com apis to search for speedrunners who
 - Install the requirements from `requirements.txt`
 - Get a discord token by following [these steps](https://github.com/reactiflux/discord-irc/wiki/Creating-a-discord-bot-&-getting-a-token)  
   The bot only needs the "Send Messages" permission (2048)  
-  Save the token into a file called `discord_token.txt` at the root of the repo.
+  Save the token into a file called `discord_token.txt` inside the `source` folder
 - Connect to the twitch APIs
   - Go to https://dev.twitch.tv/console/apps
   - Register a new application, and save the client ID into a file called `twitch_client.txt` inside the `source` folder

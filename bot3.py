@@ -356,9 +356,6 @@ if __name__ == '__main__':
         time.sleep(60) # Sleep after exit, to prevent losing my token.
 
   else:
-    with Path(__file__).with_name('discord_token.txt').open() as f:
-      token = f.read().strip()
-
     def forever_thread(func, sleep_time):
       while 1: # This loop does not exit
         try:

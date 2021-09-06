@@ -3,7 +3,7 @@ from pathlib import Path
 
 # As tempting as it may be, DO NOT import any non-system modules -- this file needs to be stable!
 
-with Path(__file__).with_name('discord_token.txt').open() as f:
+with (Path(__file__).parent / 'source' / 'discord_token.txt').open() as f:
   token = f.read().strip()
 
 api = 'https://discord.com/api/v9'

@@ -26,7 +26,7 @@ class WebSocket():
     self.connected = False
     self.session_id = None
 
-    with Path(__file__).parent.with_name('discord_token.txt').open() as f:
+    with Path(__file__).with_name('discord_token.txt').open() as f:
       self.token = f.read().strip()
 
 

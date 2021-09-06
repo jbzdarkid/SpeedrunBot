@@ -11,7 +11,7 @@ cached_headers = None
 def get_headers():
   global cached_headers
   if not cached_headers:
-    with Path(__file__).parent.with_name('discord_token.txt').open() as f:
+    with Path(__file__).with_name('discord_token.txt').open() as f:
       token = f.read().strip()
 
     cached_headers = {
