@@ -8,6 +8,18 @@ from pathlib import Path
 from threading import Thread
 
 class WebSocket():
+  DISPATCH = 0
+  HEARTBEAT = 1
+  IDENTIFY = 2
+  PRESENCE_UPDATE = 3
+  VOICE_STATE_UPDATE = 4
+  RESUME = 6
+  RECONNECT = 7
+  REQUEST_GUILD_MEMBERS = 8
+  INVALID_SESSION = 9
+  HELLO = 10
+  HEARTBEAT_ACK = 11
+
   def __init__(self, on_message=None, on_reaction=None, on_direct_message=None, on_message_edit=None):
     self.intents = 0
     self.on_message = on_message
@@ -22,9 +34,9 @@ class WebSocket():
     if on_direct_message:
       self.intents |= (1 << 12) # DIRECT_MESSAGES
 
-    self.sequence = None
     self.connected = False
     self.session_id = None
+    self.sequence = -1
 
     with Path(__file__).with_name('discord_token.txt').open() as f:
       self.token = f.read().strip()
@@ -61,7 +73,7 @@ class WebSocket():
 
       # https://discord.com/developers/docs/topics/gateway#heartbeating
       random_startup = self.heartbeat_interval.total_seconds() * random.random()
-      logging.error(f'Connecting in {random_startup} seconds')
+      logging.info(f'Connecting in {random_startup} seconds')
       await asyncio.sleep(random_startup)
       await self.heartbeat(websocket)
 
@@ -79,9 +91,9 @@ class WebSocket():
         '$device': 'speedrunbot-jbzdarkid',
       }
     }
-    await self.send_message(websocket, 2, identify)
+    await self.send_message(websocket, IDENTIFY, identify)
 
-    # https://discord.com/developers/docs/topics/gateway#resuming
+    # Resume if we have a session_id: https://discord.com/developers/docs/topics/gateway#resuming
     if self.session_id:
       logging.info(f'Resuming {self.session_id} at {self.sequence}')
       resume = {
@@ -89,21 +101,21 @@ class WebSocket():
         'session_id': self.session_id,
         'seq': self.sequence,
       }
-      await self.send_message(websocket, 6, resume)
+      await self.send_message(websocket, RESUME, resume)
     return websocket
 
 
   async def heartbeat(self, websocket):
-    await self.send_message(websocket, 1, self.sequence)
+    await self.send_message(websocket, HEARTBEAT, self.sequence)
     ack = await self.get_message(websocket, timeout=self.heartbeat_interval.total_seconds())
-    if ack and json.loads(ack)['op'] == 11:
+    if ack and json.loads(ack)['op'] == HEARTBEAT_ACK:
       self.next_heartbeat = datetime.now() + self.heartbeat_interval
       return
     else:
       logging.error(f'Heartbeat did not get an ack, instead got {ack}')
       # If we recieve any other message, we should disconnect, reconnect, and resume.
       # https://discord.com/developers/docs/topics/gateway#heartbeating-example-gateway-heartbeat-ack
-      self.connected = False
+      # self.connected = False # Disabled for now. We'll see how this goes.
 
 
   async def get_message(self, websocket, timeout=None):
@@ -124,6 +136,7 @@ class WebSocket():
         return None # Discord sometimes returns this code to ask for a reconnection.
       logging.exception(f'Websocket connection closed: {e}')
       self.connected = False
+      return None
     except websockets.exceptions.WebSocketException as e:
       logging.exception(f'Generic websocket connection error: {e}')
       self.connected = False
@@ -141,13 +154,15 @@ class WebSocket():
 
   async def handle_message(self, msg):
     msg = json.loads(msg)
-    if msg['op'] == 0: # Dispatch
-      self.sequence = msg['s']
+    if msg['op'] == DISPATCH:
+      self.sequence = max(self.sequence, msg['s']) # For safety, I think discord sometimes tells us HELLO, 1 even when we're resuming
       target = None
       if msg['t'] == 'READY':
         logging.error('Signed in as ' + msg['d']['user']['username'])
         self.user = msg['d']['user']
         self.session_id = msg['d']['session_id']
+      elif msg['t'] == 'RESUMED':
+        logging.info(msg) # I have never seen this happen but they swear it does.
       elif msg['t'] == 'MESSAGE_CREATE':
         if 'guild_id' in msg['d']:
           target = self.on_message
@@ -163,13 +178,16 @@ class WebSocket():
       if target:
         Thread(target=target, args=(msg['d'],)).start()
 
-    elif msg['op'] == 1: # Heartbeat
+    elif msg['op'] == HEARTBEAT:
       await self.heartbeat()
-    elif msg['op'] == 7: # Reconnect
+    elif msg['op'] == RECONNECT:
       self.connected = False
-    elif msg['op'] == 9: # Invalid Session
+    elif msg['op'] == INVALID_SESSION:
       self.connected = False
       if not msg['d']: # Session is not resumable
         self.session_id = None
+        self.sequence = -1
+      # Discord docs said to sleep 1-5 sec here, not that any of the libraries are doing it.
+      await asyncio.sleep(random() * 4 + 1)
     else:
       logging.error('Not handling message opcode ' + msg['op'])

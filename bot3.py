@@ -201,7 +201,7 @@ def announce_live_channels():
   # Contains twitch streams which are actively running (or have recently closed).
   if not p.exists():
     with p.open('w') as f:
-      p.write('{}')
+      f.write('{}')
 
   for game_name, channel_id in database.get_all_games():
     global tracked_games
