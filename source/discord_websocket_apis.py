@@ -94,7 +94,7 @@ class WebSocket():
     await self.send_message(websocket, IDENTIFY, identify)
 
     ready = json.loads(await self.get_message(websocket)) # HACK: No timeout set!
-    assert(ready['op'] == DISPATCH && ready['t'] == 'READY') # HACK: We should just issue a 'resume in the read block in handle_message.
+    assert(ready['op'] == DISPATCH and ready['t'] == 'READY') # HACK: We should just issue a 'resume in the read block in handle_message.
     logging.error('Signed in as ' + ready['d']['user']['username'])
     self.user = ready['d']['user']
     # self.session_id = ready['d']['session_id']
