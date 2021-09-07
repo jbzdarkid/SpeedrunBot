@@ -7,19 +7,19 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Thread
 
-class WebSocket():
-  DISPATCH = 0
-  HEARTBEAT = 1
-  IDENTIFY = 2
-  PRESENCE_UPDATE = 3
-  VOICE_STATE_UPDATE = 4
-  RESUME = 6
-  RECONNECT = 7
-  REQUEST_GUILD_MEMBERS = 8
-  INVALID_SESSION = 9
-  HELLO = 10
-  HEARTBEAT_ACK = 11
+DISPATCH = 0
+HEARTBEAT = 1
+IDENTIFY = 2
+PRESENCE_UPDATE = 3
+VOICE_STATE_UPDATE = 4
+RESUME = 6
+RECONNECT = 7
+REQUEST_GUILD_MEMBERS = 8
+INVALID_SESSION = 9
+HELLO = 10
+HEARTBEAT_ACK = 11
 
+class WebSocket():
   def __init__(self, on_message=None, on_reaction=None, on_direct_message=None, on_message_edit=None):
     self.intents = 0
     self.on_message = on_message
