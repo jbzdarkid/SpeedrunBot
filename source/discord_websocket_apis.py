@@ -36,7 +36,7 @@ class WebSocket():
 
     self.connected = False
     self.session_id = None
-    self.sequence = -1
+    self.sequence = -1 # HACK: Should be None, so we send null (like discord asks us to)
 
     with Path(__file__).with_name('discord_token.txt').open() as f:
       self.token = f.read().strip()
@@ -94,7 +94,7 @@ class WebSocket():
     await self.send_message(websocket, IDENTIFY, identify)
 
     ready = json.loads(await self.get_message(websocket)) # HACK: No timeout set!
-    assert(ready['op'] == DISPATCH and ready['t'] == 'READY') # HACK: We should just issue a 'resume in the read block in handle_message.
+    assert(ready['op'] == DISPATCH and ready['t'] == 'READY') # HACK: We should just issue a resume in the read block in handle_message.
     logging.error('Signed in as ' + ready['d']['user']['username'])
     self.user = ready['d']['user']
     # self.session_id = ready['d']['session_id']
@@ -197,4 +197,4 @@ class WebSocket():
       # Discord docs said to sleep 1-5 sec here, not that any of the libraries are doing it.
       await asyncio.sleep(random() * 4 + 1)
     else:
-      logging.error('Not handling message opcode ' + msg['op'])
+      logging.error('Not handling message opcode ' + str(msg['op']))
