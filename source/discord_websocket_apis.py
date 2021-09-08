@@ -68,18 +68,19 @@ class WebSocket():
     while not self.connected:
       websocket = await websockets.connect('wss://gateway.discord.gg/?v=9&encoding=json')
       hello = await self.get_message(websocket)
-      self.heartbeat_interval = timedelta(milliseconds=json.loads(hello)['d']['heartbeat_interval'])
-      self.connected = True # Set connected early, since both heartbeat and identify can trigger a disconnection.
+      if hello:
+        self.heartbeat_interval = timedelta(milliseconds=json.loads(hello)['d']['heartbeat_interval'])
+        self.connected = True # Set connected early, since both heartbeat and identify can trigger a disconnection.
 
-      # https://discord.com/developers/docs/topics/gateway#heartbeating
-      random_startup = self.heartbeat_interval.total_seconds() * random.random()
-      logging.info(f'Connecting in {random_startup} seconds')
-      await asyncio.sleep(random_startup)
-      await self.heartbeat(websocket)
+        # https://discord.com/developers/docs/topics/gateway#heartbeating
+        random_startup = self.heartbeat_interval.total_seconds() * random.random()
+        logging.info(f'Connecting in {random_startup} seconds')
+        await asyncio.sleep(random_startup)
+        await self.heartbeat(websocket)
 
-      if not self.connected: # Heartbeat may cause a disconnection, per above doc.
-        await websocket.close(1001)
-        continue
+        if not self.connected: # Heartbeat may cause a disconnection, per above doc.
+          await websocket.close(1001)
+          continue
 
     # https://discord.com/developers/docs/topics/gateway#identifying
     identify = {
@@ -93,22 +94,23 @@ class WebSocket():
     }
     await self.send_message(websocket, IDENTIFY, identify)
 
-    ready = json.loads(await self.get_message(websocket)) # HACK: No timeout set!
-    assert(ready['op'] == DISPATCH and ready['t'] == 'READY') # HACK: We should just issue a resume in the read block in handle_message.
-    logging.error('Signed in as ' + ready['d']['user']['username'])
-    self.user = ready['d']['user']
-    # self.session_id = ready['d']['session_id']
+    msg = await self.get_message(websocket) # HACK: No timeout set!
+    if msg:
+      ready = json.loads(msg)
+      assert(ready['op'] == DISPATCH and ready['t'] == 'READY') # HACK: We should just issue a resume in the read block in handle_message.
+      logging.error('Signed in as ' + ready['d']['user']['username'])
+      self.user = ready['d']['user']
+      # self.session_id = ready['d']['session_id']
 
-
-    # Resume if we have a session_id: https://discord.com/developers/docs/topics/gateway#resuming
-    if self.session_id:
-      logging.info(f'Resuming {self.session_id} at {self.sequence}')
-      resume = {
-        'token': self.token,
-        'session_id': self.session_id,
-        'seq': self.sequence,
-      }
-      await self.send_message(websocket, RESUME, resume)
+      # Resume if we have a session_id: https://discord.com/developers/docs/topics/gateway#resuming
+      if self.session_id:
+        logging.info(f'Resuming {self.session_id} at {self.sequence}')
+        resume = {
+          'token': self.token,
+          'session_id': self.session_id,
+          'seq': self.sequence,
+        }
+        await self.send_message(websocket, RESUME, resume)
     return websocket
 
 
