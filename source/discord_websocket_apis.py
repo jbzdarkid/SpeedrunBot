@@ -1,10 +1,10 @@
 import asyncio
 import json
 import logging
-import random
 import websockets
 from datetime import datetime, timedelta
 from pathlib import Path
+from random import random
 from threading import Thread
 
 DISPATCH = 0
@@ -78,7 +78,7 @@ class WebSocket():
         self.connected = True # Set connected early, since both heartbeat and identify can trigger a disconnection.
 
         # https://discord.com/developers/docs/topics/gateway#heartbeating
-        random_startup = self.heartbeat_interval.total_seconds() * random.random()
+        random_startup = self.heartbeat_interval.total_seconds() * random()
         logging.info(f'Connecting in {random_startup} seconds')
         await asyncio.sleep(random_startup)
         await self.heartbeat(websocket)
