@@ -20,14 +20,16 @@ HELLO = 10
 HEARTBEAT_ACK = 11
 
 class WebSocket():
-  def __init__(self, on_message=None, on_reaction=None, on_direct_message=None, on_message_edit=None):
+  def __init__(self, on_message=None, on_reaction=None, on_direct_message=None, on_message_edit=None, on_message_delete=None):
     self.intents = 0
+    # TODO: There is probably a smoother way to do this, but I need to be careful not to throw an AttributError
     self.on_message = on_message
     self.on_reaction = on_reaction
     self.on_direct_message = on_direct_message
     self.on_message_edit = on_message_edit
+    self.on_message_delete = on_message_delete
 
-    if on_message:
+    if on_message or on_message_edit or on_message_delete:
       self.intents |= (1 << 9) # GUID_MESSAGES
     if on_reaction:
       self.intents |= (1 << 10) # GUILD_MESSAGE_REACTIONS
@@ -61,7 +63,7 @@ class WebSocket():
       await websocket.close(1001)
 
 
-  async def get_token(self):
+  def get_token(self):
     with Path(__file__).with_name('discord_token.txt').open() as f:
       # Although we could save this as a class member, this allows the user to update their token without restarting the bot.
       return f.read().strip()
@@ -146,7 +148,7 @@ class WebSocket():
         if self.session_id: # Attempt to resume the previous session, if we had one
           logging.info(f'Resuming {self.session_id} at {self.sequence}')
           resume = {
-            'token': self.self.get_token(),
+            'token': self.get_token(),
             'session_id': self.session_id,
             'seq': self.sequence,
           }
@@ -169,6 +171,8 @@ class WebSocket():
         target = self.on_reaction
       elif msg['t'] == 'MESSAGE_UPDATE':
         target = self.on_message_edit
+      elif msg['t'] == 'MESSAGE_DELETE':
+        target = self.on_message_delete
       else:
         logging.error('Cannot handle message type ' + msg['t'])
 
