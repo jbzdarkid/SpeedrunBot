@@ -144,7 +144,7 @@ class WebSocket():
     if msg['op'] == DISPATCH:
       if msg['t'] == 'READY':
         self.user = msg['d']['user']
-        logging.info('Signed in as ' + user['username'])
+        logging.info('Signed in as ' + self.user['username'])
         if self.session_id: # Attempt to resume the previous session, if we had one
           logging.info(f'Resuming {self.session_id} at {self.sequence}')
           resume = {
