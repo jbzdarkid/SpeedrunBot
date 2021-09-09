@@ -380,3 +380,5 @@ if __name__ == '__main__':
     except:
       logging.exception('catch-all for client.run')
       send_last_lines()
+      import os
+      os.kill(os.getpid(), 1) # I don't think it shuts down the threads otherwise.
