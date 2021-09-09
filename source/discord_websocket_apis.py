@@ -58,7 +58,7 @@ class WebSocket():
 
         msg = await self.get_message(websocket, timeout=until_next_heartbeat.total_seconds())
         if msg:
-          await self.handle_message(msg)
+          await self.handle_message(msg, websocket)
 
       await websocket.close(1001)
 
@@ -139,12 +139,14 @@ class WebSocket():
       self.connected = False
 
 
-  async def handle_message(self, msg):
+  async def handle_message(self, msg, websocket):
     msg = json.loads(msg)
     if msg['op'] == DISPATCH:
       if msg['t'] == 'READY':
         self.user = msg['d']['user']
         logging.info('Signed in as ' + self.user['username'])
+        # TODO: This is a bit of an encapsulation break. We should really have a separate system which handles IDENTIFY/READY/RESUME,
+        # which would also reduce the restart time in the INVALID_SESSION case below.
         if self.session_id: # Attempt to resume the previous session, if we had one
           logging.info(f'Resuming {self.session_id} at {self.sequence}')
           resume = {
