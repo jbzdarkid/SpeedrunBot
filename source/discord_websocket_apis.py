@@ -34,12 +34,9 @@ class WebSocket():
     if on_direct_message:
       self.intents |= (1 << 12) # DIRECT_MESSAGES
 
-    self.connected = False
-    self.session_id = None
-    self.sequence = -1 # HACK: Should be None, so we send null (like discord asks us to)
-
-    with Path(__file__).with_name('discord_token.txt').open() as f:
-      self.token = f.read().strip()
+    self.connected = False # Indicates whether or not the websocket is connected. If false, we should not send messages and should exit the loop.
+    self.session_id = None # Indicates whether or not we have an active session, used to resume if the connection drops.
+    self.sequence = None # Indicates the last recieved message in the current session. Meaningless if no session is active.
 
 
   def run(self):
@@ -47,8 +44,8 @@ class WebSocket():
 
 
   async def run_async(self):
-    while 1: # This loop does not exit
-      websocket = await self.connect_and_resume()
+    while 1: # This loop does not exit naturally
+      websocket = await self.connect()
 
       # Main loop: Wait for messages, interrupting for heartbeats.
       while self.connected:
@@ -64,7 +61,13 @@ class WebSocket():
       await websocket.close(1001)
 
 
-  async def connect_and_resume(self):
+  async def get_token(self):
+    with Path(__file__).with_name('discord_token.txt').open() as f:
+      # Although we could save this as a class member, this allows the user to update their token without restarting the bot.
+      return f.read().strip()
+
+
+  async def connect(self):
     while not self.connected:
       websocket = await websockets.connect('wss://gateway.discord.gg/?v=9&encoding=json')
       hello = await self.get_message(websocket)
@@ -78,13 +81,13 @@ class WebSocket():
         await asyncio.sleep(random_startup)
         await self.heartbeat(websocket)
 
-        if not self.connected: # Heartbeat may cause a disconnection, per above doc.
-          await websocket.close(1001)
-          continue
+      if not self.connected: # Heartbeat may cause a disconnection, per above doc.
+        await websocket.close(1001)
+        continue
 
     # https://discord.com/developers/docs/topics/gateway#identifying
     identify = {
-      'token': self.token,
+      'token': self.get_token(),
       'intents': self.intents,
       'properties': {
         '$os': 'windows',
@@ -93,24 +96,8 @@ class WebSocket():
       }
     }
     await self.send_message(websocket, IDENTIFY, identify)
+    # The READY response will be handled in handle_message, as it may get interrupted by a heartbeat.
 
-    msg = await self.get_message(websocket) # HACK: No timeout set!
-    if msg:
-      ready = json.loads(msg)
-      assert(ready['op'] == DISPATCH and ready['t'] == 'READY') # HACK: We should just issue a resume in the read block in handle_message.
-      logging.error('Signed in as ' + ready['d']['user']['username'])
-      self.user = ready['d']['user']
-      # self.session_id = ready['d']['session_id']
-
-      # Resume if we have a session_id: https://discord.com/developers/docs/topics/gateway#resuming
-      if self.session_id:
-        logging.info(f'Resuming {self.session_id} at {self.sequence}')
-        resume = {
-          'token': self.token,
-          'session_id': self.session_id,
-          'seq': self.sequence,
-        }
-        await self.send_message(websocket, RESUME, resume)
     return websocket
 
 
@@ -121,59 +108,60 @@ class WebSocket():
       self.next_heartbeat = datetime.now() + self.heartbeat_interval
       return
     else:
-      logging.error(f'Heartbeat did not get an ack, instead got {ack}')
+      logging.error(f'Disconnecting because heartbeat did not get an ack, instead got {ack}')
       # If we recieve any other message, we should disconnect, reconnect, and resume.
       # https://discord.com/developers/docs/topics/gateway#heartbeating-example-gateway-heartbeat-ack
-      # self.connected = False # Disabled for now. We'll see how this goes.
+      self.connected = False
 
 
   async def get_message(self, websocket, timeout=None):
     try:
-      msg = await asyncio.wait_for(websocket.recv(), timeout=timeout)
-      logging.info(f'Received: {msg}')
-      return msg
+      return await asyncio.wait_for(websocket.recv(), timeout=timeout)
     except (asyncio.TimeoutError, asyncio.CancelledError) as e:
-      logging.info(e)
       return None
     except websockets.exceptions.ConnectionClosedError as e:
-      logging.info(e)
-      if e.code == 1011:
-        import os
-        # uh oh
-        os.kill(os.getppid(), 9)
-        os.kill(os.getpid(), 9)
-        return None # Discord sometimes returns this code to ask for a reconnection.
-      logging.exception(f'Websocket connection closed: {e}')
+      logging.exception('Disconnecting due to connection error on get')
       self.connected = False
       return None
     except websockets.exceptions.WebSocketException as e:
-      logging.exception(f'Generic websocket connection error: {e}')
+      logging.exception('Disconnecting due to generic websocket error on get')
       self.connected = False
       return None
 
 
   async def send_message(self, websocket, op, data):
-    logging.info(f'Sending: {op}, {data}')
     try:
       await websocket.send(json.dumps({'op': op, 'd': data}))
     except websockets.exceptions.WebSocketException as e:
-      logging.exception(f'Websocket connection closed: {str(e)}')
+      logging.exception('Disconnecting due to generic websocket error on send')
       self.connected = False
 
 
   async def handle_message(self, msg):
     msg = json.loads(msg)
     if msg['op'] == DISPATCH:
-      self.sequence = max(self.sequence, msg['s']) # For safety, I think discord sometimes tells us HELLO, 1 even when we're resuming
-      target = None
       if msg['t'] == 'READY':
-        logging.error('Signed in as ' + msg['d']['user']['username'])
         self.user = msg['d']['user']
-        self.session_id = msg['d']['session_id']
-      elif msg['t'] == 'RESUMED':
-        logging.info(msg) # I have never seen this happen but they swear it does.
-      elif msg['t'] == 'MESSAGE_CREATE':
-        if 'guild_id' in msg['d']:
+        logging.info('Signed in as ' + user['username'])
+        if self.session_id: # Attempt to resume the previous session, if we had one
+          logging.info(f'Resuming {self.session_id} at {self.sequence}')
+          resume = {
+            'token': self.self.get_token(),
+            'session_id': self.session_id,
+            'seq': self.sequence,
+          }
+          await self.send_message(websocket, RESUME, resume)
+        else: # Else, reset the session ID and sequence to the new one provided in READY
+          self.session_id = msg['d']['session_id']
+          self.sequence = msg['s']
+          logging.info(f'Starting new session {self.session_id} at {self.sequence}')
+        return
+        
+      # Aside from READY, all messages will be part of our current sequence.
+      self.sequence = msg['s']
+      target = None
+      if msg['t'] == 'MESSAGE_CREATE':
+        if 'guild_id' in msg['d']: # Direct messages do not have a guild_id
           target = self.on_message
         else:
           target = self.on_direct_message
@@ -182,7 +170,7 @@ class WebSocket():
       elif msg['t'] == 'MESSAGE_UPDATE':
         target = self.on_message_edit
       else:
-        logging.error('Not handling message type ' + msg['t'])
+        logging.error('Cannot handle message type ' + msg['t'])
 
       if target:
         Thread(target=target, args=(msg['d'],)).start()
@@ -192,11 +180,12 @@ class WebSocket():
     elif msg['op'] == RECONNECT:
       self.connected = False
     elif msg['op'] == INVALID_SESSION:
+      # In theory, we don't have to disconnect here -- we just need to re-send our IDENTIFY.
+      # However, it's much simpler to just drop the session, and besides this is pretty rare.
       self.connected = False
       if not msg['d']: # Session is not resumable
         self.session_id = None
-        self.sequence = -1
-      # Discord docs said to sleep 1-5 sec here, not that any of the libraries are doing it.
+      # Short sleep, per https://discord.com/developers/docs/topics/gateway#resuming-example-gateway-resume
       await asyncio.sleep(random() * 4 + 1)
     else:
-      logging.error('Not handling message opcode ' + str(msg['op']))
+      logging.error('Cannot handle message opcode ' + str(msg['op']))
