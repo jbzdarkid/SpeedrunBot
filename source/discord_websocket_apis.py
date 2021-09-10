@@ -19,23 +19,13 @@ INVALID_SESSION = 9
 HELLO = 10
 HEARTBEAT_ACK = 11
 
+
+# Valid callbacks:
+# on_message, on_direct_message, on_reaction, on_message_edit, on_message_delete
+
 class WebSocket():
-  def __init__(self, on_message=None, on_reaction=None, on_direct_message=None, on_message_edit=None, on_message_delete=None):
-    self.intents = 0
-    # TODO: There is probably a smoother way to do this, but I need to be careful not to throw an AttributError
-    self.on_message = on_message
-    self.on_reaction = on_reaction
-    self.on_direct_message = on_direct_message
-    self.on_message_edit = on_message_edit
-    self.on_message_delete = on_message_delete
-
-    if on_message or on_message_edit or on_message_delete:
-      self.intents |= (1 << 9) # GUID_MESSAGES
-    if on_reaction:
-      self.intents |= (1 << 10) # GUILD_MESSAGE_REACTIONS
-    if on_direct_message:
-      self.intents |= (1 << 12) # DIRECT_MESSAGES
-
+  def __init__(self):
+    self.callbacks = {} # Hooks which can be registered to handle various discord events. Must be registered before calling run().
     self.connected = False # Indicates whether or not the websocket is connected. If false, we should not send messages and should exit the loop.
     self.session_id = None # Indicates whether or not we have an active session, used to resume if the connection drops.
     self.sequence = None # Indicates the last recieved message in the current session. Meaningless if no session is active.
@@ -87,10 +77,20 @@ class WebSocket():
         await websocket.close(1001)
         continue
 
+    intents = 0
+    if ('on_message' in self.callbacks
+        or 'on_message_edit' in self.callbacks
+        or 'on_message_delete' in self.callbacks):
+      intents |= (1 << 9) # GUID_MESSAGES
+    if 'on_reaction' in self.callbacks:
+      intents |= (1 << 10) # GUILD_MESSAGE_REACTIONS
+    if 'on_direct_message' in self.callbacks:
+      intents |= (1 << 12) # DIRECT_MESSAGES
+
     # https://discord.com/developers/docs/topics/gateway#identifying
     identify = {
       'token': self.get_token(),
-      'intents': self.intents,
+      'intents': intents,
       'properties': {
         '$os': 'windows',
         '$browser': 'speedrunbot-jbzdarkid',
@@ -147,6 +147,7 @@ class WebSocket():
         logging.info('Signed in as ' + self.user['username'])
         # TODO: This is a bit of an encapsulation break. We should really have a separate system which handles IDENTIFY/READY/RESUME,
         # which would also reduce the restart time in the INVALID_SESSION case below.
+        # But, I don't want to duplicate the handle_message function, and it's not really designed to return anything.
         if self.session_id: # Attempt to resume the previous session, if we had one
           logging.info(f'Resuming {self.session_id} at {self.sequence}')
           resume = {
@@ -166,15 +167,15 @@ class WebSocket():
       target = None
       if msg['t'] == 'MESSAGE_CREATE':
         if 'guild_id' in msg['d']: # Direct messages do not have a guild_id
-          target = self.on_message
+          target = self.callbacks.get('on_message')
         else:
-          target = self.on_direct_message
+          target = self.callbacks.get('on_direct_message')
       elif msg['t'] == 'MESSAGE_REACTION_ADD':
-        target = self.on_reaction
+        target = self.callbacks.get('on_reaction')
       elif msg['t'] == 'MESSAGE_UPDATE':
-        target = self.on_message_edit
+        target = self.callbacks.get('on_message_edit')
       elif msg['t'] == 'MESSAGE_DELETE':
-        target = self.on_message_delete
+        target = self.callbacks.get('on_message_delete')
       else:
         logging.error('Cannot handle message type ' + msg['t'])
 

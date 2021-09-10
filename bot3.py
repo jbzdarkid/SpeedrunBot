@@ -39,7 +39,7 @@ from source import database, generics, twitch_apis, src_apis, discord_apis, disc
 
 # Global, since it's referenced in both systems.
 tracked_games = {}
-client = None
+client = discord_websocket_apis.WebSocket()
 admins = []
 
 def on_direct_message(message):
@@ -371,10 +371,8 @@ if __name__ == '__main__':
 
     admins = [discord_apis.get_owner()['id']]
 
-    client = discord_websocket_apis.WebSocket(
-      on_message = on_message,
-      on_direct_message = on_direct_message,
-    )
+    client.callbacks['on_message'] = on_message
+    client.callbacks['on_direct_message'] = on_direct_message
     try:
       client.run()
     except:
