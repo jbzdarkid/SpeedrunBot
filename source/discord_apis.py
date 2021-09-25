@@ -58,18 +58,20 @@ def send_message(channel, content, embed=None):
   return send_message_ids(channel['id'], content, embed)
 
 
+"""
+Embed structure. See https://discordjs.guide/popular-topics/embeds.html#embed-preview
+{
+  'type': str('image'),
+  'color': int, # Hexadecimal, e.g. 0xFFFFFF
+  'title': str,
+  'url': str, # Link when clicking on the title
+  'image': {'url': str} # Direct url which holds the embed image
+}
+"""
 def send_message_ids(channel_id, content, embed=None):
   json = {'content': content}
-
   if embed:
-    # See https://discordjs.guide/popular-topics/embeds.html#embed-preview
-    json['embeds'] = [{
-      'type': 'image',
-      'color': embed.get('color', 0x6441A4),
-      'title': embed.get('title'),
-      'url': embed.get('title_link'),
-      'image': {'url': embed.get('image')}
-    }]
+    json['embeds'] = [embed]
   return make_request('POST', f'{api}/channels/{channel_id}/messages', json=json, headers=get_headers())
 
 
@@ -84,14 +86,7 @@ def edit_message_ids(channel_id, message_id, content=None, embed=None):
   if embed == []: # Signal value to remove embed
     json['embeds'] = []
   elif embed:
-    # See https://discordjs.guide/popular-topics/embeds.html#embed-preview
-    json['embeds'] = [{
-      'type': 'image',
-      'color': embed.get('color', 0x6441A4),
-      'title': embed.get('title'),
-      'url': embed.get('title_link'),
-      'image': {'url': embed.get('image')}
-    }]
+    json['embeds'] = [embed]
   return make_request('PATCH', f'{api}/channels/{channel_id}/messages/{message_id}', json=json, headers=get_headers())
 
 

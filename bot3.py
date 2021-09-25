@@ -200,11 +200,14 @@ def announce_new_runs():
 
 def get_embed(stream):
   return {
-    'title': discord_apis.escape_markdown(stream['title']),
-    'title_link': stream['url'],
-    # Add random data to the end of the image URL to force Discord to regenerate the preview.
-    'image': stream['preview'] + '?' + uuid4().hex,
+    'type': 'image',
     'color': 0x6441A4, # Twitch branding color
+    'title': discord_apis.escape_markdown(stream['title']),
+    'url': stream['url'],
+    # Add random data to the end of the image URL to force Discord to regenerate the preview.
+    'image': {
+      'url': stream['preview'] # + '?' + uuid4().hex,
+    }
   }
 
 
