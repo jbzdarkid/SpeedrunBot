@@ -22,8 +22,10 @@ from source import database, generics, twitch_apis, src_apis, discord_apis, disc
 #  Then move client.live_channels into a database. Just full read/write JSON is ok.
 # TODO: Discord is not renaming embeds? Or, I'm not changing the embed title correctly on edits.
 #   Definitely broken. Test again now that I'm off discordpy?
+#   Oh. Or I just never updated the title. Might be working now?
 # TODO: [nosrl] (and associated tests)
 # TODO: Reactions with :eyes: and :thumpsup: for verifiers
+# TODO: Replace tracked_games with a database query.
 
 # MAYBE
 # TODO: Add a test for 'what if a live message got deleted'
@@ -196,116 +198,77 @@ def announce_new_runs():
       discord_apis.send_message_ids(channel_id, content)
 
 
-p = Path(__file__).with_name('live_channels.txt')
-def announce_live_channels():
-  # Contains twitch streams which are actively running (or have recently closed).
-  if not p.exists():
-    with p.open('w') as f:
-      f.write('{}')
+def get_embed(stream):
+  return {
+    'title': discord_apis.escape_markdown(stream['title']),
+    'title_link': stream['url'],
+    # Add random data to the end of the image URL to force Discord to regenerate the preview.
+    'image': stream['preview'] + '?' + uuid4().hex,
+    'color': 0x6441A4, # Twitch branding color
+  }
 
+
+def announce_live_channels():
   for game_name, channel_id in database.get_all_games():
     global tracked_games
     tracked_games[channel_id] = game_name
 
-  # Calls to list() make me sad.
+  # Calls to list() make me sad. They are also slow.
   streams = list(generics.get_speedrunners_for_game2(list(tracked_games.values())))
-
-  if streams:
-    with p.open('r') as f:
-      live_channels = json.load(f)
-
-    for game_name, channel_id, in database.get_all_games():
-      # For simplicity, we just filter this list down for each respective game.
-      # It's not (that) costly, and it saves me having to refactor the core bot logic.
-      game_streams = [stream for stream in streams if stream['game_name'] == game_name]
-      logging.info(f'There are {len(game_streams)} streams of {game_name}')
-
-      on_parsed_streams(live_channels, game_streams, game_name, channel_id)
-
-    with p.open('w') as f:
-      json.dump(live_channels, f)
-
-
-def on_parsed_streams(live_channels, streams, game, channel_id):
-  def get_embed(stream):
-    return {
-      'title': discord_apis.escape_markdown(stream['title']),
-      'title_link': stream['url'],
-      # Add random data to the end of the image URL to force Discord to regenerate the preview.
-      'image': stream['preview'] + '?' + uuid4().hex,
-      'color': 0x6441A4, # Twitch branding color
-    }
-
-  offline_streams = set(live_channels.keys())
+  logging.info(f'There are {len(streams)} live streams')
 
   for stream in streams:
-    name = discord_apis.escape_markdown(stream['name'])
-    # A missing discord message is essentially equivalent to a new stream;
-    # if we didn't send a message, then we weren't really live.
-    if (name not in live_channels) or ('message' not in live_channels[name]):
-      logging.info(f'Stream {name} started at {datetime.now().ctime()}')
-      content = f'{name} is now doing runs of {game} at {stream["url"]}'
-      try:
-        message = discord_apis.send_message_ids(channel_id, content, get_embed(stream))
-      except exceptions.NetworkError:
-        logging.exception('Network error while announcing new stream')
-        continue # The message will be posted next pass.
-      stream['message'] = message['id']
-      stream['start'] = datetime.now().timestamp()
-      stream['game'] = game
-      stream['offline'] = 0
-      live_channels[name] = stream
-    else:
-      stream = live_channels[name]
-      offline_streams.remove(name)
-      stream['offline'] = 0
+    stream['name'] = discord_apis.escape_markdown(stream['name'])
+    
+    if announced_stream := database.get_announced_stream(stream['name'], stream['game']):
+      # If the stream was already announced, update the title and update the message
+      announced_stream['title'] = stream['title']
 
-      if 'game' in stream and game == stream['game']:
-        logging.info(f'Stream {name} is still live at {datetime.now().ctime()}')
-        try:
-          # Always edit the message so that the embed picture updates.
-          discord_apis.edit_message_ids(
-            channel_id=channel_id,
-            message_id=stream['message'],
-            embed=get_embed(stream)
-          )
-        except exceptions.NetworkError:
-          logging.exception('Network error while updating stream message')
-          continue # The message will be edited next pass.
-      else:
-        logging.info(f'Stream {name} changed games at {datetime.now().ctime()}')
-        # Send the stream offline so that it will come back online with the new game,
-        # to be announced in another channel.
-        offline_streams.add(name)
-        stream['offline'] = 9999
-        stream['game'] = game
-
-  for name in offline_streams:
-    stream = live_channels[name]
-    if stream['game'] != game:
-      continue # Only parse offline streams for the current game.
-
-    stream['offline'] = stream.get('offline', 0) + 1
-    if stream['offline'] < 5: # MAX_OFFLINE
-      logging.info(f'Stream {name} has been offline for {stream["offline"]} consecutive checks')
-      continue
-
-    # Stream has been offline for MAX_OFFLINE consecutive checks, close down the post
-    logging.info(f'Stream {name} went offline at {datetime.now().ctime()}')
-    duration_sec = int(datetime.now().timestamp() - live_channels[name]['start'])
-    content = f'{name} went offline after {timedelta(seconds=duration_sec)}.\r\n'
-    content += 'Watch their latest videos here: <' + stream['url'] + '/videos?filter=archives>'
-    try:
+      logging.info(f'Stream {stream["name"]} is still live')
+      # Edit the message so that the embedded picture updates.
       discord_apis.edit_message_ids(
-        channel_id=channel_id,
-        message_id=stream['message'],
-        content=content,
-        embed=[], # Remove the embed
+        channel_id=announced_stream['channel_id'],
+        message_id=announced_stream['message_id'],
+        embed=get_embed(announced_stream),
       )
-    except exceptions.NetworkError:
-      logging.exception('Network error while sending a stream offline')
-      continue # The stream can go offline next pass. The offline count will increase, which is OK.
-    del live_channels[name]
+      database.update_announced_stream(announced_stream)
+    else:
+      # If the stream is new, announce it
+      logging.info(f'Stream {stream["name"]} started')
+      content = f'{stream["name"]} is now doing runs of {stream["game"]} at {stream["url"]}'
+      channel_id = next(key for key in tracked_games if tracked_games[key] == stream['game']) # A little awkward
+      message = discord_apis.send_message_ids(channel_id, content, get_embed(stream))
+
+      database.add_announced_stream(
+        name=stream['name'],
+        game=stream['game'],
+        title=stream['title'],
+        url=stream['url'],
+        preview=stream['preview'],
+        channel_id=channel_id,
+        message_id=message['id'],
+      )
+
+  # get_announced_streams returns an iterator which keeps the database active.
+  # Coalesce it into a list so that we can call delete_announced_stream during iteration.
+  announced_streams = list(database.get_announced_streams())
+  for announced_stream in announced_streams:
+    stream_offline_for = datetime.now().timestamp() - announced_stream['last_live']
+    if stream_offline_for > 1*60:
+      logging.info(f'Stream {announced_stream["name"]} has been offline for {timedelta(seconds=stream_offline_for)}')
+    if stream_offline_for < 5*60:
+      continue # Streams go offline after 5 minutes
+
+    stream_duration = int(datetime.now().timestamp() - announced_stream['start'])
+    content = f'{announced_stream["name"]} went offline after {timedelta(seconds=stream_duration)}.\r\n'
+    content += 'Watch their latest videos here: <' + announced_stream['url'] + '/videos?filter=archives>'
+    discord_apis.edit_message_ids(
+      channel_id=announced_stream['channel_id'],
+      message_id=announced_stream['message_id'],
+      content=content,
+      embed=[], # Remove the embed
+    )
+    database.delete_announced_stream(announced_stream)
 
 
 if __name__ == '__main__':

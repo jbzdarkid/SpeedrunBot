@@ -76,7 +76,7 @@ def get_speedrunners_for_game2(game_names):
       'name': twitch_username,
       'title': stream['title'],
       'viewcount': stream['viewer_count'],
-      'game_name': game_name,
+      'game': game_name,
     }
 
 
