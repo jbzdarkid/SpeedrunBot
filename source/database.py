@@ -103,7 +103,9 @@ def get_all_games():
 
 def get_channel_for_game(game_name):
   execute('SELECT discord_channel FROM tracked_games WHERE game_name=?', game_name)
-  return fetchone()
+  if data := fetchone():
+    return data[0]
+  return None
 
 
 def get_game_for_channel(channel_id):
