@@ -5,7 +5,11 @@ from datetime import datetime
 from pathlib import Path
 from threading import Lock
 
-conn = sqlite3.connect(Path(__file__).with_name('database.db'), check_same_thread=False)
+conn = sqlite3.connect(
+  database = Path(__file__).with_name('database.db'),
+  isolation_level = None, # Automatically commit after making a statement
+  check_same_thread = False,
+)
 lock = Lock()
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS users (
@@ -45,7 +49,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS announced_streams (
   PRIMARY KEY (name, game)
 
 )''')
-conn.commit()
 
 
 # Simple helper to pack *args (because SQL wants it like that)
@@ -67,7 +70,6 @@ def fetchall():
 # Commands related to users
 def add_user(twitch_username, src_id, fetch_time=datetime.now().timestamp()):
   execute('INSERT OR REPLACE INTO users VALUES (?, ?, ?)', twitch_username.lower(), src_id, fetch_time)
-  conn.commit()
 
 
 def get_user(twitch_username):
@@ -93,7 +95,6 @@ def add_game(game_name, twitch_game_id, src_game_id, discord_channel):
   except sqlite3.IntegrityError:
     logging.exception('SQL error')
     raise exceptions.CommandError(f'Game `{game_name}` is already being tracked.')
-  conn.commit()
 
 
 def get_all_games():
@@ -127,13 +128,11 @@ def remove_game(game_name):
   # Note: There is no need to delete users here -- users are cross-game.
   execute('DELETE FROM personal_bests WHERE src_game_id=?', src_game_id)
   execute('DELETE FROM tracked_games WHERE src_game_id=?', src_game_id)
-  conn.commit()
 
 
 # Commands related to personal_bests
 def add_personal_best(src_id, src_game_id):
   execute('INSERT INTO personal_bests VALUES (?, ?)', src_id, src_game_id)
-  conn.commit()
 
 
 def has_personal_best(src_id, src_game_id):
@@ -148,7 +147,6 @@ def moderate_game(game_name, src_game_id, discord_channel):
   except sqlite3.IntegrityError:
     logging.exception('SQL error')
     raise exceptions.CommandError(f'Game `{game_name}` is already being moderated.')
-  conn.commit()
 
 
 def get_all_moderated_games():
@@ -158,12 +156,10 @@ def get_all_moderated_games():
 
 def update_game_moderation_time(game_name, last_update=datetime.now().timestamp()):
   execute('UPDATE moderated_games SET last_update=? WHERE game_name=?', last_update, game_name)
-  conn.commit()
 
 
 def unmoderate_game(game_name):
   execute('DELETE FROM moderated_games WHERE game_name=?', game_name)
-  conn.commit()
 
 
 # Commands related to announced_streams
@@ -182,7 +178,6 @@ def add_announced_stream(**announced_stream):
     announced_stream['start'],
     announced_stream['last_live'],
   )
-  conn.commit()
 
 
 def update_announced_stream(announced_stream):
@@ -192,7 +187,6 @@ def update_announced_stream(announced_stream):
     announced_stream['name'],
     announced_stream['game'],
   )
-  conn.commit()
 
 
 def get_announced_streams():
@@ -230,4 +224,3 @@ def get_announced_stream(name, game):
 
 def delete_announced_stream(announced_stream):
   execute('DELETE FROM announced_streams WHERE name=? AND game=?', announced_stream['name'], announced_stream['game'])
-  conn.commit()
