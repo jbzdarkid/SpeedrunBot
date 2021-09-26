@@ -74,9 +74,6 @@ def on_message_internal(message):
     if len(channel_mentions) > 1:
       raise exceptions.CommandError('Response mentions more than one channel. Please mention at most one channel name at a time.')
 
-  def array_get(arr, i):
-    return arr[i] if i < len(arr) else None
-
   def assert_args(usage, *required_args, example=None):
     if any((arg == None or arg == '') for arg in required_args):
       error = f'Usage of {args[0]}: `{args[0]} {usage}`'
@@ -101,15 +98,15 @@ def on_message_internal(message):
     assert_args('#channel Game Name', channel_id, game_name)
     generics.unmoderate_game(game_name, channel_id)
     return f'No longer announcing newly submitted runs of {game_name} in channel <#{channel_id}>.'
-  def restart():
+  def restart(code=0):
     discord_apis.add_reaction(message, '💀')
-    sys.exit(int(args[1]) if len(args) > 1 else 0)
+    # Calling sys.exit from a thread does not kill the main process, so we must use os.kill
+    import os
+    os.kill(os.getpid(), code)
   def git_update():
     output = subprocess.run(['git', 'pull', '--ff-only'], capture_output=True, text=True, cwd=Path(__file__).parent)
     return '```' + output.stdout + ('\n' if (output.stderr or output.stdout) else '') + output.stderr + '```'
-  def sql(command, *args):
-    return '\n'.join(map(str, database.execute(command, *args)))
-  def announce(channel_id, twitch_username, src_username):
+  def announce(channel_id, twitch_username=None, src_username=None):
     assert_args('twitch_username src_username', twitch_username, src_username, example='jbzdarkid darkid')
     data = database.get_game_for_channel(channel_id)
     if data == None:
@@ -138,13 +135,12 @@ def on_message_internal(message):
     '!untrack_game': lambda: untrack_game(get_channel(), ' '.join(args[1:])),
     '!moderate_game': lambda: moderate_game(get_channel(), ' '.join(args[1:])),
     '!unmoderate_game': lambda: unmoderate_game(get_channel(), ' '.join(args[1:])),
-    '!restart': lambda: restart(),
+    '!restart': lambda: restart(*args[1:]),
     '!git_update': lambda: git_update(),
     '!send_last_lines': lambda: send_last_lines(),
-    '!sql': lambda: sql(*args[1:]),
   }
   commands = {
-    '!announce_me': lambda: announce(get_channel(), array_get(args, 1), array_get(args, 2)),
+    '!announce_me': lambda: announce(get_channel(), *args[1:3]),
     '!about': lambda: about(),
     '!help': lambda: help(),
   }
@@ -183,18 +179,6 @@ def send_last_lines():
   if output.returncode != 0:
     logging.error('Sending last lines failed:')
     logging.error(output.stdout)
-
-
-# If we encounter an uncaught exception, we need to log it, and send details.
-def uncaught_thread_exception(args):
-  if args.exc_type == SystemExit: # Calling sys.exit from a thread does not kill the main process, so we must use os.kill
-    import os
-    code = 0 if (args.exc_value and args.exc_value.code == 0) else 1
-    os.kill(os.getpid(), code)
-    return
-  logging.exception(f'Uncaught exception in {args.thread.name}')
-  send_last_lines()
-threading.excepthook = uncaught_thread_exception
 
 
 def announce_new_runs():
