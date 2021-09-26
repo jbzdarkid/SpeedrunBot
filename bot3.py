@@ -195,7 +195,7 @@ def get_embed(stream):
     'url': stream['url'],
     # Add random data to the end of the image URL to force Discord to regenerate the preview.
     'image': {
-      'url': stream['preview'] # + '?' + uuid4().hex,
+      'url': stream['preview'] + '?' + uuid4().hex,
     }
   }
 
@@ -311,6 +311,8 @@ if __name__ == '__main__':
       while 1: # This loop does not exit
         try:
           func()
+        except exceptions.NetworkError:
+          pass
         except:
           logging.exception('catch-all for forever_thread')
           send_last_lines()
