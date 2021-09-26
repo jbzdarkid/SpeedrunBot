@@ -81,15 +81,15 @@ def get_user(twitch_username):
   return None
 
 
-def get_user_by_src(src_id):
-  execute('SELECT * FROM users WHERE src_id=?', src_id)
-  if data := fetchone():
-    return {
-      'twitch_username': data[0],
-      'src_id': data[1],
-      'fetch_time': data[2],
-    }
-  return None
+# def get_user_by_src(src_id):
+#   execute('SELECT * FROM users WHERE src_id=?', src_id)
+#   if data := fetchone():
+#     return {
+#       'twitch_username': data[0],
+#       'src_id': data[1],
+#       'fetch_time': data[2],
+#     }
+#   return None
 
 
 def update_user_fetch_time(twitch_username, last_fetched=datetime.now().timestamp()):
@@ -107,20 +107,24 @@ def add_game(game_name, twitch_game_id, src_game_id, discord_channel):
   conn.commit()
 
 
-def get_game_ids(game_name):
-  execute('SELECT twitch_game_id, src_game_id FROM tracked_games WHERE game_name LIKE ?', game_name)
-  if data := fetchone():
-    return data
-  return (None, None)
-
-
 def get_all_games():
-  execute('SELECT game_name, discord_channel FROM tracked_games')
+  execute('SELECT game_name, twitch_game_id, src_game_id FROM tracked_games')
   return fetchall()
 
 
+def get_channel_for_game(game_name):
+  execute('SELECT discord_channel FROM tracked_games WHERE game_name=?', game_name)
+  return fetchone()
+
+
+def get_game_for_channel(channel_id):
+  execute('SELECT game_name FROM tracked_games WHERE discord_channel=?', channel_id)
+  return fetchone()
+
+
 def remove_game(game_name):
-  _, src_game_id = get_game_ids(game_name)
+  execute('SELECT src_game_id FROM tracked_games WHERE game_name=?', game_name)
+  src_game_id = fetchone()
   if not src_game_id:
     raise exceptions.CommandError(f'Cannot remove `{game_name}` as it is not currently being tracked.')
 
@@ -184,6 +188,7 @@ def add_announced_stream(**announced_stream):
   )
   conn.commit()
 
+
 def update_announced_stream(announced_stream):
   execute('UPDATE announced_streams SET title=?, last_live=? WHERE name=? AND game=?',
     announced_stream['title'],
@@ -192,6 +197,7 @@ def update_announced_stream(announced_stream):
     announced_stream['game'],
   )
   conn.commit()
+
 
 def get_announced_streams():
   execute('SELECT * FROM announced_streams')
@@ -208,6 +214,7 @@ def get_announced_streams():
       'last_live': data[8],
     }
 
+
 def get_announced_stream(name, game):
   execute('SELECT * FROM announced_streams WHERE name=? AND game=?', name, game)
   if data := fetchone():
@@ -223,6 +230,7 @@ def get_announced_stream(name, game):
       'last_live': data[8],
     }
   return None
+
 
 def delete_announced_stream(announced_stream):
   execute('DELETE FROM announced_streams WHERE name=? AND game=?', announced_stream['name'], announced_stream['game'])

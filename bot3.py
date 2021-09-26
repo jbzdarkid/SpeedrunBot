@@ -20,12 +20,8 @@ from source import database, generics, twitch_apis, src_apis, discord_apis, disc
 #  Specifically, I want to simplify on_parsed_streams so that it is only called once, with the complete list of streams.
 #  That way I can also move live_channels into on_parsed_streams, where it belongs.
 #  Then move client.live_channels into a database. Just full read/write JSON is ok.
-# TODO: Discord is not renaming embeds? Or, I'm not changing the embed title correctly on edits.
-#   Definitely broken. Test again now that I'm off discordpy?
-#   Oh. Or I just never updated the title. Might be working now?
 # TODO: [nosrl] (and associated tests)
 # TODO: Reactions with :eyes: and :thumpsup: for verifiers
-# TODO: Replace tracked_games with a database query.
 
 # MAYBE
 # TODO: Add a test for 'what if a live message got deleted'
@@ -40,7 +36,6 @@ from source import database, generics, twitch_apis, src_apis, discord_apis, disc
 # TODO: Consider using urrlib3 over requests? I'm barely using requests now.
 
 # Global, since it's referenced in both systems.
-tracked_games = {}
 client = discord_websocket_apis.WebSocket()
 admins = []
 
@@ -56,7 +51,7 @@ def on_message(message):
     return # DO NOT process our own messages
   elif any(client.user['id'] == mention['id'] for mention in message['mentions']):
     pass # DO process messages which mention us, no matter which channel they're sent
-  elif message['channel_id'] not in tracked_games:
+  elif database.get_game_for_channel(message['channel_id']) == None:
     return # DO NOT process messages in unwatched channels
 
   on_message_internal(message)
@@ -119,7 +114,7 @@ def on_message_internal(message):
     database.add_user(twitch_username, src_id)
     return f'Successfully linked twitch user {twitch_username} to speedrun.com user {src_username}'
   def about():
-    game = tracked_games.get(message['channel_id'], 'this game')
+    game = database.get_game_for_channel(message['channel_id'])
     response = 'Speedrunning bot, created by darkid#1647.\n'
     response += f'The bot will search for twitch streams of {game}, then check to see if the given streamer is a speedrunner, then check to see if the speedrunner has a PB in {game}.\n'
     response += 'If so, it announces their stream in this channel.'
@@ -212,12 +207,8 @@ def get_embed(stream):
 
 
 def announce_live_channels():
-  for game_name, channel_id in database.get_all_games():
-    global tracked_games
-    tracked_games[channel_id] = game_name
-
-  # Calls to list() make me sad. They are also slow.
-  streams = list(generics.get_speedrunners_for_game2(list(tracked_games.values())))
+  # We coalesce this into a list so that we can make database operations during iteration.
+  streams = list(generics.get_speedrunners_for_game2())
   logging.info(f'There are {len(streams)} live streams')
 
   for stream in streams:
@@ -239,7 +230,7 @@ def announce_live_channels():
       # If the stream is new, announce it
       logging.info(f'Stream {stream["name"]} started')
       content = f'{stream["name"]} is now doing runs of {stream["game"]} at {stream["url"]}'
-      channel_id = next(key for key in tracked_games if tracked_games[key] == stream['game']) # A little awkward
+      channel_id = database.get_channel_for_game(stream['game'])
       message = discord_apis.send_message_ids(channel_id, content, get_embed(stream))
 
       database.add_announced_stream(

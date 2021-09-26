@@ -9,11 +9,6 @@ from . import database, src_apis, twitch_apis, exceptions
 # https://discord.com/oauth2/authorize?scope=bot&permissions=2048&client_id=683472204280889511
 
 def track_game(game_name, discord_channel):
-  # Cutting this check -- hopefully we'll report errors during the database add.
-  # if database.get_game_ids(game_name)[0]:
-  #   logging.error(f'Already tracking game {game_name}')
-  #   return # Game is already tracked
-
   src_game_id = src_apis.get_game_id(game_name)
   twitch_game_id = twitch_apis.get_game_id(game_name)
   database.add_game(game_name, twitch_game_id, src_game_id, discord_channel)
@@ -24,21 +19,20 @@ def moderate_game(game_name, discord_channel):
   database.moderate_game(game_name, src_game_id, discord_channel)
 
 
-def get_speedrunners_for_game2(game_names):
+def get_speedrunners_for_game2():
   twitch_game_ids = []
   src_game_ids = {}
-  for game_name in game_names:
-    twitch_game_id, src_game_id = database.get_game_ids(game_name)
-    if not twitch_game_id:
-      logging.error(f'Failed to find game IDs for game {game_name}. Skipping.')
-      continue
+  for game_name, twitch_game_id, src_game_id in database.get_all_games():
     twitch_game_ids.append(twitch_game_id)
     src_game_ids[game_name] = src_game_id
     logging.info(f'Getting speedrunners for game {game_name} ({twitch_game_id} | {src_game_id})')
 
   if len(twitch_game_ids) == 0:
+    logging.info('There are no games being tracked, so we are not calling twitch.')
     return
 
+  # We iterate the list of games into one list so that we can make a single network call here.
+  # Otherwise, we would have to make one call to twitch per game, which is slow.
   streams = twitch_apis.get_live_game_streams2(twitch_game_ids)
 
   # For performance here, instead of directly iterating the streams, pass them into a ThreadPoolExecutor.
