@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 from .make_request import make_request
+from . import exceptions
 
 api = 'https://api.twitch.tv/helix'
 
@@ -49,12 +50,12 @@ def get_live_game_streams2(game_ids):
 def get_game_id(game_name):
   j = make_request('GET', f'{api}/games', params={'name': game_name}, headers=get_headers())
   if len(j['data']) == 0:
-    raise exceptions.CommandError(f'Could not find game {game_name} on Twitch')
+    raise exceptions.CommandError(f'Could not find game `{game_name}` on Twitch')
   return j['data'][0]['id']
 
 
 def get_user_id(username):
   j = make_request('GET', f'{api}/users', params={'login': username}, headers=get_headers())
   if len(j['data']) == 0:
-    raise exceptions.CommandError(f'Could not find user {username} on Twitch')
+    raise exceptions.CommandError(f'Could not find user `{username}` on Twitch')
   return j['data'][0]['id']

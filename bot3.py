@@ -12,16 +12,13 @@ from uuid import uuid4
 
 from source import database, generics, twitch_apis, src_apis, discord_apis, discord_websocket_apis, exceptions
 
-# BUGS
-# If a user is a speedrunner (but not of a tracked game) we check for PB on every call.
-
 # WANT
-# TODO: Consider refactoring the core bot logic so that we don't need to filter streams by game
-#  Specifically, I want to simplify on_parsed_streams so that it is only called once, with the complete list of streams.
-#  That way I can also move live_channels into on_parsed_streams, where it belongs.
-#  Then move client.live_channels into a database. Just full read/write JSON is ok.
 # TODO: [nosrl] (and associated tests)
 # TODO: Reactions with :eyes: and :thumpsup: for verifiers
+# [2021-09-25 17:32:40.493780] 18660 discord_websocket_apis.heartbeat:113     Disconnecting because heartbeat did not get an ack, instead got {"t":"MESSAGE_CREATE", ...
+# [2021-09-25 17:33:15.735211] 18660 discord_websocket_apis.handle_message:147 Signed in as SpeedrunBot
+# [2021-09-25 17:33:15.735211] 18660 discord_websocket_apis.handle_message:152 Resuming 7f261df16967c91a83cf68e3b34d8c94 at 5
+# [2021-09-25 17:33:15.835048] 18660 discord_websocket_apis.get_message:125   Disconnecting due to connection error on get (1011)
 
 # MAYBE
 # TODO: Add a test for 'what if a live message got deleted'
@@ -35,7 +32,9 @@ from source import database, generics, twitch_apis, src_apis, discord_apis, disc
 #   See https://discord.com/developers/docs/reference#message-formatting
 # TODO: Consider using urrlib3 over requests? I'm barely using requests now.
 
-# Global, since it's referenced in both systems.
+# Global, since it's referenced in both systems. Actually, client isn't. Hmm....
+# This feels odd. We're implicitly relying on client.user being fetched early?
+# Or are we? Maybe we could provide client inside the callback to make this clearer. I think admins is the only global, in fact.
 client = discord_websocket_apis.WebSocket()
 admins = []
 
@@ -75,6 +74,9 @@ def on_message_internal(message):
     if len(channel_mentions) > 1:
       raise exceptions.CommandError('Response mentions more than one channel. Please mention at most one channel name at a time.')
 
+  def array_get(arr, i):
+    return arr[i] if i < len(arr) else None
+
   def assert_args(usage, *required_args, example=None):
     if any((arg == None or arg == '') for arg in required_args):
       error = f'Usage of {args[0]}: `{args[0]} {usage}`'
@@ -107,14 +109,20 @@ def on_message_internal(message):
     return '```' + output.stdout + ('\n' if (output.stderr or output.stdout) else '') + output.stderr + '```'
   def sql(command, *args):
     return '\n'.join(map(str, database.execute(command, *args)))
-  def link(twitch_username, src_username):
+  def announce(channel_id, twitch_username, src_username):
     assert_args('twitch_username src_username', twitch_username, src_username, example='jbzdarkid darkid')
+    data = database.get_game_for_channel(channel_id)
+    if data == None:
+      raise exceptions.UsageError(f'There is no game currently associated with <#{channel_id}>. Please call this command in a channel which is announcing streams.')
+
     twitch_apis.get_user_id(twitch_username) # Will throw if there is any ambiguity about the twich username
-    src_id = src_apis.search_src_user(src_username)
+    src_id = src_apis.search_src_user(src_username) # Will throw if there is any ambiguity about the src username
     database.add_user(twitch_username, src_id)
-    return f'Successfully linked twitch user {twitch_username} to speedrun.com user {src_username}'
+    database.add_personal_best(src_id, data['src_game_id'])
+    return f'Will now announce `{twitch_username}` when they go live on twitch playing `{data["game_name"]}`.'
   def about():
-    game = database.get_game_for_channel(message['channel_id'])
+    data = database.get_game_for_channel(message['channel_id'])
+    game = data['game_name'] if data else 'this game'
     response = 'Speedrunning bot, created by darkid#1647.\n'
     response += f'The bot will search for twitch streams of {game}, then check to see if the given streamer is a speedrunner, then check to see if the speedrunner has a PB in {game}.\n'
     response += 'If so, it announces their stream in this channel.'
@@ -136,7 +144,7 @@ def on_message_internal(message):
     '!sql': lambda: sql(*args[1:]),
   }
   commands = {
-    '!link': lambda: link(*args[1:3]),
+    '!announce_me': lambda: announce(get_channel(), array_get(args, 1), array_get(args, 2)),
     '!about': lambda: about(),
     '!help': lambda: help(),
   }
@@ -153,6 +161,7 @@ def on_message_internal(message):
   else:
     return # Not a command
   
+  discord_apis.add_reaction(message, '🕐') # In case processing takes a while, ack that we've gotten the message.
   try:
     response = command()
     if response:
@@ -165,6 +174,7 @@ def on_message_internal(message):
     raise exceptions.CommandError(f'Could not track game due to network error {e}')
   except exceptions.CommandError as e: # Actual errors
     discord_apis.send_message_ids(message['channel_id'], f'Error: {e}')
+  discord_apis.remove_reaction(message, '🕐')
 
 
 send_error = Path(__file__).with_name('send_error.py')

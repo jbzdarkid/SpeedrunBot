@@ -80,7 +80,7 @@ def get_game_id(game_name):
 def search_src_user(username):
   j = make_request('GET', f'{api}/users', params={'name': username})
   if len(j['data']) == 0:
-    raise exceptions.CommandError(f'Could not find user {username} on Speedrun.com')
+    raise exceptions.CommandError(f'Could not find user `{username}` on Speedrun.com')
 
   if len(j['data']) == 1:
     return j['data'][0]['id']
@@ -93,7 +93,7 @@ def search_src_user(username):
     possible_matches.append(f'`{possible_match}`')
 
   suggestions = ', '.join(possible_matches[:10]) # Only show a max of 10 matches, for brevity's sake
-  raise exceptions.CommandError(f'Found {len(possible_matches)} possible matches for user {username} on Speedrun.com -- Try one of these options:\n' + suggestions)
+  raise exceptions.CommandError(f'Found {len(possible_matches)} possible matches for user `{username}` on Speedrun.com -- Try one of these options:\n' + suggestions)
 
 
 def get_runs(**params):
@@ -146,7 +146,7 @@ def run_to_string(run):
     return f'`{category}` in {time} by {runners}: <{weblink}>'
 
 
-# Undocumented PHP APIs:
+# Undocumented PHP APIs, tha I'm apparently not allowed to call by TOS.
 
 # Get latest runs for a game series (note: needs numeric ID, which comes from ???)
 # https://www.speedrun.com/ajax_latestleaderboard.php?series=18748

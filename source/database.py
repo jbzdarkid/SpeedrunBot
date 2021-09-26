@@ -81,17 +81,6 @@ def get_user(twitch_username):
   return None
 
 
-# def get_user_by_src(src_id):
-#   execute('SELECT * FROM users WHERE src_id=?', src_id)
-#   if data := fetchone():
-#     return {
-#       'twitch_username': data[0],
-#       'src_id': data[1],
-#       'fetch_time': data[2],
-#     }
-#   return None
-
-
 def update_user_fetch_time(twitch_username, last_fetched=datetime.now().timestamp()):
   execute('UPDATE users SET last_fetched=? WHERE twitch_username=?', last_fetched, twitch_username.lower())
   conn.commit()
@@ -118,8 +107,13 @@ def get_channel_for_game(game_name):
 
 
 def get_game_for_channel(channel_id):
-  execute('SELECT game_name FROM tracked_games WHERE discord_channel=?', channel_id)
-  return fetchone()
+  execute('SELECT game_name, src_game_id FROM tracked_games WHERE discord_channel=?', channel_id)
+  if data := fetchone():
+    return {
+      'game_name': data[0],
+      'src_game_id': data[1],
+    }
+  return None
 
 
 def remove_game(game_name):
