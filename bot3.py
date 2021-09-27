@@ -102,7 +102,7 @@ def on_message_internal(message):
     discord_apis.add_reaction(message, '💀')
     # Calling sys.exit from a thread does not kill the main process, so we must use os.kill
     import os
-    os.kill(os.getpid(), code)
+    os.kill(os.getpid(), int(code))
   def git_update():
     output = subprocess.run(['git', 'pull', '--ff-only'], capture_output=True, text=True, cwd=Path(__file__).parent)
     return '```' + output.stdout + ('\n' if (output.stderr or output.stdout) else '') + output.stderr + '```'
