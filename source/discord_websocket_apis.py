@@ -29,7 +29,7 @@ class WebSocket():
     self.connected = False # Indicates whether or not the websocket is connected. If false, we should not send messages and should exit the loop.
     self.session_id = None # Indicates whether or not we have an active session, used to resume if the connection drops.
     self.sequence = None # Indicates the last recieved message in the current session. Meaningless if no session is active.
-    self.got_hearbeat_ack = False # Indicates whether or not we've recieved a HEARTBEAT_ACK since the last heartbeat.
+    self.got_heartbeat_ack = False # Indicates whether or not we've recieved a HEARTBEAT_ACK since the last heartbeat.
 
 
   def run(self):
