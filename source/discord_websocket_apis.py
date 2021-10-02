@@ -122,6 +122,7 @@ class WebSocket():
     await self.send_message(websocket, HEARTBEAT, self.sequence)
     self.next_heartbeat = datetime.now() + self.heartbeat_interval
     self.got_heartbeat_ack = False
+    logging.info(f'Sent heartbeat, will send the next one at {self.next_heartbeat}')
 
 
   async def get_message(self, websocket, timeout=None):
