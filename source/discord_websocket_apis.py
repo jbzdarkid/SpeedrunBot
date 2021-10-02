@@ -80,7 +80,7 @@ class WebSocket():
         await asyncio.sleep(random_startup)
 
         # Since this is our first heartbeat, we pretend we've already gotten an ack to avoid immediately disconnecting.
-        self.got_hearbeat_ack = True
+        self.got_heartbeat_ack = True
         await self.heartbeat(websocket)
 
       if not self.connected: # Internet may have gone down while waiting for hello / initial sleep
@@ -122,7 +122,6 @@ class WebSocket():
     await self.send_message(websocket, HEARTBEAT, self.sequence)
     self.next_heartbeat = datetime.now() + self.heartbeat_interval
     self.got_heartbeat_ack = False
-    logging.info(f'Sent heartbeat, will send the next one at {self.next_heartbeat}')
 
 
   async def get_message(self, websocket, timeout=None):
