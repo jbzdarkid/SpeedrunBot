@@ -29,6 +29,7 @@ class WebSocket():
     self.connected = False # Indicates whether or not the websocket is connected. If false, we should not send messages and should exit the loop.
     self.session_id = None # Indicates whether or not we have an active session, used to resume if the connection drops.
     self.sequence = None # Indicates the last recieved message in the current session. Meaningless if no session is active.
+    self.got_hearbeat_ack = False # Indicates whether or not we've recieved a HEARTBEAT_ACK since the last heartbeat.
 
 
   def run(self):
@@ -61,19 +62,28 @@ class WebSocket():
 
   async def connect(self):
     while not self.connected:
-      websocket = await websockets.connect('wss://gateway.discord.gg/?v=9&encoding=json')
+      try:
+        websocket = await websockets.connect('wss://gateway.discord.gg/?v=9&encoding=json')
+      except websockets.exceptions.WebSocketException as e:
+        logging.exception('Unable to open a websocket connection')
+        await asyncio.sleep(10)
+        continue
+
       hello = await self.get_message(websocket)
       if hello:
         self.heartbeat_interval = timedelta(milliseconds=json.loads(hello)['d']['heartbeat_interval'])
-        self.connected = True # Set connected early, since both heartbeat and identify can trigger a disconnection.
+        self.connected = True # Set connected early, since the connection may drop in between now and the heartbeat
 
         # https://discord.com/developers/docs/topics/gateway#heartbeating
         random_startup = self.heartbeat_interval.total_seconds() * random()
         logging.info(f'Connecting in {random_startup} seconds')
         await asyncio.sleep(random_startup)
+
+        # Since this is our first heartbeat, we pretend we've already gotten an ack to avoid immediately disconnecting.
+        self.got_hearbeat_ack = True
         await self.heartbeat(websocket)
 
-      if not self.connected: # Heartbeat may cause a disconnection, per above doc.
+      if not self.connected: # Internet may have gone down while waiting for hello / initial sleep
         await websocket.close(1001)
         continue
 
@@ -104,16 +114,14 @@ class WebSocket():
 
 
   async def heartbeat(self, websocket):
-    await self.send_message(websocket, HEARTBEAT, self.sequence)
-    ack = await self.get_message(websocket, timeout=self.heartbeat_interval.total_seconds())
-    if ack and json.loads(ack)['op'] == HEARTBEAT_ACK:
-      self.next_heartbeat = datetime.now() + self.heartbeat_interval
-      return
-    else:
-      logging.error(f'Disconnecting because heartbeat did not get an ack, instead got {ack}')
-      # If we recieve any other message, we should disconnect, reconnect, and resume.
+    if not self.got_heartbeat_ack:
       # https://discord.com/developers/docs/topics/gateway#heartbeating-example-gateway-heartbeat-ack
+      logging.error(f'Disconnecting because heartbeat did not get an ack since last heartbeat')
       self.connected = False
+
+    await self.send_message(websocket, HEARTBEAT, self.sequence)
+    self.next_heartbeat = datetime.now() + self.heartbeat_interval
+    self.got_heartbeat_ack = False
 
 
   async def get_message(self, websocket, timeout=None):
@@ -194,5 +202,7 @@ class WebSocket():
         self.session_id = None
       # Short sleep, per https://discord.com/developers/docs/topics/gateway#resuming-example-gateway-resume
       await asyncio.sleep(random() * 4 + 1)
+    elif msg['op'] == HEARTBEAT_ACK:
+      self.got_heartbeat_ack = True
     else:
       logging.error('Cannot handle message opcode ' + str(msg['op']))

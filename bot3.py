@@ -15,10 +15,6 @@ from source import database, generics, twitch_apis, src_apis, discord_apis, disc
 # WANT
 # TODO: [nosrl] (and associated tests)
 # TODO: Reactions with :eyes: and :thumpsup: for verifiers
-# [2021-09-25 17:32:40.493780] 18660 discord_websocket_apis.heartbeat:113     Disconnecting because heartbeat did not get an ack, instead got {"t":"MESSAGE_CREATE", ...
-# [2021-09-25 17:33:15.735211] 18660 discord_websocket_apis.handle_message:147 Signed in as SpeedrunBot
-# [2021-09-25 17:33:15.735211] 18660 discord_websocket_apis.handle_message:152 Resuming 7f261df16967c91a83cf68e3b34d8c94 at 5
-# [2021-09-25 17:33:15.835048] 18660 discord_websocket_apis.get_message:125   Disconnecting due to connection error on get (1011)
 
 # MAYBE
 # TODO: Add a test for 'what if a live message got deleted'
@@ -30,7 +26,6 @@ from source import database, generics, twitch_apis, src_apis, discord_apis, disc
 #  Didn't I fix this? Who knows.
 # TODO: <t:1626594025> is apparently a thing discord supports. Maybe useful somehow?
 #   See https://discord.com/developers/docs/reference#message-formatting
-# TODO: Consider using urrlib3 over requests? I'm barely using requests now.
 
 # Global, since it's referenced in both systems. Actually, client isn't. Hmm....
 # This feels odd. We're implicitly relying on client.user being fetched early?
