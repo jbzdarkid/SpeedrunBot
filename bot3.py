@@ -317,11 +317,10 @@ if __name__ == '__main__':
     threading.Thread(target=forever_thread, args=(announce_live_channels, 60)).start()
     threading.Thread(target=forever_thread, args=(announce_new_runs,      600)).start()
 
-    admins = [discord_apis.get_owner()['id']]
-
     client.callbacks['on_message'] = on_message
     client.callbacks['on_direct_message'] = on_direct_message
     try:
+      admins = [discord_apis.get_owner()['id']] # This can throw, and if it does, we have no recompense.
       client.run()
     except:
       logging.exception('catch-all for client.run')
