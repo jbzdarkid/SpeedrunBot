@@ -79,7 +79,7 @@ class WebSocket():
       self.got_heartbeat_ack = True
       await self.heartbeat(websocket)
 
-   except websockets.exceptions.WebSocketException:
+    except websockets.exceptions.WebSocketException:
       logging.exception('Unable to open a websocket connection due to a websocket error')
     except OSError:
       logging.exception('Unable to open a websocket connection due to a socket error')

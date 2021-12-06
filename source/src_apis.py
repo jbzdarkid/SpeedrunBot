@@ -143,7 +143,10 @@ def run_to_string(run):
     return f'`{category}` in {time} by {runners}: <{weblink}>'
 
 
-# Undocumented PHP APIs, tha I'm apparently not allowed to call by TOS.
+# Undocumented PHP APIs, that I apparently *am* allowed to call.
+# https://discord.com/channels/157645920324943872/343897241766854656/902321525263319110
+# (Can't access it, but the image says "no support nor api stability provided")
+# Hopefully they stop using numeric IDs.
 
 # Get latest runs for a game series (note: needs numeric ID, which comes from ???)
 # https://www.speedrun.com/ajax_latestleaderboard.php?series=18748
