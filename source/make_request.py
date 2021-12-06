@@ -8,9 +8,10 @@ def make_request_unsafe(method, url, *args, **kwargs):
   r = requests.request(method, url, *args, **kwargs)
   r.raise_for_status() # Raise an exception for any 400 or 500 class response
 
-  if r.request.method == 'POST': # Strip postdata arguments from the URL since they usually contain secrets.
-    url = url.split('?')[0]
-  logging.info(f'Completed {r.request.method} request to {url} with code {r.status_code}')
+  if r.status_code != 200:
+    if r.request.method == 'POST': # Strip postdata arguments from the URL since they usually contain secrets.
+      url = url.split('?')[0]
+    logging.info(f'Completed {r.request.method} request to {url} with code {r.status_code}')
 
   if r.status_code == 204: # 204 NO CONTENT
     return ''
