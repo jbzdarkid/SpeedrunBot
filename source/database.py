@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from threading import Lock
 
-import exceptions
+from . import exceptions
 
 conn = sqlite3.connect(
   database = Path(__file__).with_name('database.db'),
