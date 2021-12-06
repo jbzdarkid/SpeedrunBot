@@ -52,6 +52,7 @@ class WebSocket():
           await self.handle_message(msg, websocket)
 
       await websocket.close(1001)
+      await asyncio.sleep(10) # To avoid spamming reconnection requests
 
 
   def get_token(self):
@@ -61,31 +62,31 @@ class WebSocket():
 
 
   async def connect(self):
-    while not self.connected:
-      try:
-        websocket = await websockets.connect('wss://gateway.discord.gg/?v=9&encoding=json')
-      except websockets.exceptions.WebSocketException as e:
-        logging.exception('Unable to open a websocket connection')
-        await asyncio.sleep(10)
-        continue
-
+    try:
+      websocket = await websockets.connect('wss://gateway.discord.gg/?v=9&encoding=json')
       hello = await self.get_message(websocket)
-      if hello:
-        self.heartbeat_interval = timedelta(milliseconds=json.loads(hello)['d']['heartbeat_interval'])
-        self.connected = True # Set connected early, since the connection may drop in between now and the heartbeat
+      if not hello:
+        return
 
-        # https://discord.com/developers/docs/topics/gateway#heartbeating
-        random_startup = self.heartbeat_interval.total_seconds() * random()
-        logging.info(f'Connecting in {random_startup} seconds')
-        await asyncio.sleep(random_startup)
+      # https://discord.com/developers/docs/topics/gateway#heartbeating
+      self.heartbeat_interval = timedelta(milliseconds=json.loads(hello)['d']['heartbeat_interval'])
+      random_startup = self.heartbeat_interval.total_seconds() * random()
+      logging.info(f'Connecting in {random_startup} seconds')
+      await asyncio.sleep(random_startup)
 
-        # Since this is our first heartbeat, we pretend we've already gotten an ack to avoid immediately disconnecting.
-        self.got_heartbeat_ack = True
-        await self.heartbeat(websocket)
+      self.connected = True
+      # Since this is our first heartbeat, we pretend we've already gotten an ack to avoid immediately disconnecting.
+      self.got_heartbeat_ack = True
+      await self.heartbeat(websocket)
 
-      if not self.connected: # Internet may have gone down while waiting for hello / initial sleep
-        await websocket.close(1001)
-        continue
+   except websockets.exceptions.WebSocketException:
+      logging.exception('Unable to open a websocket connection due to a websocket error')
+    except OSError:
+      logging.exception('Unable to open a websocket connection due to a socket error')
+
+    if not self.connected: # Any part of the initial handshake (connect, hello, heartbeat) may fail
+      return
+    logging.info('Successfully connected and sent initial heartbeat')
 
     intents = 0
     if ('on_message' in self.callbacks
