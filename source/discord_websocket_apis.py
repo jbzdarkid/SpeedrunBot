@@ -118,6 +118,7 @@ class WebSocket():
       # https://discord.com/developers/docs/topics/gateway#heartbeating-example-gateway-heartbeat-ack
       logging.error(f'Disconnecting because heartbeat did not get an ack since last heartbeat')
       self.connected = False
+      return
 
     await self.send_message(websocket, HEARTBEAT, self.sequence)
     self.next_heartbeat = datetime.now() + self.heartbeat_interval
