@@ -117,7 +117,7 @@ class WebSocket():
   async def heartbeat(self, websocket):
     if not self.got_heartbeat_ack:
       # https://discord.com/developers/docs/topics/gateway#heartbeating-example-gateway-heartbeat-ack
-      logging.error(f'Disconnecting because heartbeat did not get an ack since last heartbeat')
+      logging.error('Disconnecting because heartbeat did not get an ack since last heartbeat')
       self.connected = False
       return
 
@@ -129,13 +129,13 @@ class WebSocket():
   async def get_message(self, websocket, timeout=None):
     try:
       return await asyncio.wait_for(websocket.recv(), timeout=timeout)
-    except (asyncio.TimeoutError, asyncio.CancelledError) as e:
+    except (asyncio.TimeoutError, asyncio.CancelledError):
       return None
-    except websockets.exceptions.ConnectionClosedError as e:
+    except websockets.exceptions.ConnectionClosedError:
       logging.exception('Disconnecting due to connection error on get')
       self.connected = False
       return None
-    except websockets.exceptions.WebSocketException as e:
+    except websockets.exceptions.WebSocketException:
       logging.exception('Disconnecting due to generic websocket error on get')
       self.connected = False
       return None
@@ -144,7 +144,7 @@ class WebSocket():
   async def send_message(self, websocket, op, data):
     try:
       await websocket.send(json.dumps({'op': op, 'd': data}))
-    except websockets.exceptions.WebSocketException as e:
+    except websockets.exceptions.WebSocketException:
       logging.exception('Disconnecting due to generic websocket error on send')
       self.connected = False
 
@@ -171,7 +171,7 @@ class WebSocket():
           self.sequence = msg['s']
           logging.info(f'Starting new session {self.session_id} at {self.sequence}')
         return
-        
+
       # Aside from READY, all messages will be part of our current sequence.
       self.sequence = msg['s']
       target = None
@@ -193,7 +193,7 @@ class WebSocket():
         Thread(target=target, args=(msg['d'],)).start()
 
     elif msg['op'] == HEARTBEAT:
-      await self.heartbeat()
+      await self.heartbeat(websocket)
     elif msg['op'] == RECONNECT:
       self.connected = False
     elif msg['op'] == INVALID_SESSION:

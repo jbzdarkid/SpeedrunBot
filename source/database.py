@@ -1,9 +1,10 @@
-import json
 import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
+
+import exceptions
 
 conn = sqlite3.connect(
   database = Path(__file__).with_name('database.db'),

@@ -1,7 +1,7 @@
 import datetime
 import logging
 
-from . import database, src_apis, twitch_apis, exceptions
+from . import database, src_apis, twitch_apis
 
 # In order for the bot to post messages, it needs the "send_messages" permission.
 # Please use this link in to grant the permissions to a server you administrate.
