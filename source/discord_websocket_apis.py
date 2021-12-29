@@ -19,7 +19,6 @@ INVALID_SESSION = 9
 HELLO = 10
 HEARTBEAT_ACK = 11
 
-
 # Valid callbacks:
 # on_message, on_direct_message, on_reaction, on_message_edit, on_message_delete
 
@@ -38,6 +37,10 @@ class WebSocket():
 
   async def run_async(self):
     while 1: # This loop does not exit naturally
+      # Clients are limited to 1000 IDENTIFY calls to the websocket in a 24-hour period.
+      # For simplicity, I just use this limit as our generic reconnection rate.
+      await asyncio.sleep(24 * 60 * 60 / 1000)
+
       websocket = await self.connect()
 
       # Main loop: Wait for messages, interrupting for heartbeats.
@@ -52,7 +55,6 @@ class WebSocket():
           await self.handle_message(msg, websocket)
 
       await websocket.close(1001)
-      await asyncio.sleep(10) # To avoid spamming reconnection requests
 
 
   def get_token(self):
@@ -128,7 +130,9 @@ class WebSocket():
 
   async def get_message(self, websocket, timeout=None):
     try:
-      return await asyncio.wait_for(websocket.recv(), timeout=timeout)
+      msg = await asyncio.wait_for(websocket.recv(), timeout=timeout)
+      logging.info(f'> Got message {msg}')
+      return msg
     except (asyncio.TimeoutError, asyncio.CancelledError):
       return None
     except websockets.exceptions.ConnectionClosedError:
@@ -143,6 +147,7 @@ class WebSocket():
 
   async def send_message(self, websocket, op, data):
     try:
+      logging.info(f'> Sending message {op}: {data}')
       await websocket.send(json.dumps({'op': op, 'd': data}))
     except websockets.exceptions.WebSocketException:
       logging.exception('Disconnecting due to generic websocket error on send')
@@ -155,10 +160,13 @@ class WebSocket():
       if msg['t'] == 'READY':
         self.user = msg['d']['user']
         logging.info('Signed in as ' + self.user['username'])
-        # TODO: This is a bit of an encapsulation break. We should really have a separate system which handles IDENTIFY/READY/RESUME,
+        # TODO: Passing in websocket here is a bit of an encapsulation break.
+        # There really should be a separate system which handles IDENTIFY/READY/RESUME,
         # which would also reduce the restart time in the INVALID_SESSION case below.
         # But, I don't want to duplicate the handle_message function, and it's not really designed to return anything.
         if self.session_id: # Attempt to resume the previous session, if we had one
+          self.got_heartbeat_ack = True # HACK.
+          await self.heartbeat(websocket)
           logging.info(f'Resuming {self.session_id} at {self.sequence}')
           resume = {
             'token': self.get_token(),
