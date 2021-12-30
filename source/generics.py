@@ -65,7 +65,7 @@ def get_speedrunners_for_game2():
 
     logging.info(f'{prefix}is a speedrunner, and runs this game')
     yield {
-      'preview': stream['thumbnail_url'].format(width=320, height=180),
+      'preview': stream['thumbnail_url'].format(width=1920, height=1080),
       'url': f'https://www.twitch.tv/{twitch_username}',
       'name': twitch_username,
       'title': stream['title'],
