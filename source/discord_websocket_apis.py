@@ -26,6 +26,8 @@ class WebSocket():
   def __init__(self):
     self.callbacks = {} # Hooks which can be registered to handle various discord events. Must be registered before calling run().
     self.connected = False # Indicates whether or not the websocket is connected. If false, we should not send messages and should exit the loop.
+    self.user = None
+    self.session_is_live = False
     self.session_id = None # Indicates whether or not we have an active session, used to resume if the connection drops.
     self.sequence = None # Indicates the last recieved message in the current session. Meaningless if no session is active.
     self.got_heartbeat_ack = False # Indicates whether or not we've recieved a HEARTBEAT_ACK since the last heartbeat.
@@ -64,7 +66,7 @@ class WebSocket():
 
 
   async def connect(self):
-    try:
+    try: # TODO: Why are we only catching this area? Why not catch the entire connect function?
       websocket = await websockets.connect('wss://gateway.discord.gg/?v=9&encoding=json')
       hello = await self.get_message(websocket)
       if not hello:
@@ -110,8 +112,35 @@ class WebSocket():
         '$device': 'speedrunbot-jbzdarkid',
       }
     }
+
+    # This is very sloppy but I'm just trying to see if it works.
+    self.user = None
+    self.session_is_live = False
+
     await self.send_message(websocket, IDENTIFY, identify)
-    # The READY response will be handled in handle_message, as it may get interrupted by a heartbeat.
+
+    while True:
+      msg = self.get_message(websocket, timeout=5) # Timeout from where, exactly?
+      if not msg:
+        break
+      self.handle_message(msg)
+    
+    # We did not get a READY, so the connection is not live.
+    if not self.user:
+      self.connected = False
+      return
+
+    # Attempt to resume the previous session, if we had one
+    # Maybe check self.sequence instead?
+    logging.info(f'Session is live: {self.session_is_live} Sequence: {self.sequence}')
+    if not self.session_is_live:
+      logging.info(f'Resuming {self.session_id} at {self.sequence}')
+      resume = {
+        'token': self.get_token(),
+        'session_id': self.session_id,
+        'seq': self.sequence,
+      }
+      await self.send_message(websocket, RESUME, resume)
 
     return websocket
 
@@ -160,24 +189,11 @@ class WebSocket():
       if msg['t'] == 'READY':
         self.user = msg['d']['user']
         logging.info('Signed in as ' + self.user['username'])
-        # TODO: Passing in websocket here is a bit of an encapsulation break.
-        # There really should be a separate system which handles IDENTIFY/READY/RESUME,
-        # which would also reduce the restart time in the INVALID_SESSION case below.
-        # But, I don't want to duplicate the handle_message function, and it's not really designed to return anything.
-        if self.session_id: # Attempt to resume the previous session, if we had one
-          self.got_heartbeat_ack = True # HACK.
-          await self.heartbeat(websocket)
-          logging.info(f'Resuming {self.session_id} at {self.sequence}')
-          resume = {
-            'token': self.get_token(),
-            'session_id': self.session_id,
-            'seq': self.sequence,
-          }
-          await self.send_message(websocket, RESUME, resume)
-        else: # Else, reset the session ID and sequence to the new one provided in READY
+        if not self.session_id:
           self.session_id = msg['d']['session_id']
           self.sequence = msg['s']
           logging.info(f'Starting new session {self.session_id} at {self.sequence}')
+          self.session_is_live = True
         return
 
       # Aside from READY, all messages will be part of our current sequence.
