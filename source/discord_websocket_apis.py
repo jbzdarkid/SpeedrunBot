@@ -120,10 +120,10 @@ class WebSocket():
     await self.send_message(websocket, IDENTIFY, identify)
 
     while True:
-      msg = self.get_message(websocket, timeout=5) # Timeout from where, exactly?
+      msg = await self.get_message(websocket, timeout=5) # Timeout from where, exactly?
       if not msg:
         break
-      self.handle_message(msg, websocket)
+      await self.handle_message(msg, websocket)
     
     # We did not get a READY, so the connection is not live.
     if not self.user:
