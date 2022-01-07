@@ -87,9 +87,9 @@ def get_new_runs(game_name, src_game_id, last_update):
     submitted = submitted.replace(tzinfo=datetime.timezone.utc) # strptime assumes local time, which is incorrect here.
     if submitted.timestamp() <= last_update:
       continue
+    current_pb = src_apis.get_current_pb(run)
+    yield f'New run submitted: {src_apis.run_to_string(run, current_pb)}'
 
     new_last_update = max(submitted.timestamp(), new_last_update)
-
-    yield f'New run submitted: {src_apis.run_to_string(run)}'
 
   database.update_game_moderation_time(game_name, new_last_update)

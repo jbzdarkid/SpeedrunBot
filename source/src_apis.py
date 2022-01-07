@@ -115,8 +115,38 @@ def get_runs(**params):
   return runs
 
 
-# NOTE: Run data must be fetched with all parameters in get_runs above
-def run_to_string(run):
+def get_leaderboard(game, category, variables={}):
+  params = {f'var-{key}': value for key, value in variables.items()}
+  j = make_request('GET', f'{api}/leaderboards/{game}/category/{category}', params=params)
+
+  # This does not support continue, so I assume it just reports the entire leaderboard.
+  for run in j['data']['runs']:
+    run['run']['place'] = run['place']
+    yield run['run']
+
+
+# NOTE: Run data must be fetched with the embeds in get_runs
+def get_current_pb(new_run):
+  game = new_run['game']
+  category = new_run['category']['data']['id']
+  players = set(d['id'] for d in new_run['players']['data'])
+  time = timedelta(seconds=new_run['times']['primary_t'])
+  subcategories = {}
+  for variable in new_run['category']['data']['variables']['data']:
+    if not variable['is-subcategory']:
+      continue
+    subcategories[variable['id']] = variable['values']['values']
+
+  current_pb = 0
+  for run in get_leaderboard(game, category, subcategories):
+    if time <= timedelta(run['times']['primary_t']):
+      new_run['place'] = run['place']
+    if players == set(d['id'] for d in run['players']):
+      return run
+
+
+# NOTE: Run data must be fetched with the embeds in get_runs
+def run_to_string(run, current_pb=None):
     category = run['category']['data']['name']
 
     if isinstance(run['level']['data'], dict):
@@ -138,9 +168,20 @@ def run_to_string(run):
       return player['names']['international'] if player['rel'] == 'user' else player['name']
     runners = ', '.join(map(get_name, run['players']['data']))
 
-    weblink = run['weblink']
-
-    return f'`{category}` in {time} by {runners}: <{weblink}>'
+    output = f'`{category}` in {time} by {runners}'
+    if 'place' in run:
+      n = int(run['place'])
+      # https://stackoverflow.com/a/36977549
+      ordinal = {1:'st', 2:'nd', 3:'rd'}.get(n%100 if n%100<20 else n%10, 'th')
+      output += f', which would put them in {n}{ordinal} place'
+    if current_pb:
+      current_pb_time = timedelta(seconds=current_pb['times']['primary_t'])
+      n = int(current_pb['place'])
+      # https://stackoverflow.com/a/36977549
+      ordinal = {1:'st', 2:'nd', 3:'rd'}.get(n%100 if n%100<20 else n%10, 'th')
+      output += f'\nAn improvement over their current PB of {current_pb_time} ({n}{ordinal} place)'
+    output += '\n' + run['weblink']
+    return output
 
 
 # Undocumented PHP APIs, that I apparently *am* allowed to call.
