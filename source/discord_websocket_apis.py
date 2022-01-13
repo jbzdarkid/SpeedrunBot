@@ -29,7 +29,7 @@ class WebSocket():
     self.user = None
     self.session_is_live = False
     self.session_id = None # Indicates whether or not we have an active session, used to resume if the connection drops.
-    self.sequence = None # Indicates the last recieved message in the current session. Meaningless if no session is active.
+    self.sequence = -1 # Indicates the last recieved message in the current session. Meaningless if no session is active.
     self.got_heartbeat_ack = False # Indicates whether or not we've recieved a HEARTBEAT_ACK since the last heartbeat.
 
 

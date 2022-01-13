@@ -133,7 +133,11 @@ def remove_game(game_name):
 
 # Commands related to personal_bests
 def add_personal_best(src_id, src_game_id):
-  execute('INSERT INTO personal_bests VALUES (?, ?)', src_id, src_game_id)
+  try:
+    execute('INSERT INTO personal_bests VALUES (?, ?)', src_id, src_game_id)
+  except sqlite3.IntegrityError:
+    logging.exception('SQL error')
+    raise exceptions.CommandError(f'Speedrun.com user `{src_id}` already has a PB in game ID `{src_game_id}`.')
 
 
 def has_personal_best(src_id, src_game_id):
