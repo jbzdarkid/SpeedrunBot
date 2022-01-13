@@ -56,7 +56,8 @@ class WebSocket():
         if msg:
           await self.handle_message(msg, websocket)
 
-      await websocket.close(1001)
+      if websocket:
+        await websocket.close(1001)
 
 
   def get_token(self):
