@@ -113,34 +113,31 @@ class WebSocket():
       }
     }
 
-    # This is very sloppy but I'm just trying to see if it works.
-    self.user = None
-    self.session_is_live = False
+    self.user = None # TODO: Somewhere better to put this?
 
     await self.send_message(websocket, IDENTIFY, identify)
 
-    while True:
-      msg = await self.get_message(websocket, timeout=5) # Timeout from where, exactly?
-      if not msg:
-        break
+    msg = await self.get_message(websocket) # TODO: Heartbeat timeout? Move this into the main loop.
+    if msg:
       await self.handle_message(msg, websocket)
     
     # We did not get a READY, so the connection is not live.
     if not self.user:
       self.connected = False
-      return
+      return None
 
+    # Resume is just... not working. I think the right approach is to only try and resume once.
     # Attempt to resume the previous session, if we had one
     # Maybe check self.sequence instead?
-    logging.info(f'Session is live: {self.session_is_live} Sequence: {self.sequence}')
-    if not self.session_is_live:
-      logging.info(f'Resuming {self.session_id} at {self.sequence}')
-      resume = {
-        'token': self.get_token(),
-        'session_id': self.session_id,
-        'seq': self.sequence,
-      }
-      await self.send_message(websocket, RESUME, resume)
+    # logging.info(f'Session is live: {self.session_is_live} Sequence: {self.sequence}')
+    # if not self.session_is_live:
+    #   logging.info(f'Resuming {self.session_id} at {self.sequence}')
+    #   resume = {
+    #     'token': self.get_token(),
+    #     'session_id': self.session_id,
+    #     'seq': self.sequence,
+    #   }
+    #   await self.send_message(websocket, RESUME, resume)
 
     return websocket
 
