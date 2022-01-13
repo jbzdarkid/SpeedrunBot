@@ -118,8 +118,11 @@ class WebSocket():
 
     await self.send_message(websocket, IDENTIFY, identify)
 
-    msg = await self.get_message(websocket) # TODO: Heartbeat timeout? Move this into the main loop.
-    if msg:
+    # TODO: Heartbeat timeout? Move this into the main loop.
+    while True:
+      msg = await self.get_message(websocket, timeout=5) # Timeout from where, exactly?
+      if not msg:
+        break
       await self.handle_message(msg, websocket)
     
     # We did not get a READY, so the connection is not live.
