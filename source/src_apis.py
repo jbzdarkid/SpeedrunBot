@@ -184,7 +184,7 @@ def run_to_string(run, current_pb=None):
       # https://stackoverflow.com/a/36977549
       ordinal = {1:'st', 2:'nd', 3:'rd'}.get(n%100 if n%100<20 else n%10, 'th')
       output += f'\nAn improvement over their current PB of {current_pb_time} ({n}{ordinal} place)'
-    output += '\n' + run['weblink']
+    output += f'\n<{run["weblink"]}>'
     return output
 
 
