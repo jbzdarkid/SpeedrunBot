@@ -141,6 +141,7 @@ def get_current_pb(new_run):
   for run in get_leaderboard(game, category, subcategories):
     if time <= timedelta(run['times']['primary_t']):
       new_run['place'] = run['place']
+    logging.info(run['players'])
     if players == set(d['id'] for d in run['players']):
       return run
 
