@@ -125,11 +125,15 @@ def get_leaderboard(game, category, variables={}):
     yield run['run']
 
 
+def name(player):
+  return player.get('id', player.get('name', '(null)'))
+
+
 # NOTE: Run data must be fetched with the embeds in get_runs
 def get_current_pb(new_run):
   game = new_run['game']
   category = new_run['category']['data']['id']
-  players = set(d['id'] for d in new_run['players']['data'])
+  players = set(name(player) for player in new_run['players']['data'])
   time = timedelta(seconds=new_run['times']['primary_t'])
   subcategories = {}
   for variable in new_run['category']['data']['variables']['data']:
@@ -141,8 +145,7 @@ def get_current_pb(new_run):
   for run in get_leaderboard(game, category, subcategories):
     if time <= timedelta(run['times']['primary_t']):
       new_run['place'] = run['place']
-    logging.info(run['players'])
-    if players == set(d['id'] for d in run['players']):
+    if players == set(name(player) for player in run['players']):
       return run
 
 
