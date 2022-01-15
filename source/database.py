@@ -126,6 +126,7 @@ def remove_game(game_name):
   if not src_game_id:
     raise exceptions.CommandError(f'Cannot remove `{game_name}` as it is not currently being tracked.')
 
+  logging.info('<129>', src_game_id)
   # Note: There is no need to delete users here -- users are cross-game.
   execute('DELETE FROM personal_bests WHERE src_game_id=?', src_game_id)
   execute('DELETE FROM tracked_games WHERE src_game_id=?', src_game_id)
