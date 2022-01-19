@@ -54,6 +54,10 @@ def get_speedrunners_for_game2():
 
     prefix = str(i).ljust(2) + '|' + twitch_username.ljust(20) + '|' + game_name.ljust(20) + '|'
 
+    if 'nosrl' in stream['title']:
+      logging.info(f'{prefix}is explicitly not doing speedruns')
+      continue
+
     src_id = src_apis.get_src_id(twitch_username)
     if src_id is None:
       logging.info(f'{prefix}is not a speedrunner')
