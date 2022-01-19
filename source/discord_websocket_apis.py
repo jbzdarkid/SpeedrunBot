@@ -211,6 +211,8 @@ class WebSocket():
         target = self.callbacks.get('on_message_edit')
       elif msg['t'] == 'MESSAGE_DELETE':
         target = self.callbacks.get('on_message_delete')
+      elif msg['t'] == 'GUILD_MEMBER_UPDATE':
+        logging.info('Member update:', msg)
       else:
         logging.error('Cannot handle message type ' + msg['t'])
 
