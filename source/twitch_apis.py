@@ -39,8 +39,8 @@ def get_live_game_streams2(game_ids):
     if 'data' not in j:
       break
     streams += [stream for stream in j['data'] if stream['type'] == 'live']
-    console.info(len(j['data']))
-    console.info(j.get('pagination', 'no pagination'))
+    logging.info(len(j['data']))
+    logging.info(j.get('pagination', 'no pagination'))
     if len(j['data']) < 100:
       break
     if 'cursor' not in j['pagination']:
