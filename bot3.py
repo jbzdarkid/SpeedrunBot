@@ -159,11 +159,15 @@ def on_message_internal(message):
       discord_apis.send_message_ids(message['channel_id'], response)
   except exceptions.UsageError as e: # Usage errors
     discord_apis.send_message_ids(message['channel_id'], str(e))
+  except exceptions.CommandError as e: # User errors
+    discord_apis.send_message_ids(message['channel_id'], f'Error: {e}')
   except exceptions.NetworkError as e: # Server / connectivity errors
     logging.exception('Network error')
-    raise exceptions.CommandError(f'Could not track game due to network error {e}')
-  except exceptions.CommandError as e: # Actual errors
-    discord_apis.send_message_ids(message['channel_id'], f'Error: {e}')
+    discord_apis.send_message_ids(message['channel_id'], f'Failed due to network error, please try again: {e}')
+  except Exception as e: # Coding errors
+    logging.exception(f'General error during {args[0]}')
+    send_last_lines()
+
   discord_apis.remove_reaction(message, '🕐')
 
 
