@@ -123,13 +123,12 @@ def get_game_for_channel(channel_id):
 def remove_game(game_name):
   execute('SELECT src_game_id FROM tracked_games WHERE game_name=?', game_name)
   src_game_id = fetchone()
-  logging.info(f'<126> {type(src_game_id)} "{src_game_id}"')
-  if src_game_id in [None, '']:
+  if src_game_id is None:
     raise exceptions.CommandError(f'Cannot remove `{game_name}` as it is not currently being tracked.')
 
   # Note: There is no need to delete users here -- users are cross-game.
-  execute('DELETE FROM personal_bests WHERE src_game_id=?', src_game_id)
-  execute('DELETE FROM tracked_games WHERE src_game_id=?', src_game_id)
+  execute('DELETE FROM personal_bests WHERE src_game_id=?', src_game_id[0])
+  execute('DELETE FROM tracked_games WHERE src_game_id=?', src_game_id[0])
 
 
 # Commands related to personal_bests
