@@ -4,7 +4,7 @@ from time import sleep
 
 from . import exceptions
 
-def make_request_unsafe(method, url, *args, **kwargs):
+def make_request_unsafe(method, url, *args, json=True, **kwargs):
   r = requests.request(method, url, *args, **kwargs)
   r.raise_for_status() # Raise an exception for any 400 or 500 class response
 
@@ -15,16 +15,18 @@ def make_request_unsafe(method, url, *args, **kwargs):
 
   if r.status_code == 204: # 204 NO CONTENT
     return ''
-  else:
+  elif json:
     return r.json()
+  else:
+    return r.text
 
 
 backoff = 1
-def make_request(method, url, *args, **kwargs):
+def make_request(method, url, *args, json=True, **kwargs):
   global backoff
 
   try:
-    response = make_request_unsafe(method, url, *args, **kwargs)
+    response = make_request_unsafe(method, url, *args, json=json, **kwargs)
     backoff = max(1, backoff // 2)
     return response
 

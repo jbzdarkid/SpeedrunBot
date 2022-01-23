@@ -59,3 +59,9 @@ def get_user_id(username):
   if len(j['data']) == 0:
     raise exceptions.CommandError(f'Could not find user `{username}` on Twitch')
   return j['data'][0]['id']
+
+
+def is_stream_online(channel_id):
+  html = make_request('GET', f'https://twitch.tv/{channel_id}', json=False)
+  # <meta property="og:video:height" content="378"/>
+  return 'og:video:height' in html

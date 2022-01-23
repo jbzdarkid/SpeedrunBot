@@ -245,6 +245,12 @@ def announce_live_channels():
     if stream_offline_for < 5*60:
       continue # Streams go offline after 5 minutes
 
+    # Make a network call to the actual twitch webpage to see if this stream is still online.
+    stream_is_really_offline = not twitch_apis.is_stream_online(announced_stream['channel_id'])
+    if not stream_is_really_offline:
+      database.update_announced_stream(announced_stream) # Reset the timer
+      continue
+
     stream_duration = int(datetime.now().timestamp() - announced_stream['start'])
     content = f'{announced_stream["name"]} went offline after {timedelta(seconds=stream_duration)}.\r\n'
     content += 'Watch their latest videos here: <' + announced_stream['url'] + '/videos?filter=archives>'
