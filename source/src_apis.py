@@ -143,7 +143,7 @@ def get_current_pb(new_run):
 
   current_pb = 0
   for run in get_leaderboard(game, category, subcategories):
-    if time <= timedelta(run['times']['primary_t']):
+    if 'place' not in new_run and time <= timedelta(run['times']['primary_t']):
       new_run['place'] = run['place']
     if players == set(name(player) for player in run['players']):
       return run

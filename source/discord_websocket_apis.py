@@ -68,7 +68,7 @@ class WebSocket():
 
   async def connect(self):
     try: # TODO: Why are we only catching this area? Why not catch the entire connect function?
-      websocket = await websockets.connect('wss://gateway.discord.gg/?v=9&encoding=json')
+      websocket = await websockets.connect('wss://gateway.discord.gg/?v=9&encoding=json', ping_timeout=None)
       hello = await self.get_message(websocket)
       if not hello:
         return
