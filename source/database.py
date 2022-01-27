@@ -228,5 +228,4 @@ def get_announced_stream(name, game):
 
 
 def delete_announced_stream(announced_stream):
-  logging.info(f'Deleting stream {announced_stream}')
   execute('DELETE FROM announced_streams WHERE name=? AND game=?', announced_stream['name'], announced_stream['game'])

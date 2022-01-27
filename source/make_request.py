@@ -5,9 +5,7 @@ from time import sleep
 from . import exceptions
 
 def make_request_unsafe(method, url, *args, json=True, **kwargs):
-  logging.info('<8>')
   r = requests.request(method, url, *args, **kwargs)
-  logging.info(r.status_code, len(r.text))
   r.raise_for_status() # Raise an exception for any 400 or 500 class response
 
   if r.status_code != 200:

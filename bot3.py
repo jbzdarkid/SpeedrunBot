@@ -240,6 +240,10 @@ def announce_live_channels():
   # Coalesce it into a list so that we can call delete_announced_stream during iteration.
   announced_streams = list(database.get_announced_streams())
   for announced_stream in announced_streams:
+    logging.info('<243>', f'"{announced_stream}"')
+    if not announced_stream['channel_id']:
+      pass
+
     stream_offline_for = datetime.now().timestamp() - announced_stream['last_live']
     if stream_offline_for > 1*60:
       logging.info(f'Stream {announced_stream["name"]} has been offline for {timedelta(seconds=stream_offline_for)}')
@@ -250,23 +254,21 @@ def announce_live_channels():
     stream_is_really_offline = not twitch_apis.is_stream_online(announced_stream['channel_id'])
     logging.info(f'Is stream {announced_stream["name"]} really offline? {stream_is_really_offline}')
     if not stream_is_really_offline:
-      logging.info('<253>', not stream_is_really_offline)
       database.update_announced_stream(announced_stream) # Reset the timer
       continue
-    logging.info('<255>')
 
     stream_duration = int(datetime.now().timestamp() - announced_stream['start'])
-    logging.info('<258>', stream_duration)
     content = f'{announced_stream["name"]} went offline after {timedelta(seconds=stream_duration)}.\r\n'
     content += 'Watch their latest videos here: <' + announced_stream['url'] + '/videos?filter=archives>'
+
+    # It's possible that we fail to edit the message (the ID could be deleted, or invalid), so we update the database first.
+    database.delete_announced_stream(announced_stream)
     discord_apis.edit_message_ids(
       channel_id=announced_stream['channel_id'],
       message_id=announced_stream['message_id'],
       content=content,
       embed=[], # Remove the embed
     )
-    logging.info('<267>')
-    database.delete_announced_stream(announced_stream)
 
 
 if __name__ == '__main__':
@@ -322,6 +324,7 @@ if __name__ == '__main__':
         try:
           func()
         except exceptions.NetworkError:
+          logging.exception('A network error occurred')
           pass
         except:
           logging.exception('catch-all for forever_thread')
