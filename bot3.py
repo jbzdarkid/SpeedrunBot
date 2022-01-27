@@ -240,7 +240,6 @@ def announce_live_channels():
   # Coalesce it into a list so that we can call delete_announced_stream during iteration.
   announced_streams = list(database.get_announced_streams())
   for announced_stream in announced_streams:
-    logging.info('<243>', f'"{announced_stream}"')
     if not announced_stream['channel_id']:
       pass
 

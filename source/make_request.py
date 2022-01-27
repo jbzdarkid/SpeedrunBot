@@ -4,14 +4,18 @@ from time import sleep
 
 from . import exceptions
 
-def make_request_unsafe(method, url, *args, json=True, **kwargs):
+def make_request_unsafe(method, url, *args, json=True, retry=True, **kwargs):
   r = requests.request(method, url, *args, **kwargs)
-  r.raise_for_status() # Raise an exception for any 400 or 500 class response
+  if retry and r.status_code == 429 and 'Retry-After' in r.headers:
+    # Try again exactly once when we are told to do so.
+    sleep(int(r.headers['Retry-After']))
+    r = requests.request(method, url, *args, **kwargs)
 
-  if r.status_code != 200:
-    if r.request.method == 'POST': # Strip postdata arguments from the URL since they usually contain secrets.
-      url = url.split('?')[0]
-    logging.info(f'Completed {r.request.method} request to {url} with code {r.status_code}')
+  if method == 'POST': # Strip postdata arguments from the URL since they usually contain secrets.
+    url = url.partition('?')[0]
+  logging.info(f'Completed {r.request.method} request to {url} with code {r.status_code}')
+
+  r.raise_for_status() # Raise an exception for any 400 or 500 class response
 
   if r.status_code == 204: # 204 NO CONTENT
     return ''
@@ -22,11 +26,11 @@ def make_request_unsafe(method, url, *args, json=True, **kwargs):
 
 
 backoff = 1
-def make_request(method, url, *args, json=True, **kwargs):
+def make_request(method, url, *args, json=True, retry=True, **kwargs):
   global backoff
 
   try:
-    response = make_request_unsafe(method, url, *args, json=json, **kwargs)
+    response = make_request_unsafe(method, url, *args, json=json, retry=retry, **kwargs)
     backoff = max(1, backoff // 2)
     return response
 
