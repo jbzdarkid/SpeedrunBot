@@ -250,6 +250,7 @@ def announce_live_channels():
     stream_is_really_offline = not twitch_apis.is_stream_online(announced_stream['channel_id'])
     logging.info(f'Is stream {announced_stream["name"]} really offline? {stream_is_really_offline}')
     if not stream_is_really_offline:
+      logging.info('<253>', not stream_is_really_offline)
       database.update_announced_stream(announced_stream) # Reset the timer
       continue
     logging.info('<255>')
