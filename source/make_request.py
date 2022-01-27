@@ -6,6 +6,7 @@ from . import exceptions
 
 def make_request_unsafe(method, url, *args, json=True, retry=True, **kwargs):
   r = requests.request(method, url, *args, **kwargs)
+  logging.info(r.status_code, r.text)
   if retry and r.status_code == 429 and 'Retry-After' in r.headers:
     # Try again exactly once when we are told to do so.
     sleep(int(r.headers['Retry-After']))
