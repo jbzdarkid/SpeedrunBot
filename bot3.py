@@ -252,8 +252,10 @@ def announce_live_channels():
     if not stream_is_really_offline:
       database.update_announced_stream(announced_stream) # Reset the timer
       continue
+    logging.info('<255>')
 
     stream_duration = int(datetime.now().timestamp() - announced_stream['start'])
+    logging.info('<258>', stream_duration)
     content = f'{announced_stream["name"]} went offline after {timedelta(seconds=stream_duration)}.\r\n'
     content += 'Watch their latest videos here: <' + announced_stream['url'] + '/videos?filter=archives>'
     discord_apis.edit_message_ids(
@@ -262,6 +264,7 @@ def announce_live_channels():
       content=content,
       embed=[], # Remove the embed
     )
+    logging.info('<267>')
     database.delete_announced_stream(announced_stream)
 
 
