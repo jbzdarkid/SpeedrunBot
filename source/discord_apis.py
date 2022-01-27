@@ -80,6 +80,7 @@ def edit_message(message, content=None, embed=None):
 
 
 def edit_message_ids(channel_id, message_id, content=None, embed=None):
+  logging.info('<83>', channel_id, message_id, len(content))
   json = {}
   if content:
     json['content'] = content
