@@ -243,10 +243,11 @@ def announce_live_channels():
     if stream_offline_for > 1*60:
       logging.info(f'Stream {announced_stream["name"]} has been offline for {timedelta(seconds=stream_offline_for)}')
     if stream_offline_for < 5*60:
-      continue # Streams go offline after 5 minutes
+      continue # If it's been less than 5 minutes, it could just be a hiccup.
 
     # Make a network call to the actual twitch webpage to see if this stream is still online.
     stream_is_really_offline = not twitch_apis.is_stream_online(announced_stream['channel_id'])
+    logging.info(f'Is stream {announced_stream["name"]} really offline? {stream_is_really_offline}')
     if not stream_is_really_offline:
       database.update_announced_stream(announced_stream) # Reset the timer
       continue
