@@ -94,6 +94,7 @@ def on_message_internal(message):
     return f'No longer announcing newly submitted runs of {game_name} in channel <#{channel_id}>.'
   def restart(code=0):
     discord_apis.add_reaction(message, '💀')
+    logging.info(f'Killing the bot with code {code}')
     # Calling sys.exit from a thread does not kill the main process, so we must use os.kill
     import os
     os.kill(os.getpid(), int(code))
