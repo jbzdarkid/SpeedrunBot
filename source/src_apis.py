@@ -136,7 +136,7 @@ def get_subcategories(run):
   for variable in run['category']['data']['variables']['data']:
     if not variable['is-subcategory']:
       continue
-    all_subcategories[variable['id']] = variable['values']['values'
+    all_subcategories[variable['id']] = variable['values']['values']
 
   run_subcategories = {}
   for variable_id, value_id in run['values'].items():
