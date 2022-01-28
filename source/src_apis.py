@@ -116,8 +116,8 @@ def get_runs(**params):
 
 
 def get_leaderboard(game, category, variables={}):
-  params = {f'var-{key}': value for key, value in variables.items()}
-  j = make_request('GET', f'{api}/leaderboards/{game}/category/{category}', params=params)
+  params = {f'var-{key}': value['id'] for key, value in variables.items()}
+  e = make_request('GET', f'{api}/leaderboards/{game}/category/{category}', params=params)
 
   # This does not support continue, so I assume it just reports the entire leaderboard.
   for run in j['data']['runs']:
@@ -129,21 +129,37 @@ def name(player):
   return player.get('id', player.get('name', '(null)'))
 
 
+# NOTE: Run must be fetched with embed=category,category.variables
+# Returns a mapping of variable_id: {data}, where data is an arbitrary set of properties from SRC, including 'id'.
+def get_subcategories(run):
+  all_subcategories = {}
+  for variable in run['category']['data']['variables']['data']:
+    if not variable['is-subcategory']:
+      continue
+    all_subcategories[variable['id']] = variable['values']['values'
+
+  run_subcategories = {}
+  for variable_id, value_id in run['values'].items():
+    if variable_id not in all_subcategories:
+      continue # Not a subcategory
+
+    value = all_subcategories[variable_id][value_id]
+    value['id'] = value_id
+    run_subcategories[variable_id] = value
+
+  return run_subcategories
+
+
 # NOTE: Run data must be fetched with the embeds in get_runs
 def get_current_pb(new_run):
   game = new_run['game']
   category = new_run['category']['data']['id']
   players = set(name(player) for player in new_run['players']['data'])
-  time = timedelta(seconds=new_run['times']['primary_t'])
-  subcategories = {}
-  for variable in new_run['category']['data']['variables']['data']:
-    if not variable['is-subcategory']:
-      continue
-    subcategories[variable['id']] = variable['values']['values']
+  time = new_run['times']['primary_t']
 
-  current_pb = 0
+  subcategories = get_subcategories(new_run)
   for run in get_leaderboard(game, category, subcategories):
-    if 'place' not in new_run and time <= timedelta(run['times']['primary_t']):
+    if 'place' not in new_run and time <= run['times']['primary_t']:
       new_run['place'] = run['place']
     if players == set(name(player) for player in run['players']):
       return run
@@ -156,15 +172,9 @@ def run_to_string(run, current_pb=None):
     if isinstance(run['level']['data'], dict):
       category = run['level']['data']['name'] + f': {category}'
 
-    subcategories = {}
-    for variable in run['category']['data']['variables']['data']:
-      if not variable['is-subcategory']:
-        continue
-      subcategories[variable['id']] = variable['values']['values']
-
-    for subcategory_id, value_id in run['values'].items():
-      if subcategory := subcategories.get(subcategory_id, None):
-        category += f' ({subcategory[value_id]["label"]})'
+    subcategories = get_subcategories(run)
+    for value in subcategories.values():
+      category += f' ({value["label"]})'
 
     time = timedelta(seconds=run['times']['primary_t'])
 
