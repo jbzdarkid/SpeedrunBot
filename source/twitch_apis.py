@@ -63,5 +63,4 @@ def get_user_id(username):
 
 def is_stream_online(channel_id):
   html = make_request('GET', f'https://twitch.tv/{channel_id}', raw_html=True)
-  # <meta property="og:video:height" content="378"/>
-  return 'og:video:height' in html
+  return '<meta property="og:video"' in html 
