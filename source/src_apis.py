@@ -117,7 +117,7 @@ def get_runs(**params):
 
 def get_leaderboard(game, category, variables={}):
   params = {f'var-{key}': value['id'] for key, value in variables.items()}
-  e = make_request('GET', f'{api}/leaderboards/{game}/category/{category}', params=params)
+  j = make_request('GET', f'{api}/leaderboards/{game}/category/{category}', params=params)
 
   # This does not support continue, so I assume it just reports the entire leaderboard.
   for run in j['data']['runs']:
