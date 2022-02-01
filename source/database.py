@@ -189,7 +189,7 @@ def add_announced_stream(**announced_stream):
 def update_announced_stream(announced_stream):
   execute('''
       UPDATE announced_streams
-      SET title=?, preview_expires=?,
+      SET title=?, preview_expires=?
       WHERE name=? AND game=?''',
     announced_stream['title'],
     announced_stream['preview_expires'],
