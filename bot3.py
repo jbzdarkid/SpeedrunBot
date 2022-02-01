@@ -256,7 +256,7 @@ def announce_live_channels():
 
     # Twitch APIs sometimes drop streams from their streams API even when they aren't offline.
     # Fortunately, the preview image is a good identifier in this case; it redirects to a 404 when a channel goes offline.
-    metadata = twitch_apis.get_preview_metadata(stream['preview'])
+    metadata = twitch_apis.get_preview_metadata(announced_stream['preview'])
     stream_is_offline = (metadata['redirect'] == True)
     if not stream_is_offline:
       continue
