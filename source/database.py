@@ -49,9 +49,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS announced_streams (
   preview_expires  REAL    NOT NULL,
   PRIMARY KEY (name, game)
 )''')
-c.execute('''ALTER TABLE announced_streams
-  RENAME COLUMN last_live TO preview_expires
-''')
 
 
 # Simple helper to pack *args (because SQL wants it like that)
