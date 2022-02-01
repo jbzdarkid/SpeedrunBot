@@ -192,10 +192,7 @@ def get_embed(stream):
     'color': 0x6441A4, # Twitch branding color
     'title': discord_apis.escape_markdown(stream['title']),
     'url': stream['url'],
-    # Add random data to the end of the image URL to force Discord to regenerate the preview.
-    'image': {
-      'url': stream['preview'] + '?' + uuid4().hex,
-    }
+    'image': {'url': stream['preview']}
   }
 
 
@@ -208,17 +205,29 @@ def announce_live_channels():
     stream['name'] = discord_apis.escape_markdown(stream['name'])
     
     if announced_stream := database.get_announced_stream(stream['name'], stream['game']):
-      # If the stream was already announced, update the title and update the message
-      announced_stream['title'] = stream['title']
-
+      # If the stream was already announced, refresh the message and database entry.
       logging.info(f'Stream {stream["name"]} is still live')
-      # Edit the message so that the embedded picture updates.
+
+      if title_changed := stream['title'] != announced_stream['title']:
+        announced_stream['title'] = stream['title']
+      if preview_expired := datetime.now().timestamp() > announced_stream['preview_expires']:
+        metadata = twitch_apis.get_preview_metadata(stream['preview'])
+        announced_stream['preview_expires'] = metadata['expires']
+
+      if not (title_changed or preview_expired):
+        continue
+
+      embed = get_embed(announced_stream)
+      if preview_expired:
+        # Add random data to the end of the image URL to force Discord to regenerate the preview.
+        embed['image']['url'] += '?' + uuid4().hex
       discord_apis.edit_message_ids(
         channel_id=announced_stream['channel_id'],
         message_id=announced_stream['message_id'],
         embed=get_embed(announced_stream),
       )
       database.update_announced_stream(announced_stream)
+
     else:
       # If the stream is new, announce it
       logging.info(f'Stream {stream["name"]} started')
@@ -226,6 +235,7 @@ def announce_live_channels():
       channel_id = database.get_channel_for_game(stream['game'])
       message = discord_apis.send_message_ids(channel_id, content, get_embed(stream))
 
+      metadata = twitch_apis.get_preview_metadata(stream['preview'])
       database.add_announced_stream(
         name=stream['name'],
         game=stream['game'],
@@ -234,6 +244,7 @@ def announce_live_channels():
         preview=stream['preview'],
         channel_id=channel_id,
         message_id=message['id'],
+        preview_expires=metadata['expires'],
       )
 
   # get_announced_streams returns an iterator which keeps the database active.
@@ -243,23 +254,12 @@ def announce_live_channels():
     if not announced_stream['channel_id']:
       pass
 
-    stream_offline_for = datetime.now().timestamp() - announced_stream['last_live']
-    if stream_offline_for > 1*60:
-      logging.info(f'Stream {announced_stream["name"]} has been offline for {timedelta(seconds=stream_offline_for)}')
-
-    # Make a network call to the actual twitch webpage to see if this stream is still online.
-    stream_is_really_offline = not twitch_apis.is_stream_online(announced_stream['name'])
-    logging.info(f'After {stream_offline_for}, stream {announced_stream["name"]} is really offline: {stream_is_really_offline}')
-    #if not stream_is_really_offline:
-    #  database.update_announced_stream(announced_stream) # Reset the timer
-    #  continue
-
-    if stream_offline_for < 5*60:
-      continue # If it's been less than 5 minutes, it could just be a hiccup.
-
-    # DEBUGGING
-    logging.info('Stream has apparently gone offline, please double-check')
-    send_last_lines()
+    # Twitch APIs sometimes drop streams from their streams API even when they aren't offline.
+    # Fortunately, the preview image is a good identifier in this case; it redirects to a 404 when a channel goes offline.
+    metadata = twitch_apis.get_preview_metadata(stream['preview'])
+    stream_is_offline = (metadata['redirect'] == True)
+    if not stream_is_offline:
+      continue
 
     stream_duration = int(datetime.now().timestamp() - announced_stream['start'])
     content = f'{announced_stream["name"]} went offline after {timedelta(seconds=stream_duration)}.\r\n'

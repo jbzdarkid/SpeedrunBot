@@ -46,10 +46,12 @@ c.execute('''CREATE TABLE IF NOT EXISTS announced_streams (
   channel_id       TEXT    NOT NULL,
   message_id       TEXT    NOT NULL,
   start            REAL    NOT NULL,
-  last_live        REAL    NOT NULL,
+  preview_expires  REAL    NOT NULL,
   PRIMARY KEY (name, game)
-
 )''')
+c.execute('''ALTER TABLE announced_streams
+  RENAME COLUMN last_live TO preview_expires
+''')
 
 
 # Simple helper to pack *args (because SQL wants it like that)
@@ -170,7 +172,6 @@ def unmoderate_game(game_name):
 # Commands related to announced_streams
 def add_announced_stream(**announced_stream):
   announced_stream['start'] = datetime.now().timestamp()
-  announced_stream['last_live'] = datetime.now().timestamp()
 
   execute('INSERT INTO announced_streams VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     announced_stream['name'],
@@ -181,14 +182,17 @@ def add_announced_stream(**announced_stream):
     announced_stream['channel_id'],
     announced_stream['message_id'],
     announced_stream['start'],
-    announced_stream['last_live'],
+    announced_stream['preview_expires'],
   )
 
 
 def update_announced_stream(announced_stream):
-  execute('UPDATE announced_streams SET title=?, last_live=? WHERE name=? AND game=?',
+  execute('''
+      UPDATE announced_streams
+      SET title=?, preview_expires=?,
+      WHERE name=? AND game=?''',
     announced_stream['title'],
-    datetime.now().timestamp(),
+    announced_stream['preview_expires'],
     announced_stream['name'],
     announced_stream['game'],
   )
@@ -206,7 +210,7 @@ def get_announced_streams():
       'channel_id': data[5],
       'message_id': data[6],
       'start': data[7],
-      'last_live': data[8],
+      'preview_expires': data[8],
     }
 
 
@@ -222,7 +226,7 @@ def get_announced_stream(name, game):
       'channel_id': data[5],
       'message_id': data[6],
       'start': data[7],
-      'last_live': data[8],
+      'preview_expires': data[8],
     }
   return None
 

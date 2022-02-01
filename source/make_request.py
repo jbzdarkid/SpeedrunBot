@@ -14,7 +14,7 @@ def failure():
   backoff = min(60, backoff * 2)
 
 
-def make_request(method, url, *args, raw_html=False, retry=True, **kwargs):
+def make_request_internal(method, url, *args, retry=True, **kwargs):
   logging_url = url
   if method == 'POST': # Strip postdata arguments from the URL since they usually contain secrets.
     logging_url = url.partition('?')[0]
@@ -32,11 +32,20 @@ def make_request(method, url, *args, raw_html=False, retry=True, **kwargs):
   if 200 <= r.status_code and r.status_code < 400:
     success()
     logging.info(f'Completed {method} request to {logging_url} with code {r.status_code}')
-
-    if r.status_code == 204: # 204 NO CONTENT
-      return ''
-    return r.text if raw_html else r.json()
-
+    return r
   else:
     failure()
     raise exceptions.NetworkError(f'{method} {logging_url} returned {r.status_code} {r.reason.upper()}: {r.text}')
+
+
+def make_request(method, url, *args, retry=True, **kwargs):
+  r = make_request_internal(method, url, *args, retry=retry, **kwargs)
+
+  if r.status_code == 204: # 204 NO CONTENT
+    return ''
+  return r.json()
+
+
+def make_head_request(url, *args, retry=True, **kwargs):
+  r = make_request_internal('HEAD', url, *args, retry=retry, **kwargs)
+  return (r.status_code, r.headers)

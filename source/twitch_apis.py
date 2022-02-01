@@ -1,7 +1,8 @@
 import logging
 from pathlib import Path
+from datetime import datetime   
 
-from .make_request import make_request
+from .make_request import make_request, make_head_request
 from . import exceptions
 
 api = 'https://api.twitch.tv/helix'
@@ -61,6 +62,11 @@ def get_user_id(username):
   return j['data'][0]['id']
 
 
-def is_stream_online(channel_id):
-  html = make_request('GET', f'https://twitch.tv/{channel_id}', raw_html=True)
-  return '<meta property="og:video"' in html 
+def get_preview_metadata(preview_url):
+  status_code, headers = make_head_request(preview_url)
+  expires = datetime.strptime(headers['expires'], '%a, %d %b %Y %H:%M:%S %Z')
+
+  return {
+    'redirect': status_code >= 300 and status_code < 400,
+    'expires': expires.timestamp(),
+  }
