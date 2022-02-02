@@ -226,7 +226,7 @@ def announce_live_channels():
       discord_apis.edit_message_ids(
         channel_id=announced_stream['channel_id'],
         message_id=announced_stream['message_id'],
-        embed=get_embed(announced_stream),
+        embed=embed,
       )
       database.update_announced_stream(announced_stream)
 
