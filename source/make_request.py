@@ -47,5 +47,6 @@ def make_request(method, url, *args, retry=True, **kwargs):
 
 
 def make_head_request(url, *args, retry=True, **kwargs):
+  kwargs.setdefault('allow_redirects', False)
   r = make_request_internal('HEAD', url, *args, retry=retry, **kwargs)
   return (r.status_code, r.headers)

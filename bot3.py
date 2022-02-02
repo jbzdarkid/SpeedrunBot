@@ -209,12 +209,11 @@ def announce_live_channels():
       logging.info(f'Stream {stream["name"]} is still live')
 
       if title_changed := stream['title'] != announced_stream['title']:
+        logging.info(f'Stream {stream["name"]} title changed, editing')
         announced_stream['title'] = stream['title']
-      logging.info(f'Preview expires: {announced_stream["preview_expires"]}')
-      logging.info(f'Now: {datetime.now().timestamp()}')
       if preview_expired := datetime.now().timestamp() > announced_stream['preview_expires']:
+        logging.info(f'Stream {stream["name"]} preview card expired, refreshing')
         metadata = twitch_apis.get_preview_metadata(stream['preview'])
-        logging.info(f'Fetched metadata: {metadata}')
         announced_stream['preview_expires'] = metadata['expires']
 
       if not (title_changed or preview_expired):
@@ -239,7 +238,6 @@ def announce_live_channels():
       message = discord_apis.send_message_ids(channel_id, content, get_embed(stream))
 
       metadata = twitch_apis.get_preview_metadata(stream['preview'])
-      logging.info(f'Fetched metadata: {metadata}')
       database.add_announced_stream(
         name=stream['name'],
         game=stream['game'],
@@ -261,7 +259,6 @@ def announce_live_channels():
     # Twitch APIs sometimes drop streams from their streams API even when they aren't offline.
     # Fortunately, the preview image is a good identifier in this case; it redirects to a 404 when a channel goes offline.
     metadata = twitch_apis.get_preview_metadata(announced_stream['preview'])
-    logging.info(f'Fetched metadata: {metadata}')
     stream_is_offline = (metadata['redirect'] == True)
     if not stream_is_offline:
       continue
