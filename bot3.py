@@ -192,7 +192,10 @@ def get_embed(stream):
     'color': 0x6441A4, # Twitch branding color
     'title': discord_apis.escape_markdown(stream['title']),
     'url': stream['url'],
-    'image': {'url': stream['preview']}
+    'image': {
+      # Add random data to the end of the image URL to force Discord to regenerate the preview.
+      'url': stream['preview'] + '?' + uuid4().hex
+    }
   }
 
 
@@ -219,14 +222,10 @@ def announce_live_channels():
       if not (title_changed or preview_expired):
         continue
 
-      embed = get_embed(announced_stream)
-      if preview_expired:
-        # Add random data to the end of the image URL to force Discord to regenerate the preview.
-        embed['image']['url'] += '?' + uuid4().hex
       discord_apis.edit_message_ids(
         channel_id=announced_stream['channel_id'],
         message_id=announced_stream['message_id'],
-        embed=embed,
+        embed=get_embed(announced_stream),
       )
       database.update_announced_stream(announced_stream)
 
