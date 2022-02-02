@@ -211,7 +211,7 @@ def announce_live_channels():
       if title_changed := stream['title'] != announced_stream['title']:
         announced_stream['title'] = stream['title']
       logging.info(f'Preview expires: {announced_stream["preview_expires"]}')
-      logging.info(f'Now: {datetime.now.timestamp()}')
+      logging.info(f'Now: {datetime.now().timestamp()}')
       if preview_expired := datetime.now().timestamp() > announced_stream['preview_expires']:
         metadata = twitch_apis.get_preview_metadata(stream['preview'])
         logging.info(f'Fetched metadata: {metadata}')
