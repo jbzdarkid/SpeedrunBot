@@ -130,7 +130,7 @@ def on_message_internal(message):
     '!untrack_game': lambda: untrack_game(get_channel(), ' '.join(args[1:])),
     '!moderate_game': lambda: moderate_game(get_channel(), ' '.join(args[1:])),
     '!unmoderate_game': lambda: unmoderate_game(get_channel(), ' '.join(args[1:])),
-    '!restart': lambda: restart(*args[1:]),
+    '!restart': lambda: restart(*args[1:2]),
     '!git_update': lambda: git_update(),
     '!send_last_lines': lambda: send_last_lines(),
   }
