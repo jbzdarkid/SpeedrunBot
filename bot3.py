@@ -255,6 +255,14 @@ def announce_live_channels():
     if not announced_stream['channel_id']:
       pass
 
+    stream_still_live = False
+    for stream in streams:
+      if stream['name'] == announced_stream['name'] and stream['game'] == announced_stream['game']:
+        stream_still_live = True
+        break
+    if stream_still_live:
+      continue
+
     # Twitch APIs sometimes drop streams from their streams API even when they aren't offline.
     # Fortunately, the preview image is a good identifier in this case; it redirects to a 404 when a channel goes offline.
     metadata = twitch_apis.get_preview_metadata(announced_stream['preview'])
