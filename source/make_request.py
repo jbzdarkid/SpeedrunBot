@@ -19,12 +19,23 @@ def make_request_internal(method, url, *args, retry=True, **kwargs):
   if method == 'POST': # Strip postdata arguments from the URL since they usually contain secrets.
     logging_url = url.partition('?')[0]
 
+  if get_headers := kwargs.pop('get_headers'):
+    kwargs['headers'] = get_headers()
+
   try:
     r = requests.request(method, url, *args, **kwargs)
+
     if retry and r.status_code == 429 and 'Retry-After' in r.headers:
-      # Try again exactly once when we are told to do so.
+      # Try again exactly once when we are told to do so due to rate limiting.
       sleep(int(r.headers['Retry-After']))
       r = requests.request(method, url, *args, **kwargs)
+
+    if retry and get_headers and r.status_code == 401:
+      # Try again with new headers when we get an UNAUTHORIZED exception.
+      kwargs['headers'] = get_headers()
+      sleep(5)
+      r = requests.request(method, url, *args, **kwargs)
+
   except requests.exceptions.RequestException as e:
     failure()
     raise exceptions.NetworkError(f'{method} {logging_url} failed: {e}')

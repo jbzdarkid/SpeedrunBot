@@ -51,7 +51,7 @@ def escape_markdown(text, *, as_needed=False, ignore_links=True):
 
 # You should probably only use this for testing. Bots should not be in the habit of sending DMs.
 def test_get_dm_channel(user):
-  return make_request('POST', f'{api}/users/@me/channels', json={'recipient_id': user}, headers=get_headers())
+  return make_request('POST', f'{api}/users/@me/channels', json={'recipient_id': user}, get_headers=get_headers)
 
 
 def send_message(channel, content, embed=None):
@@ -72,7 +72,7 @@ def send_message_ids(channel_id, content, embed=None):
   json = {'content': content}
   if embed:
     json['embeds'] = [embed]
-  return make_request('POST', f'{api}/channels/{channel_id}/messages', json=json, headers=get_headers())
+  return make_request('POST', f'{api}/channels/{channel_id}/messages', json=json, get_headers=get_headers)
 
 
 def edit_message(message, content=None, embed=None):
@@ -87,23 +87,23 @@ def edit_message_ids(channel_id, message_id, content=None, embed=None):
     json['embeds'] = []
   elif embed:
     json['embeds'] = [embed]
-  return make_request('PATCH', f'{api}/channels/{channel_id}/messages/{message_id}', json=json, headers=get_headers())
+  return make_request('PATCH', f'{api}/channels/{channel_id}/messages/{message_id}', json=json, get_headers=get_headers)
 
 
 def add_reaction(message, emoji):
   try:
-    make_request('PUT', f'{api}/channels/{message["channel_id"]}/messages/{message["id"]}/reactions/{emoji}/@me', headers=get_headers())
+    make_request('PUT', f'{api}/channels/{message["channel_id"]}/messages/{message["id"]}/reactions/{emoji}/@me', get_headers=get_headers)
   except exceptions.NetworkError: # Bot may or may not have permission to add reactions
     logging.exception('Error while attempting to add a reaction')
 
 
 def remove_reaction(message, emoji):
   try:
-    make_request('DELETE', f'{api}/channels/{message["channel_id"]}/messages/{message["id"]}/reactions/{emoji}/@me', headers=get_headers())
+    make_request('DELETE', f'{api}/channels/{message["channel_id"]}/messages/{message["id"]}/reactions/{emoji}/@me', get_headers=get_headers)
   except exceptions.NetworkError: # Bot may or may not have permission to add reactions
     logging.exception('Error while attempting to add a reaction')
 
 
 def get_owner():
-  j = make_request('GET', f'{api}/oauth2/applications/@me', headers=get_headers())
+  j = make_request('GET', f'{api}/oauth2/applications/@me', get_headers=get_headers)
   return j['owner']
