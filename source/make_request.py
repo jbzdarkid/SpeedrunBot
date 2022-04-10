@@ -19,7 +19,7 @@ def make_request_internal(method, url, *args, retry=True, **kwargs):
   if method == 'POST': # Strip postdata arguments from the URL since they usually contain secrets.
     logging_url = url.partition('?')[0]
 
-  if get_headers := kwargs.pop('get_headers'):
+  if get_headers := kwargs.pop('get_headers', None):
     kwargs['headers'] = get_headers()
 
   try:
