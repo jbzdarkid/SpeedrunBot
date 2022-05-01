@@ -22,14 +22,14 @@ def get_headers():
   return cached_headers
 
 
-# https://github.com/Rapptz/discord.py/blob/master/discord/utils.py#L697
-_MARKDOWN_ESCAPE_SUBREGEX = '|'.join(r'\{0}(?=([\s\S]*((?<!\{0})\{0})))'.format(c) for c in '*`_~|')
+# https://github.com/Rapptz/discord.py/blob/master/discord/utils.py#L819
+_MARKDOWN_ESCAPE_SUBREGEX = '|'.join(r'\{0}(?=([\s\S]*((?<!\{0})\{0})))'.format(c) for c in ('*', '`', '_', '~', '|'))
 _MARKDOWN_ESCAPE_COMMON = r'^>(?:>>)?\s|\[.+\]\(.+\)'
 _MARKDOWN_ESCAPE_REGEX = re.compile(fr'(?P<markdown>{_MARKDOWN_ESCAPE_SUBREGEX}|{_MARKDOWN_ESCAPE_COMMON})', re.MULTILINE)
 _URL_REGEX = r'(?P<url><[^: >]+:\/[^ >]+>|(?:https?|steam):\/\/[^\s<]+[^<.,:;\"\'\]\s])'
 _MARKDOWN_STOCK_REGEX = fr'(?P<markdown>[_\\~|\*`]|{_MARKDOWN_ESCAPE_COMMON})'
 
-# https://github.com/Rapptz/discord.py/blob/master/discord/utils.py#L743
+# https://github.com/Rapptz/discord.py/blob/master/discord/utils.py#L864
 def escape_markdown(text, *, as_needed=False, ignore_links=True):
   if not as_needed:
 
@@ -107,3 +107,33 @@ def remove_reaction(message, emoji):
 def get_owner():
   j = make_request('GET', f'{api}/oauth2/applications/@me', get_headers=get_headers)
   return j['owner']
+
+
+def register_slash_command(name, desc, args=None, *, guild=None):
+  options = []
+  if args:
+    for arg_name, arg_desc in args.items():
+      option_type = {'channel': 7}.get(arg_name, 3)
+
+      options.append({
+        'name': arg_name,
+        'description': arg_desc,
+        'type': option_type,
+        'required': True,
+      })
+
+  body = {
+    'type': 1, # CHAT_INPUT
+    'name': name,
+    'description': desc,
+    'options': options
+  }
+
+  if not guild:
+    url = f'{api}/{app_id}/commands'
+  else:
+    url += f'{api}/{app_id}/guilds/{guild}/commands'
+
+  make_request('POST', url, json=json, get_headers=get_headers)
+
+

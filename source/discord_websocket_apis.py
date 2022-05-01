@@ -27,7 +27,6 @@ class WebSocket():
     self.callbacks = {} # Hooks which can be registered to handle various discord events. Must be registered before calling run().
     self.connected = False # Indicates whether or not the websocket is connected. If false, we should not send messages and should exit the loop.
     self.user = None
-    self.session_is_live = False
     self.session_id = None # Indicates whether or not we have an active session, used to resume if the connection drops.
     self.sequence = -1 # Indicates the last recieved message in the current session. Meaningless if no session is active.
     self.got_heartbeat_ack = False # Indicates whether or not we've recieved a HEARTBEAT_ACK since the last heartbeat.
@@ -40,22 +39,31 @@ class WebSocket():
   async def run_async(self):
     while 1: # This loop does not exit naturally
       # Clients are limited to 1000 IDENTIFY calls to the websocket in a 24-hour period.
-      # For simplicity, I just use this limit as our generic reconnection rate.
+      # For simplicity, I just use this limit as our generic reconnection rate,
+      # so that any class of failure will not throttle the client.
       await asyncio.sleep(24 * 60 * 60 / 1000)
 
-      websocket = await self.connect()
+      try:
+        websocket = await self.connect()
+      except websockets.exceptions.WebSocketException:
+        logging.exception('Unable to open a websocket connection due to a websocket error')
+      except OSError:
+        logging.exception('Unable to open a websocket connection due to a socket error')
+      except:
+        logging.exception('Unable to open a websocket for an unknown reason')
 
-      # Main loop: Wait for messages, interrupting for heartbeats.
+      # Message loop: Wait for messages, interrupting for heartbeats.
       while self.connected:
-        until_next_heartbeat = self.next_heartbeat - datetime.now()
-        if until_next_heartbeat.total_seconds() <= 0:
+        until_next_heartbeat = (self.next_heartbeat - datetime.now()).total_seconds()
+        if until_next_heartbeat <= 0:
           await self.heartbeat(websocket)
           continue
 
-        msg = await self.get_message(websocket, timeout=until_next_heartbeat.total_seconds())
+        msg = await self.get_message(websocket, timeout=until_next_heartbeat)
         if msg:
           await self.handle_message(msg, websocket)
 
+      # Message loop exited, so self.connected = False
       if websocket:
         await websocket.close(1001)
 
@@ -67,31 +75,40 @@ class WebSocket():
 
 
   async def connect(self):
-    try: # TODO: Why are we only catching this area? Why not catch the entire connect function?
-      websocket = await websockets.connect('wss://gateway.discord.gg/?v=9&encoding=json', ping_timeout=None)
-      hello = await self.get_message(websocket)
-      if not hello:
-        return
-
-      # https://discord.com/developers/docs/topics/gateway#heartbeating
-      self.heartbeat_interval = timedelta(milliseconds=json.loads(hello)['d']['heartbeat_interval'])
-      random_startup = self.heartbeat_interval.total_seconds() * random()
-      logging.info(f'Connecting in {random_startup} seconds')
-      await asyncio.sleep(random_startup)
-
-      self.connected = True
-      # Since this is our first heartbeat, we pretend we've already gotten an ack to avoid immediately disconnecting.
-      self.got_heartbeat_ack = True
-      await self.heartbeat(websocket)
-
-    except websockets.exceptions.WebSocketException:
-      logging.exception('Unable to open a websocket connection due to a websocket error')
-    except OSError:
-      logging.exception('Unable to open a websocket connection due to a socket error')
-
-    if not self.connected: # Any part of the initial handshake (connect, hello, heartbeat) may fail
+    websocket = await websockets.connect('wss://gateway.discord.gg/?v=9&encoding=json', ping_timeout=None)
+    hello = await self.get_message(websocket)
+    if not hello:
       return
+
+    # https://discord.com/developers/docs/topics/gateway#heartbeating
+    self.heartbeat_interval = timedelta(milliseconds=json.loads(hello)['d']['heartbeat_interval'])
+    random_startup = self.heartbeat_interval.total_seconds() * random()
+    logging.info(f'Connecting in {random_startup} seconds')
+    await asyncio.sleep(random_startup)
+
+    self.connected = True
+    # Since this is our first heartbeat, we pretend we've already gotten an ack to avoid immediately disconnecting.
+    self.got_heartbeat_ack = True
+    await self.heartbeat(websocket)
+
     logging.info('Successfully connected and sent initial heartbeat')
+
+    # According to discord.py, we send a RESUME instead of an IDENTIFY to restore a zombied connection.
+    if self.session_id:
+      logging.info(f'Resuming {self.session_id} at {self.sequence}')
+
+      # https://discord.com/developers/docs/topics/gateway#resuming-example-gateway-resume
+      resume = {
+        'token': self.get_token(),
+        'session_id': self.session_id,
+        'seq': self.sequence,
+      }
+      try:
+        await self.send_message(websocket, RESUME, resume)
+        return websocket
+      except:
+        logging.exception('Failed to resume the connection')
+        self.session_id = None # If we fail to resume, we need to fall back to an IDENTIFY
 
     intents = 0
     if ('on_message' in self.callbacks
@@ -113,35 +130,7 @@ class WebSocket():
         '$device': 'speedrunbot-jbzdarkid',
       }
     }
-
-    self.user = None # TODO: Somewhere better to put this?
-
     await self.send_message(websocket, IDENTIFY, identify)
-
-    # TODO: Heartbeat timeout? Move this into the main loop.
-    while True:
-      msg = await self.get_message(websocket, timeout=5) # Timeout from where, exactly?
-      if not msg:
-        break
-      await self.handle_message(msg, websocket)
-    
-    # We did not get a READY, so the connection is not live.
-    if not self.user:
-      self.connected = False
-      return None
-
-    # Resume is just... not working. I think the right approach is to only try and resume once.
-    # Attempt to resume the previous session, if we had one
-    # Maybe check self.sequence instead?
-    # logging.info(f'Session is live: {self.session_is_live} Sequence: {self.sequence}')
-    # if not self.session_is_live:
-    #   logging.info(f'Resuming {self.session_id} at {self.sequence}')
-    #   resume = {
-    #     'token': self.get_token(),
-    #     'session_id': self.session_id,
-    #     'seq': self.sequence,
-    #   }
-    #   await self.send_message(websocket, RESUME, resume)
 
     return websocket
 
@@ -194,7 +183,6 @@ class WebSocket():
           self.session_id = msg['d']['session_id']
           self.sequence = msg['s']
           logging.info(f'Starting new session {self.session_id} at {self.sequence}')
-          self.session_is_live = True
         return
 
       # Aside from READY, all messages will be part of our current sequence.
@@ -213,6 +201,10 @@ class WebSocket():
         target = self.callbacks.get('on_message_delete')
       elif msg['t'] == 'GUILD_MEMBER_UPDATE':
         logging.info('Member update:', msg)
+      elif msg['t'] == 'INTERACTION_CREATE':
+        # There is only a single line in the docs that mentions this message type.
+        # https://discord.com/developers/docs/interactions/receiving-and-responding#receiving-an-interaction
+        target = self.on_interaction
       else:
         logging.error('Cannot handle message type ' + msg['t'])
 
@@ -235,3 +227,19 @@ class WebSocket():
       self.got_heartbeat_ack = True
     else:
       logging.error('Cannot handle message opcode ' + str(msg['op']))
+
+  async def on_interaction(self, data):
+    if data['type'] != 1: # CHAT_INPUT
+      logging.error('Cannot handle interaction type' + data['type'])
+      return
+
+    callback = self.callbacks.get(data['name'])
+    if not callback:
+      logging.error('No callback registered for command' + data['name'])
+      return
+
+    kwargs = {option['name']: option['value'] for option in options}
+    response = callback(**kwargs)
+    if response:
+      discord_apis.add_reaction(message, '🔇')
+      discord_apis.send_message_ids(data['channel_id'], response)

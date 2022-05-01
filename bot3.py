@@ -255,23 +255,25 @@ def announce_live_channels():
     if not announced_stream['channel_id']:
       pass
 
-    stream_still_live = False
-    for stream in streams:
-      if stream['name'] == announced_stream['name'] and stream['game'] == announced_stream['game']:
-        stream_still_live = True
-        break
-    if stream_still_live:
-      continue
-
-    # Twitch APIs sometimes drop streams from their streams API even when they aren't offline.
-    # Fortunately, the preview image is a good identifier in this case; it redirects to a 404 when a channel goes offline.
-    metadata = twitch_apis.get_preview_metadata(announced_stream['preview'])
-    stream_is_offline = (metadata['redirect'] == True)
-    if not stream_is_offline:
-      continue
+    stream = next((stream for stream in streams if stream['name'] == announced_stream['name']), None)
+    if stream:
+      if stream['game'] != announced_stream['game']:
+        logging.info(f'Stream {stream["name"]} has changed games from {announced_stream["game"]} to {stream["game"]}')
+        # Send this announced_stream offline -- there will be another for the other game.
+      else:
+        logging.debug('Stream {stream["name"} is still online')
+        continue
+    else:
+      # Twitch APIs sometimes drop streams from their streams API even when they aren't offline.
+      # Fortunately, the preview image is a good identifier in this case; it redirects to a 404 when a channel goes offline.
+      metadata = twitch_apis.get_preview_metadata(announced_stream['preview'])
+      stream_is_offline = (metadata['redirect'] == True)
+      if not stream_is_offline:
+        logging.info('The API listed the channel as offline but the preview card shows that it has not.')
+        continue
 
     stream_duration = int(datetime.now().timestamp() - announced_stream['start'])
-    content = f'{announced_stream["name"]} went offline after {timedelta(seconds=stream_duration)}.\r\n'
+    content = f'{announced_stream["name"]} went offline after {timedelta(seconds=stream_duration)}.\n'
     content += 'Watch their latest videos here: <' + announced_stream['url'] + '/videos?filter=archives>'
 
     # It's possible that we fail to edit the message (the ID could be deleted, or invalid), so we update the database first.

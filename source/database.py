@@ -170,6 +170,7 @@ def unmoderate_game(game_name):
 def add_announced_stream(**announced_stream):
   announced_stream['start'] = datetime.now().timestamp()
 
+  print(announced_stream)
   execute('INSERT INTO announced_streams VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     announced_stream['name'],
     announced_stream['game'],
