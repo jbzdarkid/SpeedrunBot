@@ -150,7 +150,6 @@ class WebSocket():
   async def get_message(self, websocket, timeout=None):
     try:
       msg = await asyncio.wait_for(websocket.recv(), timeout=timeout)
-      logging.info(f'> Got message {msg}')
       return msg
     except (asyncio.TimeoutError, asyncio.CancelledError):
       return None
@@ -166,7 +165,6 @@ class WebSocket():
 
   async def send_message(self, websocket, op, data):
     try:
-      logging.info(f'> Sending message {op}: {data}')
       await websocket.send(json.dumps({'op': op, 'd': data}))
     except websockets.exceptions.WebSocketException:
       logging.exception('Disconnecting due to generic websocket error on send')

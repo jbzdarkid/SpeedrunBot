@@ -199,7 +199,131 @@ def get_embed(stream):
   }
 
 
+# We have, as input:
+# - A list of streams which were live at last iteration
+# - A list of streams that are still live (in the same game)
+#
+# 1. Iterate the list of live streams & remove all previously known.
+#   -> These streams go online
+# 2. Iterate the list of known streams & remove all offline
+#  2a. Double check for stream still live (according to preview headers)
+#  2b. Double check for game change (according to twitch API)
+
+
 def announce_live_channels():
+  # First, fetch the existing & new streams
+  existing_streams = {stream['name']: stream for stream in database.get_announced_streams()}
+  live_streams = {stream['name']: stream for stream in generics.get_speedrunners_for_game()}
+
+  # Next, determine which streams have just gone live
+  for stream in live_streams.values():
+    if stream['name'] not in existing_streams or stream['game'] != existing_streams[stream['name']]['game']:
+      logging.info(f'Stream {stream["name"]} started')
+      content = '{name} is now doing runs of {game} at {url}'.format(
+        name=discord_apis.escape_markdown(stream['name']),
+        game=stream['game'],
+        url=stream['url'])
+      channel_id = database.get_channel_for_game(stream['game'])
+      message = discord_apis.send_message_ids(channel_id, content, get_embed(stream))
+
+      metadata = twitch_apis.get_preview_metadata(stream['preview'])
+      database.add_announced_stream(
+        name=stream['name'],
+        game=stream['game'],
+        title=stream['title'],
+        url=stream['url'],
+        preview=stream['preview'],
+        channel_id=channel_id,
+        message_id=message['id'],
+        preview_expires=metadata['expires'],
+      )
+
+  # Then, determine which streams are still online
+  streams_that_went_offline = []
+  streams_that_may_be_offline = []
+  streams_that_are_still_live = []
+
+  for stream in existing_streams.values():
+    if stream['name'] in live_streams:
+      if stream['game'] == live_streams[stream['name']]['game']:
+        logging.info(f'Stream {stream["name"]} is still live')
+        streams_that_are_still_live.append(stream['name'])
+      else:
+        # The stream has changed games to another, tracked game.
+        # We have already made another announcement for the new stream, send this one offline.
+        streams_that_went_offline.append(stream['name'])
+    else:
+      # The stream has potentially gone offline. However, the twitch APIs are not the most consistent,
+      # so we double-check the stream preview image, which redirects to a 404 when a channel goes offline.
+      metadata = twitch_apis.get_preview_metadata(stream['preview'])
+      if metadata['redirect']:
+        logging.info(f'Stream {stream["name"]} has gone offline according to both the APIs and the preview image')
+        streams_that_went_offline.append(stream['name'])
+      else:
+        streams_that_may_be_offline.append(stream['name'])
+
+  # The preview image check is generic, and doesn't account for streamers changing games.
+  # So, we make another API call for streams that are still online, to see what their current game is.
+  for stream in twitch_apis.get_live_streams(user_logins=streams_that_may_be_offline):
+    previous_game = existing_streams[stream['name']]['game']
+    if stream['game_name'] == previous_game:
+      logging.info(f'Even though stream {stream["name"]} appears offline in the APIs, the preview image indicates that it is still live')
+      streams_that_are_still_live.append(stream_name)
+    else:
+      logging.info(f'Stream {stream["name"]} has changed games from {previous_game} to {stream["game_name"]}, sending it offline')
+      streams_that_went_offline.append(stream_name)
+
+  for stream_name in streams_that_are_still_live:
+    existing_stream = existing_streams[stream_name]
+    live_stream = live_streams[stream_name]
+
+    if title_changed := live_stream['title'] != existing_stream['title']:
+      logging.info(f'Stream {stream_name} title changed, editing')
+      existing_stream['title'] = live_stream['title']
+    if preview_expired := datetime.now().timestamp() > existing_stream['preview_expires']:
+      logging.info(f'Stream {stream_name} preview image expired, refreshing')
+      metadata = twitch_apis.get_preview_metadata(stream['preview'])
+      live_stream['preview_expires'] = metadata['expires']
+
+    if title_changed or preview_expired:
+      discord_apis.edit_message_ids(
+        channel_id=existing_stream['channel_id'],
+        message_id=existing_stream['message_id'],
+        embed=get_embed(existing_stream),
+      )
+      database.update_announced_stream(existing_stream)
+
+  for stream_name in streams_that_went_offline:
+    stream = existing_streams[stream_name]
+
+    stream_duration = int(datetime.now().timestamp() - stream['start'])
+    content = f'{stream["name"]} went offline after {timedelta(seconds=stream_duration)}.\n'
+    content += f'Watch their latest videos here: <{stream["url"]}/videos?filter=archives>'
+
+    # It's possible that we fail to edit the message (the ID could be deleted, or invalid), so we update the database first.
+    database.delete_announced_stream(stream)
+    discord_apis.edit_message_ids(
+      channel_id=stream['channel_id'],
+      message_id=stream['message_id'],
+      content=content,
+      embed=[], # Remove the embed
+    )
+  """ 
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
   # We coalesce this into a list so that we can make database operations during iteration.
   streams = list(generics.get_speedrunners_for_game2())
   logging.info(f'There are {len(streams)} live streams')
@@ -284,6 +408,7 @@ def announce_live_channels():
       content=content,
       embed=[], # Remove the embed
     )
+  """
 
 
 if __name__ == '__main__':

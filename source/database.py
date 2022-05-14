@@ -37,14 +37,15 @@ c.execute('''CREATE TABLE IF NOT EXISTS moderated_games (
   discord_channel  INTEGER NOT NULL,
   last_update      REAL
 )''')
+c.execute('DROP TABLE IF EXISTS announced_streams')
 c.execute('''CREATE TABLE IF NOT EXISTS announced_streams (
   name             TEXT    NOT NULL,
   game             TEXT    NOT NULL,
   title            TEXT    NOT NULL,
   url              TEXT    NOT NULL,
   preview          TEXT    NOT NULL,
-  channel_id       TEXT    NOT NULL,
-  message_id       TEXT    NOT NULL,
+  channel_id       INTEGER NOT NULL,
+  message_id       INTEGER NOT NULL,
   start            REAL    NOT NULL,
   preview_expires  REAL    NOT NULL,
   PRIMARY KEY (name, game)
@@ -170,7 +171,6 @@ def unmoderate_game(game_name):
 def add_announced_stream(**announced_stream):
   announced_stream['start'] = datetime.now().timestamp()
 
-  print(announced_stream)
   execute('INSERT INTO announced_streams VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     announced_stream['name'],
     announced_stream['game'],

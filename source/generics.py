@@ -19,7 +19,7 @@ def moderate_game(game_name, discord_channel):
   database.moderate_game(game_name, src_game_id, discord_channel)
 
 
-def get_speedrunners_for_game2():
+def get_speedrunners_for_game():
   twitch_game_ids = []
   src_game_ids = {}
   for game_name, twitch_game_id, src_game_id in database.get_all_games():
@@ -33,7 +33,7 @@ def get_speedrunners_for_game2():
 
   # We iterate the list of games into one list so that we can make a single network call here.
   # Otherwise, we would have to make one call to twitch per game, which is slow.
-  streams = twitch_apis.get_live_game_streams2(twitch_game_ids)
+  streams = twitch_apis.get_live_streams(game_ids=twitch_game_ids)
 
   # For performance here, instead of directly iterating the streams, pass them into a ThreadPoolExecutor.
   # pool_data = []

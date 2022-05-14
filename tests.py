@@ -18,12 +18,12 @@ def get_id():
 
 class MockMessage:
   def __init__(self, content, embed):
-    self.id = str(get_id())
+    self.id = get_id()
     self.content = content
     self.embed = embed
 
   def __str__(self):
-    return f'Message("{self.content}", id={self.id})'
+    return f'Message(id={self.id})'
 
   def __getitem__(self, key):
     return self.__getattribute__(key)
@@ -36,7 +36,6 @@ class MockChannel:
   def send(self, content=None, embed=None):
     message = MockMessage(content, embed)
     self.messages[message.id] = message
-    print(f'Sent {message} with content "{content}" and embed {embed} to channel {self.id}')
     return message
 
 class MockClient:
@@ -76,14 +75,25 @@ class BotTests:
 
   def mock_send_message(self, channel_id, content, embed=None):
     channel = bot.client.channels[channel_id]
-    return channel.send(content, embed)
+    message = channel.send(content, embed)
 
-  def mock_edit_message(self, channel_id, message_id, content, embed=None):
+    print(f'Sent {message} with content "{content}" and embed {embed} to channel {channel.id}')
+    return message
+
+  def mock_edit_message(self, channel_id, message_id, content=None, embed=None):
     channel = bot.client.channels[channel_id]
     message = channel.messages[message_id]
-    message.content = content
+    if content:
+      message.content = content
     if embed == []:
       message.embed = embed
+
+    # Solely for logging purposes
+    if content:
+      content = content.replace('\n', '\\n')
+    else:
+      content = '(unchanged)'
+    print(f'Edited {message} with content "{content}" and embed {embed} to channel {channel.id}')
 
 
   def testNoChannels(self):
@@ -275,12 +285,12 @@ if __name__ == '__main__':
 
 
   tests = BotTests()
-  with (patch('source.generics.get_speedrunners_for_game2') as mock_gsfg,
+  with (patch('source.generics.get_speedrunners_for_game') as mock_gsfg,
         patch('source.src_apis.make_request') as mock_http1,
         patch('source.discord_apis.make_request') as mock_http2,
         patch('source.twitch_apis.make_request') as mock_http3,
         patch('source.twitch_apis.make_head_request', new=tests.mock_head),
-        patch('source.discord_apis.send_message_ids', new=tests.mock_edit_message),
+        patch('source.discord_apis.edit_message_ids', new=tests.mock_edit_message),
         patch('source.discord_apis.send_message_ids', new=tests.mock_send_message)):
     tests.mock_gsfg = mock_gsfg
     # tests.mock_http = [mock_http1, mock_http2, mock_http3]
@@ -291,6 +301,10 @@ if __name__ == '__main__':
     tests.sort(key=lambda func: func[1].__code__.co_firstlineno)
 
     for test in tests:
+      if len(sys.argv) > 1: # Requested specific test(s)
+        if test[0] not in sys.argv[1:]:
+          continue
+
       # Test setup
       bot.client = MockClient()
 
