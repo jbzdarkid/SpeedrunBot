@@ -85,8 +85,9 @@ class BotTests:
     message = channel.messages[message_id]
     if content:
       message.content = content
-    if embed == []:
+    if embed:
       message.embed = embed
+    channel.messages[message_id] = message
 
     # Solely for logging purposes
     if content:
@@ -151,7 +152,30 @@ class BotTests:
     game1_message = bot.client.find_message(game1_message_id)
     assert 'offline' in game1_message['content']
 
+  def testChannelChangesTitle(self):
+    stream = MockStream('foo')
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 1
+    message = bot.client.find_message(streams[0]['message_id'])
+    assert message['embed']['title'] == 'foo\\_title'
+
+    stream['title'] = 'new_title'
+    streams = self.on_parsed_streams(stream)
+
+    assert message['embed']['title'] == 'new\\_title'
+
 """
+
+  def testNoSrl(self):
+    stream = MockStream('foo')
+    stream['title'] = 'Any% runs of game1'
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 1
+
+    stream['title'] = 'Randomizer runs of game1 [nosrl]'
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 0
+
   def testMultipleChannelsMultipleGames(self):
     stream = MockStream('foo')
     stream2 = MockStream('bar')
@@ -230,34 +254,6 @@ class BotTestsWithStdout():
 
     stdout = get_stdout()
     self.assertTrue('went offline after 0:00:02' in stdout)
-
-  def testChannelChangesTitle(self, get_stdout):
-    stream = MockStream('foo')
-    self.on_parsed_streams([stream], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 1)
-    self.assertTrue(bot.client.live_channels['foo']['title'] == 'foo_title')
-
-    print('===midpoint===')
-
-    stream['title'] = 'new_title'
-    self.on_parsed_streams([stream], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 1)
-    self.assertTrue(bot.client.live_channels['foo']['title'] == 'new_title')
-
-    stdout = get_stdout()
-    stdout = stdout.split('===midpoint===')
-    self.assertTrue('foo\\_title' in stdout[0])
-    self.assertTrue('new\\_title' in stdout[1])
-
-  def testNoSrl(self):
-    stream = MockStream('foo')
-    stream['title'] = 'Any% runs of game1'
-    self.on_parsed_streams([stream], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 1)
-
-    stream['title'] = 'Randomizer runs of game1 [nosrl]'
-    self.on_parsed_streams([stream], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 0)
 
 
 class SrcTests(unittest.TestCase):
