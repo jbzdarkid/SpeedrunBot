@@ -39,6 +39,7 @@ def get_live_streams(*, game_ids=None, user_logins=None):
 
     params['game_id'] = game_ids
   elif user_logins:
+    print(user_logins)
     if len(user_logins) == 0 or len(user_logins) > 100:
       raise exceptions.CommandError(f'Invalid number of user_logins: {len(user_logins)}')
 
@@ -47,7 +48,6 @@ def get_live_streams(*, game_ids=None, user_logins=None):
   streams = []
   while 1:
     j = make_request('GET', f'{api}/streams', params=params, get_headers=get_headers)
-    print(len(user_logins))
     logging.info(j)
     if 'data' not in j:
       break
