@@ -48,7 +48,7 @@ def get_live_streams(*, game_ids=None, user_logins=None):
   while 1:
     try:
       raise
-    catch:
+    except:
       logging.exception('api/streams')
     j = make_request('GET', f'{api}/streams', params=params, get_headers=get_headers)
     if 'data' not in j:
