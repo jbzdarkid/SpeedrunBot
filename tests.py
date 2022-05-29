@@ -8,7 +8,7 @@ from time import sleep
 from unittest.mock import patch
 
 import bot3 as bot
-from source import database, generics
+from source import database
 
 _id = 0
 def get_id():

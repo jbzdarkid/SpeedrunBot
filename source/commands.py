@@ -19,7 +19,7 @@ def track_game(channel, game_name):
 
 
 
-
+"""
   admin_commands = {
     '!track_game': lambda: track_game(get_channel(), ' '.join(args[1:])),
     '!untrack_game': lambda: untrack_game(get_channel(), ' '.join(args[1:])),
@@ -34,4 +34,4 @@ def track_game(channel, game_name):
     '!about': lambda: about(),
     '!help': lambda: help(),
   }
-
+"""

@@ -199,7 +199,7 @@ class WebSocket():
       elif msg['t'] == 'MESSAGE_DELETE':
         target = self.callbacks.get('on_message_delete')
       elif msg['t'] == 'GUILD_MEMBER_UPDATE':
-        logging.info('Member update:', msg)
+        logging.info(f'Member update: {msg}')
       elif msg['t'] == 'INTERACTION_CREATE':
         # There is only a single line in the docs that mentions this message type.
         # https://discord.com/developers/docs/interactions/receiving-and-responding#receiving-an-interaction
@@ -237,7 +237,7 @@ class WebSocket():
       logging.error('No callback registered for command' + data['name'])
       return
 
-    kwargs = {option['name']: option['value'] for option in options}
+    kwargs = {option['name']: option['value'] for option in data['options']}
     response = callback(**kwargs)
     if response:
       discord_apis.add_reaction(message, '🔇')

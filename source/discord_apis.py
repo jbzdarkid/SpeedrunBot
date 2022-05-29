@@ -134,6 +134,6 @@ def register_slash_command(name, desc, args=None, *, guild=None):
   else:
     url += f'{api}/{app_id}/guilds/{guild}/commands'
 
-  make_request('POST', url, json=json, get_headers=get_headers)
+  make_request('POST', url, json=body, get_headers=get_headers)
 
 

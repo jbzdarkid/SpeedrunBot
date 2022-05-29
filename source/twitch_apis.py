@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from datetime import datetime   
+from datetime import datetime
 
 from .make_request import make_request, make_head_request
 from . import exceptions
