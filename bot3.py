@@ -266,14 +266,15 @@ def announce_live_channels():
 
   # The preview image check is generic, and doesn't account for streamers changing games.
   # So, we make another API call for streams that are still online, to see what their current game is.
-  for stream in twitch_apis.get_live_streams(user_logins=streams_that_may_be_offline):
-    previous_game = existing_streams[stream['name']]['game']
-    if stream['game_name'] == previous_game:
-      logging.info(f'Even though stream {stream["name"]} appears offline in the APIs, the preview image indicates that it is still live')
-      streams_that_are_still_live.append(stream_name)
-    else:
-      logging.info(f'Stream {stream["name"]} has changed games from {previous_game} to {stream["game_name"]}, sending it offline')
-      streams_that_went_offline.append(stream_name)
+  if streams_that_may_be_offline != []:
+    for stream in twitch_apis.get_live_streams(user_logins=streams_that_may_be_offline):
+      previous_game = existing_streams[stream['user_name']]['game']
+      if stream['game_name'] == previous_game:
+        logging.info(f'Even though stream {stream["user_name"]} appears offline in the APIs, the preview image indicates that it is still live')
+        streams_that_are_still_live.append(stream_name)
+      else:
+        logging.info(f'Stream {stream["user_name"]} has changed games from {previous_game} to {stream["game_name"]}, sending it offline')
+        streams_that_went_offline.append(stream_name)
 
   for stream_name in streams_that_are_still_live:
     existing_stream = existing_streams[stream_name]

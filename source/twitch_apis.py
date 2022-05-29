@@ -31,24 +31,24 @@ def get_headers():
 # game_ids is an array of twitch game ids. (max: 100)
 def get_live_streams(*, game_ids=None, user_logins=None):
   params = {'first': 100}
-  if game_ids:
+  if game_ids != None:
     if len(game_ids) == 0 or len(game_ids) > 100:
       raise exceptions.CommandError(f'Invalid number of game_ids: {len(game_ids)}')
     if user_logins:
-      raise exceptions.CommandError(f'Cannot combine both game_ids and user_logins')
+      raise exceptions.CommandError('Cannot combine both game_ids and user_logins')
 
     params['game_id'] = game_ids
-  elif user_logins:
-    print(user_logins)
+  elif user_logins != None:
     if len(user_logins) == 0 or len(user_logins) > 100:
       raise exceptions.CommandError(f'Invalid number of user_logins: {len(user_logins)}')
 
     params['user_login'] = user_logins
+  else:
+    raise exceptions.CommandError('Must provide one of game_ids or user_logins')
 
   streams = []
   while 1:
     j = make_request('GET', f'{api}/streams', params=params, get_headers=get_headers)
-    logging.info(j)
     if 'data' not in j:
       break
     streams += [stream for stream in j['data'] if stream['type'] == 'live']

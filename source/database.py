@@ -37,7 +37,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS moderated_games (
   discord_channel  INTEGER NOT NULL,
   last_update      REAL
 )''')
-c.execute('DROP TABLE IF EXISTS announced_streams')
 c.execute('''CREATE TABLE IF NOT EXISTS announced_streams (
   name             TEXT    NOT NULL,
   game             TEXT    NOT NULL,

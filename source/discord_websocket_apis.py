@@ -41,6 +41,7 @@ class WebSocket():
       # Clients are limited to 1000 IDENTIFY calls to the websocket in a 24-hour period.
       # For simplicity, I just use this limit as our generic reconnection rate,
       # so that any class of failure will not throttle the client.
+      logging.info('Sleeping to avoid throttling limits')
       await asyncio.sleep(24 * 60 * 60 / 1000)
 
       try:
