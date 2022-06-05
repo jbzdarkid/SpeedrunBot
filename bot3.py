@@ -286,6 +286,7 @@ def announce_live_channels():
       existing_stream['title'] = live_stream['title']
     if preview_expired := datetime.now().timestamp() > existing_stream['preview_expires']:
       logging.info(f'Stream {stream_name} preview image expired, refreshing')
+      logging.info(stream)
       metadata = twitch_apis.get_preview_metadata(stream['preview'])
       live_stream['preview_expires'] = metadata['expires']
 
