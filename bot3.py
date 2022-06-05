@@ -98,9 +98,6 @@ def on_message_internal(message):
     # Calling sys.exit from a thread does not kill the main process, so we must use os.kill
     import os
     os.kill(os.getpid(), int(code))
-  def git_update():
-    output = subprocess.run(['git', 'pull', '--ff-only'], capture_output=True, text=True, cwd=Path(__file__).parent)
-    return '```' + output.stdout + ('\n' if (output.stderr or output.stdout) else '') + output.stderr + '```'
   def announce(channel_id, twitch_username=None, src_username=None):
     assert_args('twitch_username src_username', twitch_username, src_username, example='jbzdarkid darkid')
     data = database.get_game_for_channel(channel_id)
@@ -131,7 +128,7 @@ def on_message_internal(message):
     '!moderate_game': lambda: moderate_game(get_channel(), ' '.join(args[1:])),
     '!unmoderate_game': lambda: unmoderate_game(get_channel(), ' '.join(args[1:])),
     '!restart': lambda: restart(*args[1:2]),
-    '!git_update': lambda: git_update(),
+    '!git_update': lambda: f'```{git_update()}```',
     '!send_last_lines': lambda: send_last_lines(),
   }
   commands = {
@@ -180,6 +177,11 @@ def send_last_lines():
     logging.error(output.stdout)
 
 
+parent_cwd = Path(__file__).parent
+def git_update():
+  output = subprocess.run(['git', 'pull', '--ff-only'], capture_output=True, text=True, cwd=parent_cwd)
+  return output.stdout + ('\n' if (output.stderr or output.stdout) else '') + output.stderr
+
 def announce_new_runs():
   for game_name, src_game_id, channel_id, last_update in database.get_all_moderated_games():
     for content in generics.get_new_runs(game_name, src_game_id, last_update):
@@ -218,11 +220,11 @@ def announce_live_channels():
   logging.info(f'Live streams: {live_streams}')
 
   # Next, determine which streams have just gone live
-  for stream in live_streams.values():
-    if stream['name'] not in existing_streams or stream['game'] != existing_streams[stream['name']]['game']:
-      logging.info(f'Stream {stream["name"]} started')
+  for stream_name, stream in live_streams.items():
+    if stream_name not in existing_streams or stream['game'] != existing_streams[stream_name]['game']:
+      logging.info(f'Stream {stream_name} started')
       content = '{name} is now doing runs of {game} at {url}'.format(
-        name=discord_apis.escape_markdown(stream['name']),
+        name=discord_apis.escape_markdown(stream_name),
         game=stream['game'],
         url=stream['url'])
       channel_id = database.get_channel_for_game(stream['game'])
@@ -230,7 +232,7 @@ def announce_live_channels():
 
       metadata = twitch_apis.get_preview_metadata(stream['preview'])
       database.add_announced_stream(
-        name=stream['name'],
+        name=stream_name,
         game=stream['game'],
         title=stream['title'],
         url=stream['url'],
@@ -245,32 +247,32 @@ def announce_live_channels():
   streams_that_may_be_offline = []
   streams_that_are_still_live = []
 
-  for stream in existing_streams.values():
-    if stream['name'] in live_streams:
-      if stream['game'] == live_streams[stream['name']]['game']:
-        logging.info(f'Stream {stream["name"]} is still live')
-        streams_that_are_still_live.append(stream['name'])
+  for stream_name, stream in existing_streams.items():
+    if stream_name in live_streams:
+      if stream['game'] == live_streams[stream_name]['game']:
+        logging.info(f'Stream {stream_name} is still live')
+        streams_that_are_still_live.append(stream_name)
       else:
         # The stream has changed games to another, tracked game.
         # We have already made another announcement for the new stream, send this one offline.
-        streams_that_went_offline.append(stream['name'])
+        streams_that_went_offline.append(stream_name)
     else:
       # The stream has potentially gone offline. However, the twitch APIs are not the most consistent,
       # so we double-check the stream preview image, which redirects to a 404 when a channel goes offline.
       metadata = twitch_apis.get_preview_metadata(stream['preview'])
       if metadata['redirect']:
-        logging.info(f'Stream {stream["name"]} has gone offline according to both the APIs and the preview image')
-        streams_that_went_offline.append(stream['name'])
+        logging.info(f'Stream {stream_name} has gone offline according to both the APIs and the preview image')
+        streams_that_went_offline.append(stream_name)
       else:
-        streams_that_may_be_offline.append(stream['name'])
+        streams_that_may_be_offline.append(stream_name)
 
   # The preview image check is generic, and doesn't account for streamers changing games.
   # So, we make another API call for streams that are still online, to see what their current game is.
   if streams_that_may_be_offline != []:
     for stream in twitch_apis.get_live_streams(user_logins=streams_that_may_be_offline):
-      stream_name = stream['user_name']
+      stream_name = stream['name']
       previous_game = existing_streams[stream_name]['game']
-      if stream['game_name'] == previous_game:
+      if stream['game'] == previous_game:
         logging.info(f'Even though stream {stream_name} appears offline in the APIs, the preview image indicates that it is still live')
         streams_that_are_still_live.append(stream_name)
       else:
@@ -301,12 +303,12 @@ def announce_live_channels():
   for stream_name in streams_that_went_offline:
     stream = existing_streams[stream_name]
 
-    stream_duration = int(datetime.now().timestamp() - stream['start'])
-    content = f'{stream["name"]} went offline after {timedelta(seconds=stream_duration)}.\n'
-    content += f'Watch their latest videos here: <{stream["url"]}/videos?filter=archives>'
-
     # It's possible that we fail to edit the message (the ID could be deleted, or invalid), so we update the database first.
     database.delete_announced_stream(stream)
+
+    stream_duration = int(datetime.now().timestamp() - stream['start'])
+    content = f'{stream_name} went offline after {timedelta(seconds=stream_duration)}.\n'
+    content += f'Watch their latest videos here: <{stream["url"]}/videos?filter=archives>'
     discord_apis.edit_message_ids(
       channel_id=stream['channel_id'],
       message_id=stream['message_id'],
@@ -351,11 +353,7 @@ if __name__ == '__main__':
     import time
     while 1:
       logging.info(f'Starting subtask at {datetime.now()}')
-      output = subprocess.run(['git', 'pull', '--ff-only'], capture_output=True, text=True, cwd=Path(__file__).parent)
-      if output.stdout:
-        logging.info(output.stdout)
-      if output.stderr:
-        logging.error(output.stderr)
+      logging.info(git_update())
       output = subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:])
       if output.returncode != 0:
         send_last_lines()

@@ -49,8 +49,8 @@ def get_speedrunners_for_game():
   logging.info('id|username            |game name           |status')
   logging.info('--+--------------------+--------------------+--------------------------------------')
   for i, stream in enumerate(streams):
-    twitch_username = stream['user_name']
-    game_name = stream['game_name']
+    twitch_username = stream['name']
+    game_name = stream['game']
 
     prefix = str(i).ljust(2) + '|' + twitch_username.ljust(20) + '|' + game_name.ljust(20) + '|'
 
@@ -68,14 +68,7 @@ def get_speedrunners_for_game():
       continue
 
     logging.info(f'{prefix}is a speedrunner, and runs this game')
-    yield {
-      'preview': stream['thumbnail_url'].format(width=1920, height=1080),
-      'url': f'https://www.twitch.tv/{twitch_username}',
-      'name': twitch_username,
-      'title': stream['title'],
-      'viewcount': stream['viewer_count'],
-      'game': game_name,
-    }
+    yield stream
 
 
 def get_new_runs(game_name, src_game_id, last_update):

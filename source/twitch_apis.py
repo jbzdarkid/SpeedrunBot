@@ -46,17 +46,29 @@ def get_live_streams(*, game_ids=None, user_logins=None):
   else:
     raise exceptions.CommandError('Must provide one of game_ids or user_logins')
 
-  streams = []
   while 1:
     j = make_request('GET', f'{api}/streams', params=params, get_headers=get_headers)
-    if 'data' not in j:
+    data = j.get('data')
+    if not data: # None or []
       break
-    streams += [stream for stream in j['data'] if stream['type'] == 'live']
-    if len(j['data']) == 0:
+
+    for stream in data:
+      if stream['type'] == 'live':
+        yield {
+          'preview': stream['thumbnail_url'].format(width=1920, height=1080),
+          'url': 'https://www.twitch.tv/' + stream['user_name'],
+          'name': stream['user_name'],
+          'title': stream['title'],
+          'viewcount': stream['viewer_count'],
+          'game': stream['game_name'],
+        }
+
+
+    cursor = j['pagination'].get('cursor')
+    if not cursor:
       break
-    if 'cursor' not in j['pagination']:
-      break
-    params['after'] = j['pagination']['cursor']
+    params['after'] = cursor
+
   return streams
 
 
