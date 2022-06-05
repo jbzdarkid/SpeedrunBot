@@ -69,8 +69,6 @@ def get_live_streams(*, game_ids=None, user_logins=None):
       break
     params['after'] = cursor
 
-  return streams
-
 
 def get_game_id(game_name):
   j = make_request('GET', f'{api}/games', params={'name': game_name}, get_headers=get_headers)
