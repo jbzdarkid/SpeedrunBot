@@ -276,7 +276,7 @@ def announce_live_channels():
         logging.info(f'Even though stream {stream_name} appears offline in the APIs, the preview image indicates that it is still live')
         streams_that_are_still_live.append(stream_name)
       else:
-        logging.info(f'Stream {stream_name} has changed games from {previous_game} to {stream["game_name"]}, sending it offline')
+        logging.info(f'Stream {stream_name} has changed games from {previous_game} to {stream["game"]}, sending it offline')
         streams_that_went_offline.append(stream_name)
 
   for stream_name in streams_that_are_still_live:
