@@ -8,17 +8,6 @@ from . import database, src_apis, twitch_apis
 # (This is my bot's client ID. You'll need to change it to your bot's if you forked this repo.)
 # https://discord.com/oauth2/authorize?scope=bot&permissions=2048&client_id=683472204280889511
 
-def track_game(game_name, discord_channel):
-  src_game_id = src_apis.get_game_id(game_name)
-  twitch_game_id = twitch_apis.get_game_id(game_name)
-  database.add_game(game_name, twitch_game_id, src_game_id, discord_channel)
-
-
-def moderate_game(game_name, discord_channel):
-  src_game_id = src_apis.get_game_id(game_name)
-  database.moderate_game(game_name, src_game_id, discord_channel)
-
-
 def get_speedrunners_for_game():
   twitch_game_ids = []
   src_game_ids = {}

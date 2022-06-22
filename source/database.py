@@ -136,7 +136,8 @@ def add_personal_best(src_id, src_game_id):
     execute('INSERT INTO personal_bests VALUES (?, ?)', src_id, src_game_id)
   except sqlite3.IntegrityError:
     logging.exception('SQL error')
-    raise exceptions.CommandError(f'Speedrun.com user `{src_id}` already has a PB in game ID `{src_game_id}`.')
+    logging.info(f'Speedrun.com user `{src_id}` already had a PB in game ID `{src_game_id}`.')
+    # But this isn't actually a problem, so we return without throwing an exception
 
 
 def has_personal_best(src_id, src_game_id):

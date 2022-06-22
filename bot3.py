@@ -78,7 +78,9 @@ def on_message_internal(message):
   # Actual commands here
   def track_game(channel_id, game_name):
     assert_args('#channel Game Name', channel_id, game_name)
-    generics.track_game(game_name, channel_id)
+    src_game_id = src_apis.get_game_id(game_name)
+    twitch_game_id = twitch_apis.get_game_id(game_name)
+    database.add_game(game_name, twitch_game_id, src_game_id, channel_id)
     return f'Will now announce runners of {game_name} in channel <#{channel_id}>.'
   def untrack_game(channel_id, game_name):
     assert_args('#channel Game Name', channel_id, game_name)
@@ -86,11 +88,12 @@ def on_message_internal(message):
     return f'No longer announcing runners of {game_name} in channel <#{channel_id}>.'
   def moderate_game(channel_id, game_name):
     assert_args('#channel Game Name', channel_id, game_name)
-    generics.moderate_game(game_name, channel_id)
+    src_game_id = src_apis.get_game_id(game_name)
+    database.moderate_game(game_name, src_game_id, channel_id)
     return f'Will now announce newly submitted runs of {game_name} in channel <#{channel_id}>.'
   def unmoderate_game(channel_id, game_name):
     assert_args('#channel Game Name', channel_id, game_name)
-    generics.unmoderate_game(game_name, channel_id)
+    database.unmoderate_game(game_name)
     return f'No longer announcing newly submitted runs of {game_name} in channel <#{channel_id}>.'
   def restart(code=0):
     discord_apis.add_reaction(message, '💀')
