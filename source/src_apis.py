@@ -159,6 +159,9 @@ def get_current_pb(new_run):
   category = new_run['category']['data']['id']
   players = set(name(player) for player in new_run['players']['data'])
   time = new_run['times']['primary_t']
+  logging.info(new_run.keys())
+  logging.info(new_run['level'].keys())
+  logging.info(new_run['level']['data'].keys())
   level = new_run['level']['data']['id'] if new_run['level'] else None
 
   subcategories = get_subcategories(new_run)
