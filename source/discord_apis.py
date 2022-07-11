@@ -22,31 +22,25 @@ def get_headers():
   return cached_headers
 
 
-# https://github.com/Rapptz/discord.py/blob/master/discord/utils.py#L819
+# Adapted from https://github.com/Rapptz/discord.py/blob/master/discord/utils.py#L829
 _MARKDOWN_ESCAPE_SUBREGEX = '|'.join(r'\{0}(?=([\s\S]*((?<!\{0})\{0})))'.format(c) for c in ('*', '`', '_', '~', '|'))
 _MARKDOWN_ESCAPE_COMMON = r'^>(?:>>)?\s|\[.+\]\(.+\)'
 _MARKDOWN_ESCAPE_REGEX = re.compile(fr'(?P<markdown>{_MARKDOWN_ESCAPE_SUBREGEX}|{_MARKDOWN_ESCAPE_COMMON})', re.MULTILINE)
 _URL_REGEX = r'(?P<url><[^: >]+:\/[^ >]+>|(?:https?|steam):\/\/[^\s<]+[^<.,:;\"\'\]\s])'
 _MARKDOWN_STOCK_REGEX = fr'(?P<markdown>[_\\~|\*`]|{_MARKDOWN_ESCAPE_COMMON})'
+_FULL_REGEX = re.compile(f'(?:{_URL_REGEX}|{_MARKDOWN_STOCK_REGEX})', re.MULTILINE)
 
 # https://github.com/Rapptz/discord.py/blob/master/discord/utils.py#L864
-def escape_markdown(text, *, as_needed=False, ignore_links=True):
-  if not as_needed:
+def escape_markdown(text):
+  def replacement(match):
+    groupdict = match.groupdict()
+    is_url = groupdict.get('url')
+    if is_url:
+      return is_url
+    return '\\' + groupdict['markdown']
 
-    def replacement(match):
-      groupdict = match.groupdict()
-      is_url = groupdict.get('url')
-      if is_url:
-        return is_url
-      return '\\' + groupdict['markdown']
-
-    regex = _MARKDOWN_STOCK_REGEX
-    if ignore_links:
-      regex = f'(?:{_URL_REGEX}|{regex})'
-    return re.sub(regex, replacement, text, 0, re.MULTILINE)
-  else:
-    text = re.sub(r'\\', r'\\\\', text)
-    return _MARKDOWN_ESCAPE_REGEX.sub(r'\\\1', text)
+  text = _FULL_REGEX.sub(replacement, text, 0)
+  return text.replace('_', '\\_')
 
 
 # You should probably only use this for testing. Bots should not be in the habit of sending DMs.

@@ -370,7 +370,7 @@ if __name__ == '__main__':
           func()
         except exceptions.NetworkError:
           logging.exception('A network error occurred')
-          pass
+          send_last_lines()
         except:
           logging.exception('catch-all for forever_thread')
           send_last_lines()
