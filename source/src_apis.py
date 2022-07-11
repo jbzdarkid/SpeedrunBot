@@ -115,9 +115,12 @@ def get_runs(**params):
   return runs
 
 
-def get_leaderboard(game, category, variables={}):
+def get_leaderboard(game, category, level=None, variables={}):
   params = {f'var-{key}': value['id'] for key, value in variables.items()}
-  j = make_request('GET', f'{api}/leaderboards/{game}/category/{category}', params=params)
+  if level:
+    j = make_request('GET', f'{api}/leaderboards/{game}/level/{level}/{category}', params=params)
+  else:
+    j = make_request('GET', f'{api}/leaderboards/{game}/category/{category}', params=params)
 
   # This does not support continue, so I assume it just reports the entire leaderboard.
   for run in j['data']['runs']:
@@ -129,7 +132,7 @@ def name(player):
   return player.get('id', player.get('name', '(null)'))
 
 
-# NOTE: Run must be fetched with embed=category,category.variables
+# NOTE: Run must be fetched with at least embed=category,category.variables
 # Returns a mapping of variable_id: {data}, where data is an arbitrary set of properties from SRC, including 'id'.
 def get_subcategories(run):
   all_subcategories = {}
@@ -156,9 +159,15 @@ def get_current_pb(new_run):
   category = new_run['category']['data']['id']
   players = set(name(player) for player in new_run['players']['data'])
   time = new_run['times']['primary_t']
+  level = new_run['level']['data']['id'] if new_run['level'] else None
 
   subcategories = get_subcategories(new_run)
-  for run in get_leaderboard(game, category, subcategories):
+  try:
+    leaderboard = get_leaderboard(game, category, level, subcategories)
+  except exceptions.NetworkError:
+    return None # IDK something went wrong, just pretend they don't have a PB
+
+  for run in leaderboard:
     if 'place' not in new_run and time <= run['times']['primary_t']:
       new_run['place'] = run['place']
     if players == set(name(player) for player in run['players']):
