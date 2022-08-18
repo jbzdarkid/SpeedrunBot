@@ -278,6 +278,7 @@ def announce_live_channels():
       if stream['game'] == previous_game:
         logging.info(f'Even though stream {stream_name} appears offline in the APIs, the preview image indicates that it is still live')
         streams_that_are_still_live.append(stream_name)
+        live_streams[stream_name] = stream # Manually add the stream to the live_streams list, as it would not be there otherwise
       else:
         logging.info(f'Stream {stream_name} has changed games from {previous_game} to {stream["game"]}, sending it offline')
         streams_that_went_offline.append(stream_name)
@@ -291,7 +292,6 @@ def announce_live_channels():
       existing_stream['title'] = live_stream['title']
     if preview_expired := datetime.now().timestamp() > existing_stream['preview_expires']:
       logging.info(f'Stream {stream_name} preview image expired, refreshing')
-      logging.info(stream)
       metadata = twitch_apis.get_preview_metadata(stream['preview'])
       live_stream['preview_expires'] = metadata['expires']
 
