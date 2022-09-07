@@ -46,8 +46,13 @@ def runner_runs_game(twitch_username, src_id, src_game_id):
       # Last check was <1 day ago, don't fetch again
       return False
 
+  try:
+    j = make_request('GET', f'{api}/users/{src_id}/personal-bests', params={'game': src_game_id})
+  except NetworkError:
+    logging.exception(f'Could not fetch {src_id} personal bests in {src_game_id}, assuming non-speedrunner')
+    return False
+
   database.update_user_fetch_time(twitch_username)
-  j = make_request('GET', f'{api}/users/{src_id}/personal-bests', params={'game': src_game_id})
   if len(j['data']) == 0:
     return False
 
