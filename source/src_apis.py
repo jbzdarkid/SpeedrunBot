@@ -48,7 +48,7 @@ def runner_runs_game(twitch_username, src_id, src_game_id):
 
   try:
     j = make_request('GET', f'{api}/users/{src_id}/personal-bests', params={'game': src_game_id})
-  except NetworkError:
+  except exceptions.NetworkError:
     logging.exception(f'Could not fetch {src_id} personal bests in {src_game_id}, assuming non-speedrunner')
     return False
 
