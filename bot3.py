@@ -219,8 +219,13 @@ def announce_live_channels():
   # First, fetch the existing & new streams
   existing_streams = {stream['name']: stream for stream in database.get_announced_streams()}
   logging.info(f'Existing streams: {existing_streams}')
-  live_streams = {stream['name']: stream for stream in generics.get_speedrunners_for_game()}
-  logging.info(f'Live streams: {live_streams}')
+  
+  try:
+    live_streams = {stream['name']: stream for stream in generics.get_speedrunners_for_game()}
+    logging.info(f'Live streams: {live_streams}')
+  except exceptions.NetworkError:
+    live_streams = existing_streams
+    logging.error('There was a network error while fetching live streams, assuming status quo (no streams changed)')
 
   # Next, determine which streams have just gone live
   for stream_name, stream in live_streams.items():
