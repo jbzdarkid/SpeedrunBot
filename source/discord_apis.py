@@ -22,6 +22,7 @@ def get_headers():
   return cached_headers
 
 
+"""
 # Adapted from https://github.com/Rapptz/discord.py/blob/master/discord/utils.py#L829
 _MARKDOWN_ESCAPE_SUBREGEX = '|'.join(r'\{0}(?=([\s\S]*((?<!\{0})\{0})))'.format(c) for c in ('*', '`', '_', '~', '|'))
 _MARKDOWN_ESCAPE_COMMON = r'^>(?:>>)?\s|\[.+\]\(.+\)'
@@ -41,7 +42,14 @@ def escape_markdown(text):
 
   text = _FULL_REGEX.sub(replacement, text, 0)
   return text.replace('_', '\\_')
+"""
 
+def escape_markdown(text):
+  special_characters = '_*`|>~\\'
+  for ch in special_characters:
+    if ch in text:
+      text = text.replace(ch, '\\' + ch)
+  return text
 
 # You should probably only use this for testing. Bots should not be in the habit of sending DMs.
 def test_get_dm_channel(user):
