@@ -45,7 +45,7 @@ def escape_markdown(text):
 """
 
 def escape_markdown(text):
-  special_characters = '_*`|>~\\'
+  special_characters = '_*`>\\'
   for ch in special_characters:
     if ch in text:
       text = text.replace(ch, '\\' + ch)
