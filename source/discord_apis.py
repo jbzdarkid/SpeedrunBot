@@ -91,7 +91,7 @@ def edit_message_ids(channel_id, message_id, content=None, embed=None):
     json['embeds'] = [embed]
 
   j = make_request('PATCH', f'{api}/channels/{channel_id}/messages/{message_id}', allow_4xx=True, json=json, get_headers=get_headers)
-  if j.get('id', None) == message_id:
+  if j.get('id', None) == str(message_id):
     return True # Successful update returns the new message object
 
   # {'message': 'Unknown Message', 'code': 10008}
