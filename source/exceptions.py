@@ -1,3 +1,6 @@
+# Do not use exceptions to pass information.
+# If you do so, you are probably using exceptions for non-exceptional circumstances.
+
 class NetworkError(Exception):
   pass
 

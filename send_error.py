@@ -1,7 +1,6 @@
+# As tempting as it may be, DO NOT import any non-system modules -- this file needs to be stable!
 import requests
 from pathlib import Path
-
-# As tempting as it may be, DO NOT import any non-system modules -- this file needs to be stable!
 
 with (Path(__file__).parent / 'source' / 'discord_token.txt').open() as f:
   token = f.read().strip()
@@ -28,7 +27,6 @@ with Path(__file__).with_name('out.log').open('r', encoding='utf-8') as f:
     last_lines = '...\n' + last_lines
   content = f'Bot crashed, last {num_lines} lines:\n```{last_lines}```'
 
-# These functions should not be moved into source/discord_apis, since there may be a typo in that file, which would cause this one to crash too.
 r = requests.post(f'{api}/users/@me/channels', json={'recipient_id': user}, headers=headers)
 if r.status_code != 200:
   print(r.text)
