@@ -36,7 +36,7 @@ admins = []
 def on_direct_message(message):
   if message['author']['id'] not in admins:
     return # DO NOT process DMs from non-admins (For safety. It might be fine to process all DMs, I just don't want people spamming the bot without my knowledge.)
-    
+
   on_message_internal(message)
 
 
@@ -153,7 +153,7 @@ def on_message_internal(message):
     return
   else:
     return # Not a command
-  
+
   discord_apis.add_reaction(message, '🕐') # In case processing takes a while, ack that we've gotten the message.
   try:
     response = command()
@@ -221,7 +221,7 @@ def announce_live_channels():
   # First, fetch the existing & new streams
   existing_streams = {stream['name']: stream for stream in database.get_announced_streams()}
   logging.info(f'Existing streams: {existing_streams}')
-  
+
   try:
     live_streams = {stream['name']: stream for stream in generics.get_speedrunners_for_game()}
     logging.info(f'Live streams: {live_streams}')
@@ -303,18 +303,18 @@ def announce_live_channels():
       live_stream['preview_expires'] = metadata['expires']
 
     if title_changed or preview_expired:
-      discord_apis.edit_message_ids(
+      success = discord_apis.edit_message_ids(
         channel_id=existing_stream['channel_id'],
         message_id=existing_stream['message_id'],
         embed=get_embed(existing_stream),
       )
-      database.update_announced_stream(existing_stream)
+      if success:
+        database.update_announced_stream(existing_stream)
+      else:
+        database.delete_announced_stream(existing_stream) # The message was deleted or otherwise invalid. Recreate it.
 
   for stream_name in streams_that_went_offline:
     stream = existing_streams[stream_name]
-
-    # It's possible that we fail to edit the message (the ID could be deleted, or invalid), so we update the database first.
-    database.delete_announced_stream(stream)
 
     stream_duration = int(seconds_since_epoch() - stream['start'])
     content = f'{stream_name} went offline after {timedelta(seconds=stream_duration)}.\n'
@@ -325,6 +325,10 @@ def announce_live_channels():
       content=content,
       embed=[], # Remove the embed
     )
+
+    # If there's a network error, we DON'T want to delete (so that we *do* delete on the next pass)
+    # However, if the edit failed, we DO want to delete (since the message is gone)
+    database.delete_announced_stream(stream)
 
 
 if __name__ == '__main__':

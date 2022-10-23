@@ -14,7 +14,7 @@ def failure():
   backoff = min(60, backoff * 2)
 
 
-def make_request_internal(method, url, *args, retry=True, **kwargs):
+def make_request_internal(method, url, *args, retry=True, allow_4xx=False, **kwargs):
   logging_url = url
   if method == 'POST': # Strip postdata arguments from the URL since they usually contain secrets.
     logging_url = url.partition('?')[0]
@@ -40,8 +40,12 @@ def make_request_internal(method, url, *args, retry=True, **kwargs):
     failure()
     raise exceptions.NetworkError(f'{method} {logging_url} failed: {e}')
 
-  if 200 <= r.status_code and r.status_code < 400:
+  if 200 <= r.status_code and r.status_code <= 399:
     success()
+    logging.info(f'Completed {method} request to {logging_url} with code {r.status_code}')
+    return r
+  elif allow_4xx and 400 <= r.status_code and r.status_code <= 499:
+    failure() # Even if the caller allows client errors, it's still a failure and we should take care not to throttle.
     logging.info(f'Completed {method} request to {logging_url} with code {r.status_code}')
     return r
   else:
