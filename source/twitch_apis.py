@@ -1,9 +1,9 @@
 import logging
 from pathlib import Path
-from datetime import datetime
 
-from .make_request import make_request, make_head_request
 from . import exceptions
+from .make_request import make_request, make_head_request
+from .utils import parse_time
 
 api = 'https://api.twitch.tv/helix'
 
@@ -86,7 +86,7 @@ def get_user_id(username):
 
 def get_preview_metadata(preview_url):
   status_code, headers = make_head_request(preview_url)
-  expires = datetime.strptime(headers['expires'], '%a, %d %b %Y %H:%M:%S %Z')
+  expires = parse_time(headers['expires'], '%a, %d %b %Y %H:%M:%S %Z')
 
   return {
     'redirect': status_code >= 300 and status_code < 400,

@@ -95,6 +95,7 @@ class BotTests:
     else:
       content = '(unchanged)'
     print(f'Edited {message} with content "{content}" and embed {embed} to channel {channel.id}')
+    return True
 
 
   def testNoChannels(self):

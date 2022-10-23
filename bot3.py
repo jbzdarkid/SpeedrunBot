@@ -10,6 +10,7 @@ from time import sleep
 from uuid import uuid4
 
 from source import database, generics, twitch_apis, src_apis, discord_apis, discord_websocket_apis, exceptions
+from source.utils import seconds_since_epoch
 
 # WANT
 # TODO: [nosrl] (and associated tests)
@@ -295,7 +296,7 @@ def announce_live_channels():
     if title_changed := live_stream['title'] != existing_stream['title']:
       logging.info(f'Stream {stream_name} title changed, editing')
       existing_stream['title'] = live_stream['title']
-    if preview_expired := datetime.now().timestamp() > existing_stream['preview_expires']:
+    if preview_expired := seconds_since_epoch() > existing_stream['preview_expires']:
       logging.info(f'Stream {stream_name} preview image expired, refreshing')
       metadata = twitch_apis.get_preview_metadata(stream['preview'])
       live_stream['preview_expires'] = metadata['expires']
@@ -314,7 +315,7 @@ def announce_live_channels():
     # It's possible that we fail to edit the message (the ID could be deleted, or invalid), so we update the database first.
     database.delete_announced_stream(stream)
 
-    stream_duration = int(datetime.now().timestamp() - stream['start'])
+    stream_duration = int(seconds_since_epoch() - stream['start'])
     content = f'{stream_name} went offline after {timedelta(seconds=stream_duration)}.\n'
     content += f'Watch their latest videos here: <{stream["url"]}/videos?filter=archives>'
     discord_apis.edit_message_ids(

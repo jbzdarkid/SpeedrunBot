@@ -1,7 +1,7 @@
-import datetime
 import logging
 
 from . import database, src_apis, twitch_apis
+from .utils import parse_time
 
 # In order for the bot to post messages, it needs the "send_messages" permission.
 # Please use this link in to grant the permissions to a server you administrate.
@@ -69,8 +69,7 @@ def get_new_runs(game_name, src_game_id, last_update):
     # Only announce runs which are more recent than the last announcement date.
     # Unfortunately, there's no way to suggest this filter to the speedrun.com APIs.
     # It might be possible using one of the undocumented PHP APIs.
-    submitted = datetime.datetime.strptime(run['submitted'], '%Y-%m-%dT%H:%M:%SZ')
-    submitted = submitted.replace(tzinfo=datetime.timezone.utc) # strptime assumes local time, which is incorrect here.
+    submitted = parse_time(run['submitted'], '%Y-%m-%dT%H:%M:%SZ')
     if submitted.timestamp() <= last_update:
       continue
     current_pb = src_apis.get_current_pb(run)

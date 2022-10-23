@@ -1,8 +1,9 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from . import database, exceptions
 from .make_request import make_request
+from .utils import seconds_since_epoch
 
 ONE_HOUR  = (3600)
 ONE_DAY   = (3600 * 24)
@@ -17,7 +18,7 @@ def get_src_id(twitch_username):
       # Streamer found, is a known speedrunner.
       return user['src_id']
     # Streamer is found, but not a speedrunner.
-    if datetime.now().timestamp() < user['fetch_time'] + ONE_WEEK:
+    if seconds_since_epoch() < user['fetch_time'] + ONE_WEEK:
       # Last check was <1 week ago, return cached.
       return user['src_id']
 
@@ -42,7 +43,7 @@ def runner_runs_game(twitch_username, src_id, src_game_id):
     return True
 
   if user := database.get_user(twitch_username):
-    if datetime.now().timestamp() < user['fetch_time'] + ONE_DAY:
+    if seconds_since_epoch() < user['fetch_time'] + ONE_DAY:
       # Last check was <1 day ago, don't fetch again
       return False
 

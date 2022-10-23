@@ -1,10 +1,10 @@
 import logging
 import sqlite3
-from datetime import datetime
 from pathlib import Path
 from threading import Lock
 
 from . import exceptions
+from .utils import seconds_since_epoch
 
 conn = sqlite3.connect(
   database = Path(__file__).with_name('database.db'),
@@ -68,7 +68,9 @@ def fetchall():
 
 
 # Commands related to users
-def add_user(twitch_username, src_id, fetch_time=datetime.now().timestamp()):
+def add_user(twitch_username, src_id, fetch_time=None):
+  if not fetch_time:
+    fetch_time = seconds_since_epoch()
   execute('INSERT OR REPLACE INTO users VALUES (?, ?, ?)', twitch_username.lower(), src_id, fetch_time)
 
 
@@ -83,7 +85,9 @@ def get_user(twitch_username):
   return None
 
 
-def update_user_fetch_time(twitch_username, last_fetched=datetime.now().timestamp()):
+def update_user_fetch_time(twitch_username, last_fetched=None):
+  if not last_fetched:
+    last_fetched = seconds_since_epoch()
   execute('UPDATE users SET last_fetched=? WHERE twitch_username=?', last_fetched, twitch_username.lower())
   conn.commit()
 
@@ -159,7 +163,9 @@ def get_all_moderated_games():
   return fetchall()
 
 
-def update_game_moderation_time(game_name, last_update=datetime.now().timestamp()):
+def update_game_moderation_time(game_name, last_update=None):
+  if not last_update:
+    last_update = seconds_since_epoch()
   execute('UPDATE moderated_games SET last_update=? WHERE game_name=?', last_update, game_name)
 
 
@@ -169,7 +175,7 @@ def unmoderate_game(game_name):
 
 # Commands related to announced_streams
 def add_announced_stream(**announced_stream):
-  announced_stream['start'] = datetime.now().timestamp()
+  announced_stream['start'] = seconds_since_epoch()
 
   execute('INSERT INTO announced_streams VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     announced_stream['name'],

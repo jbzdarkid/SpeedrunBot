@@ -2,10 +2,11 @@ import asyncio
 import json
 import logging
 import websockets
-from datetime import datetime, timedelta
 from pathlib import Path
 from random import random
 from threading import Thread
+
+from .utils import seconds_since_epoch
 
 DISPATCH = 0
 HEARTBEAT = 1
@@ -55,7 +56,7 @@ class WebSocket():
 
       # Message loop: Wait for messages, interrupting for heartbeats.
       while self.connected:
-        until_next_heartbeat = (self.next_heartbeat - datetime.now()).total_seconds()
+        until_next_heartbeat = self.next_heartbeat - seconds_since_epoch()
         if until_next_heartbeat <= 0:
           await self.heartbeat(websocket)
           continue
@@ -82,8 +83,8 @@ class WebSocket():
       return
 
     # https://discord.com/developers/docs/topics/gateway#heartbeating
-    self.heartbeat_interval = timedelta(milliseconds=json.loads(hello)['d']['heartbeat_interval'])
-    random_startup = self.heartbeat_interval.total_seconds() * random()
+    self.heartbeat_interval = json.loads(hello)['d']['heartbeat_interval'] / 1000 # Value is in millis
+    random_startup = self.heartbeat_interval * random()
     logging.info(f'Connecting in {random_startup} seconds')
     await asyncio.sleep(random_startup)
 
@@ -144,7 +145,7 @@ class WebSocket():
       return
 
     await self.send_message(websocket, HEARTBEAT, self.sequence)
-    self.next_heartbeat = datetime.now() + self.heartbeat_interval
+    self.next_heartbeat = seconds_since_epoch() + self.heartbeat_interval
     self.got_heartbeat_ack = False
 
 
