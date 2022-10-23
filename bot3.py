@@ -53,10 +53,11 @@ def on_message(message):
 
 def on_message_internal(message):
   def is_mention(word):
-    # https://github.com/Rapptz/discord.py/blob/master/discord/message.py#L882
-    return re.fullmatch('<(@!|@&|#)\d{15,20}>', word)
+    # @member @&role #channel
+    return re.fullmatch('<(@|@&|#)\d{15,20}>', word)
   # Since mentions can appear anywhere in the message, strip them out entirely for command processing.
   # User and channel mentions can still be accessed via message.mentions and message.channel_mentions
+
   args = [arg.strip() for arg in message['content'].split(' ') if not is_mention(arg)]
 
   def get_channel():
