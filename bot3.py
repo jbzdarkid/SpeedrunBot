@@ -317,7 +317,7 @@ def announce_live_channels():
     stream = existing_streams[stream_name]
 
     stream_duration = int(seconds_since_epoch() - stream['start'])
-    content = f'{stream_name} went offline after {timedelta(seconds=stream_duration)}.\n'
+    content = f'{discord_apis.escape_markdown(stream_name)} went offline after {timedelta(seconds=stream_duration)}.\n'
     content += f'Watch their latest videos here: <{stream["url"]}/videos?filter=archives>'
     discord_apis.edit_message_ids(
       channel_id=stream['channel_id'],
