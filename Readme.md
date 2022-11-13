@@ -12,3 +12,9 @@ This bot uses the twitch.tv and speedrun.com apis to search for speedrunners who
   - Go to https://dev.twitch.tv/console/apps
   - Register a new application, and save the client ID into a file called `twitch_client.txt` inside the `source` folder
   - Generate a client secret (on the page for that app) and save it into a file called `twitch_token.txt` inside the `source` folder
+
+## Setting up the bot
+In order for the bot to post messages, it needs the "send_messages" permission.
+Please use this link in to grant the permissions to a server you administrate.
+(This is my bot's client ID. You'll need to change it to your bot's if you forked this repo.)
+https://discord.com/oauth2/authorize?scope=bot&permissions=2048&client_id=683472204280889511

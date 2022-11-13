@@ -3,11 +3,6 @@ import logging
 from . import database, src_apis, twitch_apis
 from .utils import parse_time
 
-# In order for the bot to post messages, it needs the "send_messages" permission.
-# Please use this link in to grant the permissions to a server you administrate.
-# (This is my bot's client ID. You'll need to change it to your bot's if you forked this repo.)
-# https://discord.com/oauth2/authorize?scope=bot&permissions=2048&client_id=683472204280889511
-
 def get_speedrunners_for_game():
   twitch_game_ids = []
   src_game_ids = {}
