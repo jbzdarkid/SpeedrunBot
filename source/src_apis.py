@@ -26,6 +26,7 @@ def get_src_id(twitch_username):
   try:
     j = make_request('GET', f'{api}/users', params={'twitch': twitch_username})
   except exceptions.NetworkError:
+    logging.exception(f'Failed to look up src user for twitch_username={twitch_username}, assuming non-runner')
     return None
 
   if len(j['data']) == 0:
@@ -171,7 +172,8 @@ def get_current_pb(new_run):
   try:
     leaderboard = get_leaderboard(game, category, level, subcategories)
   except exceptions.NetworkError:
-    return None # IDK something went wrong, just pretend they don't have a PB
+    logging.exception(f'Failed to load the leaderboard for {game}, assuming no existing PB')
+    return None
 
   for run in leaderboard:
     if 'place' not in new_run and time <= run['times']['primary_t']:
