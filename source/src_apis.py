@@ -109,15 +109,19 @@ def get_runs(**params):
   params['embed'] = 'players,level,category,category.variables'
 
   runs = []
-  j = make_request('GET', f'{api}/runs', params=params)
-  while 1:
-    runs += j['data']
+  try:
+    j = make_request('GET', f'{api}/runs', params=params)
+    while 1:
+      runs += j['data']
 
-    for link in j['pagination']['links']:
-      if link['rel'] == 'next':
-        j = make_request('GET', link['uri'])
-        continue
-    break # No more results
+      for link in j['pagination']['links']:
+        if link['rel'] == 'next':
+          j = make_request('GET', link['uri'])
+          continue
+      break # No more results
+  except requests.NetworkError:
+    logging.exception(f'Failed to load runs for {params}, assuming empty')
+    return runs
 
   return runs
 
