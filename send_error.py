@@ -16,16 +16,6 @@ if r.status_code != 200:
   print(r.text)
   exit(1)
 user = r.json()['owner']['id']
-num_lines = 20
-
-with Path(__file__).with_name('out.log').open('r', encoding='utf-8') as f:
-  content = f.read()
-  last_lines = '\n'.join(content.split('\n')[-num_lines:])
-  if len(last_lines) >= 1900: # Discord character limit, with enough space for the wrapper text.
-    last_lines = last_lines[-1900:]
-    num_lines = last_lines.count('\n')
-    last_lines = '...\n' + last_lines
-  content = f'Bot crashed, last {num_lines} lines:\n```{last_lines}```'
 
 r = requests.post(f'{api}/users/@me/channels', json={'recipient_id': user}, headers=headers)
 if r.status_code != 200:
@@ -33,7 +23,29 @@ if r.status_code != 200:
   exit(1)
 channel = r.json()['id']
 
-r = requests.post(f'{api}/channels/{channel}/messages', json={'content': content}, headers=headers)
+with Path(__file__).with_name('out.log').open('r', encoding='utf-8') as f:
+  lines = f.read().split('\n')
+
+i = len(lines) - 1
+message2 = ''
+while len(message2) + lines[i] < 1990: # Discord character limit, with some extra space for wrapper text
+  message2 = lines[i] + '\n' + message2
+  i -= 1
+
+message1 = ''
+while len(message1) + lines[i] < 1900: # Discord character limit, with some extra space for wrapper text
+  message1 = lines[i] + '\n' + message1
+  i -= 1
+
+message1 = f'Bot crashed, last {len(lines) - i} lines:\n```{message1}```'
+message2 = f'```{message2}```'
+
+r = requests.post(f'{api}/channels/{channel}/messages', json={'content': message1}, headers=headers)
+if r.status_code != 200:
+  print(r.text)
+  exit(1)
+
+r = requests.post(f'{api}/channels/{channel}/messages', json={'content': message2}, headers=headers)
 if r.status_code != 200:
   print(r.text)
   exit(1)
