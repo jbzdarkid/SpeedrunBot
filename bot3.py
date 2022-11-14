@@ -103,6 +103,10 @@ def on_message_internal(message):
     # Calling sys.exit from a thread does not kill the main process, so we must use os.kill
     import os
     os.kill(os.getpid(), int(code))
+  def log_streams():
+    for _ in generics.get_speedrunners_for_game():
+      pass
+    send_last_lines()
   def announce(channel_id, twitch_username=None, src_username=None):
     assert_args('twitch_username src_username', twitch_username, src_username, example='jbzdarkid darkid')
     data = database.get_game_for_channel(channel_id)
@@ -135,6 +139,7 @@ def on_message_internal(message):
     '!restart': lambda: restart(*args[1:2]),
     '!git_update': lambda: f'```{git_update()}```',
     '!send_last_lines': lambda: send_last_lines(),
+    '!log_streams': lambda: log_streams(),
   }
   commands = {
     '!announce_me': lambda: announce(get_channel(), *args[1:3]),
