@@ -71,7 +71,7 @@ class WebSocket():
 
       # Message loop exited, so self.connected = False
       if websocket:
-        await websocket.close(1005) # 1005: No error specified. Discord asks us not to use 1000 and 1001.
+        await websocket.close(1012) # 1012: Service restart. Discord asks us not to use 1000 and 1001.
 
 
   def get_token(self):
