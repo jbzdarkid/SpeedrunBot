@@ -28,12 +28,12 @@ with Path(__file__).with_name('out.log').open('r', encoding='utf-8') as f:
 
 i = len(lines) - 1
 message2 = ''
-while len(message2) + lines[i] < 1990: # Discord character limit, with some extra space for wrapper text
+while len(message2) + len(lines[i]) < 1990: # Discord character limit, with some extra space for wrapper text
   message2 = lines[i] + '\n' + message2
   i -= 1
 
 message1 = ''
-while len(message1) + lines[i] < 1900: # Discord character limit, with some extra space for wrapper text
+while len(message1) + len(lines[i]) < 1900: # Discord character limit, with some extra space for wrapper text
   message1 = lines[i] + '\n' + message1
   i -= 1
 
