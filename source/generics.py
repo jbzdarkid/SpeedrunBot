@@ -38,6 +38,10 @@ def get_speedrunners_for_game():
 
     prefix = str(i).ljust(2) + '|' + twitch_username.ljust(20) + '|' + game_name.ljust(20) + '|'
 
+    if game_name not in src_game_ids:
+      logging.info(f'{prefix}is not streaming a tracked game... somehow')
+      continue
+
     if 'nosrl' in stream['title']:
       logging.info(f'{prefix}is explicitly not doing speedruns')
       continue
