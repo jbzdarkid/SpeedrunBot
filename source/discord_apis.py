@@ -22,14 +22,34 @@ def get_headers():
   return cached_headers
 
 
-def escape_markdown(text):
-  orig_text = text
-  special_characters = '_*`>\\'
-  for ch in special_characters:
-    if ch in text:
-      text = text.replace(ch, '\\' + ch)
+# Adapted (and simplified) from escape_markdown in https://github.com/Rapptz/discord.py/blob/master/discord/utils.py
+FIND = re.compile(r'''
+(                   # Open capture group
+  <                   # Start of an explicit link
+  [^: >]+:            # Scheme
+  /                   # (start of path)
+  [^ >]+              # At least one non-space character (and not the end of the explicit scheme)
+  >                   # End of explicit link
+|                   # -OR-
+  (http|https|steam): # Implicit links (discord only recognizes these schemes)
+  //                  # (start of path)
+  [^\s<]+             # At least one non-space and non-explicit url characters
+  [^<.,:;"'\]\)\s]    # The final character (which is not a separator), e.g. if you write (http://google.com), discord will not include the )
+|                   # -OR-
+  [_*`>\\]            # Any of the characters that actually need escaping
+)                   # Close capture group
+''', re.VERBOSE)
+def REPL(match):
+  matched_text = match[0]
+  if len(matched_text) == 1: # A character which needs escaping
+    return '\\' + matched_text
+  else: # Anything else (URL) which doesn't need escaping
+    return matched_text
+
+def escape_markdown(orig_text):
+  text = FIND.sub(REPL, orig_text)
   if text != orig_text:
-    logging.info(f'Before: "{text}" After: "{orig_text}"')
+    logging.info(f'Before: "{orig_text.encode("utf-8")}" After: "{text.encode("utf-8")}"')
   return text
 
 

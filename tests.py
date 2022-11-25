@@ -25,6 +25,9 @@ class MockMessage:
   def __str__(self):
     return f'Message(id={self.id})'
 
+  def __repr__(self):
+    return f'Message("{self.content}", "{self.embed}")'
+
   def __getitem__(self, key):
     return self.__getattribute__(key)
 
@@ -149,7 +152,7 @@ class BotTests:
     streams = self.on_parsed_streams(stream)
     assert len(streams) == 1
     assert streams[0]['game'] == 'game2'
-    
+
     game1_message = bot.client.find_message(game1_message_id)
     assert 'offline' in game1_message['content']
 
@@ -164,6 +167,16 @@ class BotTests:
     streams = self.on_parsed_streams(stream)
 
     assert message['embed']['title'] == 'new\\_title'
+
+  def testEscapement(self):
+    streams = self.on_parsed_streams(MockStream('underscore_'))
+    message = bot.client.find_message(streams[0]['message_id'])
+    sleep(1.1)
+    streams = self.on_parsed_streams()
+
+    # underscore\_ went offline after 0:00:01.\nWatch their latest videos here: <twitch.tv/underscore_/videos?filter=archives>
+    assert r'underscore\_ went offline' in message.content
+    assert r'twitch.tv/underscore_/videos' in message.content
 
 """
 
