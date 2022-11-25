@@ -114,9 +114,6 @@ class WebSocket():
 
       try:
         await self.send_message(websocket, RESUME, resume)
-        msg = await self.get_message(websocket, timeout=10)
-        logging.info(f'Post-resume message: {msg}')
-        await self.handle_message(msg, websocket)
         return websocket
       except:
         logging.exception('Failed to resume the connection')
@@ -219,6 +216,8 @@ class WebSocket():
         # There is only a single line in the docs that mentions this message type.
         # https://discord.com/developers/docs/interactions/receiving-and-responding#receiving-an-interaction
         target = self.on_interaction
+      elif msg['t'] == 'RESUMED':
+        logging.info(f'Successfully resumed session {self.session_id}')
       else:
         logging.error('Cannot handle message type ' + msg['t'])
 
