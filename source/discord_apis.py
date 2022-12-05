@@ -91,7 +91,7 @@ def edit_message_ids(channel_id, message_id, content=None, embed=None):
   if j.get('id', None) == str(message_id):
     return True # Successful update returns the new message object
 
-  # {'message': 'Unknown Message', 'code': 10008}
+  # https://discord.com/developers/docs/topics/opcodes-and-status-codes
   if j.get('code', None) == 10008: # Unknown Message
     logging.error(f'Message {message_id} in {channel_id} was deleted')
     return False
