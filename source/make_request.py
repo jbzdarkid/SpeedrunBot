@@ -25,9 +25,13 @@ def make_request_internal(method, url, *args, retry=True, allow_4xx=False, **kwa
   try:
     r = requests.request(method, url, *args, **kwargs)
 
+    if r.status_code == 429:
+      logging.info(list(r.headers.keys()))
+    
     if retry and r.status_code == 429 and 'Retry-After' in r.headers:
       # Try again exactly once when we are told to do so due to rate limiting.
       sleep(int(r.headers['Retry-After']))
+      logging.info(r.headers['Retry-After'])
       r = requests.request(method, url, *args, **kwargs)
 
     if retry and get_headers and r.status_code == 401:
