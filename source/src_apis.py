@@ -119,7 +119,7 @@ def get_runs(**params):
           j = make_request('GET', link['uri'])
           continue
       break # No more results
-  except requests.NetworkError:
+  except exceptions.NetworkError:
     logging.exception(f'Failed to load runs for {params}, assuming empty')
     return runs
 

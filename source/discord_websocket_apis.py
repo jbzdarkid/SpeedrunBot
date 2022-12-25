@@ -47,6 +47,7 @@ class WebSocket():
       logging.info('Sleeping to avoid throttling limits')
       await asyncio.sleep(24 * 60 * 60 / 1000)
 
+      websocket = None
       try:
         websocket = await self.connect()
       except websockets.exceptions.WebSocketException:
