@@ -3,7 +3,7 @@ from pathlib import Path
 
 from . import exceptions
 from .make_request import make_request, make_head_request
-from .utils import parse_time
+from .utils import parse_time, seconds_since_epoch
 
 api = 'https://api.twitch.tv/helix'
 
@@ -85,10 +85,18 @@ def get_user_id(username):
 
 
 def get_preview_metadata(preview_url):
-  status_code, headers = make_head_request(preview_url)
-  expires = parse_time(headers['expires'], '%a, %d %b %Y %H:%M:%S %Z')
+  try:
+    status_code, headers = make_head_request(preview_url)
+    expires = parse_time(headers['expires'], '%a, %d %b %Y %H:%M:%S %Z')
 
-  return {
-    'redirect': status_code >= 300 and status_code < 400,
-    'expires': expires.timestamp(),
-  }
+    return {
+      'redirect': status_code >= 300 and status_code < 400,
+      'expires': expires.timestamp(),
+    }
+  except exceptions.NetworkError:
+    logging.exception(f'Failed to fetch stream metadata for {preview_url}, assuming still online')
+    return {
+      'redirect': False, # Stream has not gone offline
+      'expires': seconds_since_epoch(), # Data expires immediately
+    }
+
