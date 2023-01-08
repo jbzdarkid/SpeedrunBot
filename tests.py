@@ -8,7 +8,7 @@ from time import sleep
 from unittest.mock import patch
 
 import bot3 as bot
-from source import database
+from source import database, src_apis, exceptions
 
 _id = 0
 def get_id():
@@ -72,7 +72,7 @@ class BotTests:
     return list(database.get_announced_streams())
 
   def mock_head(self, url):
-    expires = datetime.now() + timedelta(seconds=1) # IRL this would be 5 minutes but tests are supposed to be fast.
+    expires = datetime.now() + timedelta(milliseconds=100) # IRL this would be 5 minutes but tests are supposed to be fast.
     headers = {'expires': datetime.strftime(expires, '%a, %d %b %Y %H:%M:%S UTC')}
     return (302, headers)
 
@@ -168,18 +168,69 @@ class BotTests:
 
     assert message['embed']['title'] == 'new\\_title'
 
+  """
+  def testGoesOffline(self):
+    streams = self.on_parsed_streams(MockStream('foo'))
+    assert len(streams) == 1
+    message = bot.client.find_message(streams[0]['message_id'])
+    assert 'is now doing runs of game1' in message.content
+
+    # Before waiting, stream should still be within the 'possibly still live' period
+    streams = self.on_parsed_streams()
+    assert len(streams) == 1
+    assert 'is now doing runs of game1' in message.content
+
+    sleep(.2) # Offline time is 100 millis in tests, sleep until it's done
+    streams = self.on_parsed_streams()
+    assert len(streams) == 0
+    assert 'has gone offline' in message.content
+
+  def testStreamDowntime(self):
+    stream = MockStream('foo')
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 1
+
+    # Stream goes down briefly (or the API lies), but we're within the grace period
+    streams = self.on_parsed_streams()
+    assert len(streams) == 1
+
+    # Stream comes back online
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 1
+
+    # Stream goes down again
+    streams = self.on_parsed_streams()
+    assert len(streams) == 1
+
+    # Stream comes back online again
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 1
+
+    sleep(.2) # Offline time is 100 millis in tests, sleep until it's done
+
+    # Stream goes down again
+    streams = self.on_parsed_streams()
+    assert len(streams) == 1
+  """
+
   def testEscapement(self):
     streams = self.on_parsed_streams(MockStream('underscore_'))
     message = bot.client.find_message(streams[0]['message_id'])
-    sleep(1.1)
+    assert r'underscore\_ is now doing runs of game1' in message.content # Usernames need escaping
+    assert r'underscore\_\_title' in message.embed['title'] # Titles need escaping
+    assert r'twitch.tv/underscore_' in message.embed['url'] # URLs do not
+
+    sleep(.2) # Offline time is 100 millis in tests, sleep until it's done
     streams = self.on_parsed_streams()
 
     # underscore\_ went offline after 0:00:01.\nWatch their latest videos here: <twitch.tv/underscore_/videos?filter=archives>
-    assert r'underscore\_ went offline' in message.content
-    assert r'twitch.tv/underscore_/videos' in message.content
+    assert r'underscore\_ went offline' in message.content # Username needs escaping
+    assert r'<twitch.tv/underscore_/videos?filter=archives>' in message.content # URL does not
 
-"""
+  """
 
+  # This is hard because we're currently mocking get_speedrunners_for_game, which is where the nosrl check lives.
+  # This is the right place for the check, though -- this is exactly about "not doing speedruns".
   def testNoSrl(self):
     stream = MockStream('foo')
     stream['title'] = 'Any% runs of game1'
@@ -189,99 +240,63 @@ class BotTests:
     stream['title'] = 'Randomizer runs of game1 [nosrl]'
     streams = self.on_parsed_streams(stream)
     assert len(streams) == 0
+  """
 
   def testMultipleChannelsMultipleGames(self):
+    database.add_game('game2', 'game2', 'game2', bot.client.new_channel().id)
+
     stream = MockStream('foo')
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 1
+    assert streams[0]['game'] == 'game1'
+
     stream2 = MockStream('bar')
     stream2['game'] = 'game2'
+    streams = self.on_parsed_streams(stream, stream2)
+    assert len(streams) == 2
+    assert streams[0]['game'] == 'game1'
+    assert streams[1]['game'] == 'game2'
 
-    self.on_parsed_streams([stream], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 1)
-    self.assertTrue(bot.client.live_channels['foo']['game'] == 'game1')
+    streams = self.on_parsed_streams(stream2)
+    assert len(streams) == 1
+    assert streams[0]['game'] == 'game2'
 
-    self.on_parsed_streams([stream2], 'game2', bot.client.tracked_games['game2'])
-    self.assertTrue(len(bot.client.live_channels) == 2)
-    self.assertTrue(bot.client.live_channels['foo']['game'] == 'game1')
-    self.assertTrue(bot.client.live_channels['bar']['game'] == 'game2')
+    streams = self.on_parsed_streams()
+    assert len(streams) == 0
 
-    self.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 1)
-    self.assertTrue(bot.client.live_channels['bar']['game'] == 'game2')
-
-    self.on_parsed_streams([], 'game2', bot.client.tracked_games['game2'])
-    self.assertTrue(len(bot.client.live_channels) == 0)
-
-  def testGoesOffline(self):
-    bot.client.MAX_OFFLINE = 5
-    # Stream goes live
-    self.on_parsed_streams([MockStream('foo')], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 1)
-
-    # Stream still live after 4 consecutive 'offline' checks
-    self.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 1)
-
-    # Stream finally offline after 5th consecutive
-    self.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 0)
-
-    # Stream stays offline (duh)
-    self.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 0)
-
-  def testStreamDowntime(self):
-    bot.client.MAX_OFFLINE = 5
-    # Stream goes live
-    self.on_parsed_streams([MockStream('foo')], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 1)
-
-    # Stream still live after 4 consecutive 'offline' checks
-    self.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 1)
-
-    # Stream comes back online -- still live
-    self.on_parsed_streams([MockStream('foo')], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 1)
-
-    # Stream almost goes down again
-    self.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 1)
-
-class BotTestsWithStdout():
-  def testLiveDuration(self, get_stdout):
-    self.on_parsed_streams([MockStream('foo')], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 1)
-
-    sleep(2.5) # Sleeping for the assert below about "went offline after [duration]
-
-    self.on_parsed_streams([], 'game1', bot.client.tracked_games['game1'])
-    self.assertTrue(len(bot.client.live_channels) == 0)
-
-    stdout = get_stdout()
-    self.assertTrue('went offline after 0:00:02' in stdout)
-
-
-class SrcTests(unittest.TestCase):
-  def test_ambiguous_game_id(self, mock_http):
-    mock_http.return_value = {'data': [
-      {'names': {'twitch': 'foobar'}, 'id': 0},
-      {'names': {'twitch': 'foo'},    'id': 1},
-      {'names': {'twitch': 'barfoo'}, 'id': 2},
+  # Note that SRC should not ever return a name which completely mismatches. I hope.
+  def testAmbiguousGameId(self):
+    self.mock_http['src'].return_value = {'data': [
+      {'names': {'international': 'foobar'}, 'id': 0},
     ]}
 
-    from source import src_apis
-    game_id = src_apis.get_game_id('foo')
-    self.assertTrue(game_id == 1)
-"""
+    assert src_apis.get_game_id('foo') == 0
+    assert src_apis.get_game_id('bar') == 0
+    assert src_apis.get_game_id('foobar') == 0
+
+    self.mock_http['src'].return_value = {'data': [
+      {'names': {'international': 'foobar'}, 'id': 0},
+      {'names': {'international': 'barfoo'}, 'id': 1},
+    ]}
+
+    try:
+      src_apis.get_game_id('foo')
+      assert False
+    except exceptions.CommandError as e:
+      # It's ambiguous, so we error to the user.
+      assert 'foobar' in str(e)
+      assert 'barfoo' in str(e)
+
+    # Prefers an exact match when possible
+    self.mock_http['src'].return_value = {'data': [
+      {'names': {'international': 'foobar'}, 'id': 0},
+      {'names': {'international': 'foo'},    'id': 1},
+      {'names': {'international': 'barfoo'}, 'id': 2},
+    ]}
+
+    assert src_apis.get_game_id('foo') == 1
+    assert src_apis.get_game_id('foobar') == 0
+    assert src_apis.get_game_id('barfoo') == 2
 
 if __name__ == '__main__':
   info_stream = logging.StreamHandler(sys.stdout)
@@ -296,14 +311,18 @@ if __name__ == '__main__':
 
   tests = BotTests()
   with (patch('source.generics.get_speedrunners_for_game') as mock_gsfg,
-        patch('source.src_apis.make_request') as mock_http1,
-        patch('source.discord_apis.make_request') as mock_http2,
-        patch('source.twitch_apis.make_request') as mock_http3,
+        patch('source.src_apis.make_request') as mock_src_http,
+        patch('source.discord_apis.make_request') as mock_discord_http,
+        patch('source.twitch_apis.make_request') as mock_twitch_http,
         patch('source.twitch_apis.make_head_request', new=tests.mock_head),
         patch('source.discord_apis.edit_message_ids', new=tests.mock_edit_message),
         patch('source.discord_apis.send_message_ids', new=tests.mock_send_message)):
     tests.mock_gsfg = mock_gsfg
-    # tests.mock_http = [mock_http1, mock_http2, mock_http3]
+    tests.mock_http = {
+      'src': mock_src_http,
+      'discord': mock_discord_http,
+      'twitch': mock_twitch_http,
+    }
 
     def is_test(method):
       return inspect.ismethod(method) and method.__name__.startswith('test')
