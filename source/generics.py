@@ -1,7 +1,7 @@
 import logging
 
 from . import database, src_apis, twitch_apis
-from .utils import parse_time
+from .utils import parse_time, seconds_since_epoch
 
 def get_speedrunners_for_game():
   twitch_game_ids = []
@@ -77,3 +77,61 @@ def get_new_runs(game_name, src_game_id, last_update):
     new_last_update = max(submitted.timestamp(), new_last_update)
 
   database.update_game_moderation_time(game_name, new_last_update)
+
+
+def get_verifier_stats(game_name, since_months=24):
+  src_game_id = src_apis.get_game_id(game_name)
+
+  # Sadly, SRC returns runs from oldest to newest, which means we can't do something clever like "stop fetching once runs are too old".
+  # There might be some fancy solutions where we skip around with max/offset, but it's really not worth it yet.
+  # Actually there's an '&orderby=verify-date&direction=desc' which sounds like exactly what I want. Huh.
+  runs = src_apis.get_runs(game=src_game_id, status='verified', orderby='verify-date', direction='desc')
+  logging.info(f'Found {len(runs)} total verified runs for {game_name}')
+  runs.sort(key=lambda run: run['submitted'], reverse=True) # I don't trust SRC yet
+
+  players = {}
+  def get_name(player):
+    return player['names']['international'] if player['rel'] == 'user' else player['name']
+
+  for run in runs:
+    for player in run['players']['data']:
+      player_id = player.get('id', None)
+      if player_id and player_id not in players:
+        players[player_id] = get_name(player)
+
+  def summarize(runs):
+    verifier_counts = {}
+
+    for run in runs:
+      verifier = run['status']['examiner']
+      verifier_counts[verifier] = verifier_counts.get(verifier, 0) + 1
+    total_runs = len(runs)
+
+    logging.info(f'Found {total_runs} runs in the past {since_months} months, verified by {len(verifier_counts)} verifiers')
+
+    sorted_counts = [(count, players.get(verifier, verifier)) for verifier, count in verifier_counts.items()]
+    sorted_counts.sort(reverse=True)
+
+    output = ''
+    for count, verifier in sorted_counts:
+      percent = round(count * 100.0 / total_runs, 2)
+      output += f'{verifier} has verified {count} ({percent}%) runs)\n'
+    return output
+
+  # now actually build the output
+  time_threshold = seconds_since_epoch() - 60*60*24*30*since_months # Approximately the number of seconds in 24 months. Whatever.
+  runs_since_threshold = []
+  for run in runs:
+    submitted = parse_time(run['submitted'], '%Y-%m-%dT%H:%M:%SZ')
+    if submitted.timestamp() > time_threshold:
+      runs_since_threshold.append(run)
+
+  output = f'Verifier statistics for {game_name} in the past 2 years:\n'
+  output += summarize(runs_since_threshold)
+
+  last_100_runs = runs[:100]
+  output += f'Verifier statistics for the last 100 runs of {game_name}:\n'
+  output += summarize(last_100_runs)
+
+  return output
+

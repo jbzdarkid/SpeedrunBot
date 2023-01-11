@@ -10,7 +10,7 @@ from time import sleep
 from uuid import uuid4
 
 from source import database, generics, twitch_apis, src_apis, discord_apis, discord_websocket_apis, exceptions
-from source.utils import seconds_since_epoch
+from source.utils import seconds_since_epoch, parse_time
 
 # WANT
 # TODO: [nosrl] (and associated tests)
@@ -107,6 +107,8 @@ def on_message_internal(message):
     for _ in generics.get_speedrunners_for_game():
       pass
     send_last_lines()
+  def verifier_stats(game_name):
+    return generics.get_verifier_stats(game_name, 24)
   def announce(channel_id, twitch_username=None, src_username=None):
     assert_args('twitch_username src_username', twitch_username, src_username, example='jbzdarkid darkid')
     data = database.get_game_for_channel(channel_id)
@@ -140,6 +142,7 @@ def on_message_internal(message):
     '!git_update': lambda: f'```{git_update()}```',
     '!send_last_lines': lambda: send_last_lines(),
     '!log_streams': lambda: log_streams(),
+    '!verifier_stats': lambda: verifier_stats(' '.join(args[1:])),
   }
   commands = {
     '!announce_me': lambda: announce(get_channel(), *args[1:3]),

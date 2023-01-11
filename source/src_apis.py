@@ -114,10 +114,10 @@ def get_runs(**params):
     while 1:
       runs += j['data']
 
-      for link in j['pagination']['links']:
-        if link['rel'] == 'next':
-          j = make_request('GET', link['uri'])
-          continue
+      next_link = next((link['uri'] for link in j['pagination']['links'] if link['rel'] == 'next'), None)
+      if next_link:
+        j = make_request('GET', next_link)
+        continue
       break # No more results
   except exceptions.NetworkError:
     logging.exception(f'Failed to load runs for {params}, assuming empty')
