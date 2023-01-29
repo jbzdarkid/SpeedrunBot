@@ -92,8 +92,12 @@ def edit_message_ids(channel_id, message_id, content=None, embed=None):
     return True # Successful update returns the new message object
 
   # https://discord.com/developers/docs/topics/opcodes-and-status-codes
-  if j.get('code', None) == 10008: # Unknown Message
+  code = j.get('code', 0)
+  if code == 10008: # Unknown Message
     logging.error(f'Message {message_id} in {channel_id} was deleted')
+    return False
+  elif code == 30046: # Edit old message throttled
+    logging.error(f'Message {message_id} in {channel_id} was >1h and so temporarily could not be edited.')
     return False
 
   raise exceptions.NetworkError(f'Failed to edit message {message_id} in {channel_id}: {j}')
