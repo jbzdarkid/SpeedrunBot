@@ -27,7 +27,7 @@ class WebSocket():
   def __init__(self):
     self.callbacks = {} # Hooks which can be registered to handle various discord events. Must be registered before calling run().
     self.connected = False # Indicates whether or not the websocket is connected. If false, we should not send messages and should exit the loop.
-    self.user = None
+    self.user = None # The user object of this bot. Currently unused.
     self.session_id = None # Indicates whether or not we have an active session, used to resume if the connection drops.
     self.sequence = -1 # Indicates the last recieved message in the current session. Meaningless if no session is active.
     self.got_heartbeat_ack = False # Indicates whether or not we've recieved a HEARTBEAT_ACK since the last heartbeat.
@@ -43,7 +43,7 @@ class WebSocket():
       # Clients are limited to 1000 IDENTIFY calls to the websocket in a 24-hour period.
       # https://discord.com/developers/docs/topics/gateway#identifying
       # For simplicity, I just use this limit as our generic reconnection rate,
-      # so that any class of failure will not throttle the client and cause me to lose my token.
+      # so that no class of failure can throttle the client and invalidate the discord_token.
       logging.info('Sleeping to avoid throttling limits')
       await asyncio.sleep(24 * 60 * 60 / 1000)
 

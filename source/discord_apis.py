@@ -49,7 +49,7 @@ def REPL(match):
 def escape_markdown(orig_text):
   text = FIND.sub(REPL, orig_text)
   if text != orig_text:
-    logging.info(f'Before: "{orig_text.encode("utf-8")}" After: "{text.encode("utf-8")}"')
+    logging.info(f'Escaped markdown "{orig_text.encode("utf-8")}" to "{text.encode("utf-8")}"')
   return text
 
 
