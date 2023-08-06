@@ -219,10 +219,11 @@ def get_embed(stream):
 # - A list of streams that are still live (in the same game)
 #
 # 1. Iterate the list of live streams & remove all previously known.
-#   -> These streams go online
+#   -> The remaining streams go online
 # 2. Iterate the list of known streams & remove all offline
-#  2a. Double check for stream still live (according to preview headers)
-#  2b. Double check for game change (according to twitch API)
+#  a. Double check for stream still live (according to preview headers)
+#  b. Double check for game change (according to twitch API)
+#  -> The remaining streams go offline
 
 
 def announce_live_channels():
