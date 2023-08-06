@@ -184,9 +184,6 @@ class BotTests:
     
     streams = self.on_parsed_streams(stream, stream2)
     assert len(streams) == 2
-    # Shrug? It's not reproing.
-    raise
-
 
   """
   def testGoesOffline(self):
