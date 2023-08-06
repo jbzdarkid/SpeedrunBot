@@ -54,7 +54,7 @@ class WebSocket():
         logging.exception('Unable to open a websocket connection due to a websocket error')
       except OSError:
         logging.exception('Unable to open a websocket connection due to a socket error')
-      except:
+      except Exception:
         logging.exception('Unable to open a websocket for an unknown reason')
 
       logging.info('Successfully connected the websocket')
@@ -116,7 +116,7 @@ class WebSocket():
       try:
         await self.send_message(websocket, RESUME, resume)
         return websocket
-      except:
+      except Exception:
         logging.exception('Failed to resume the connection')
 
     # https://discord.com/developers/docs/topics/gateway#gateway-intents

@@ -347,7 +347,7 @@ if __name__ == '__main__':
       print('---', test[0], 'started')
       try:
         test[1]()
-      except:
+      except Exception:
         print('!!!', test[0], 'failed:')
         import traceback
         traceback.print_exc()

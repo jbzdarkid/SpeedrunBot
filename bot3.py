@@ -175,7 +175,7 @@ def on_message_internal(message):
   except exceptions.NetworkError as e: # Server / connectivity errors
     logging.exception('Network error')
     discord_apis.send_message_ids(message['channel_id'], f'Failed due to network error, please try again: {e}')
-  except: # Coding errors
+  except Exception: # Coding errors
     logging.exception(f'General error during {args[0]}')
     send_last_lines()
 
@@ -390,7 +390,7 @@ if __name__ == '__main__':
         except exceptions.NetworkError:
           logging.exception('A network error occurred')
           send_last_lines()
-        except:
+        except Exception:
           logging.exception('catch-all for forever_thread')
           send_last_lines()
 
@@ -404,7 +404,7 @@ if __name__ == '__main__':
     try:
       admins = [discord_apis.get_owner()['id']] # This can throw, and if it does, we have no recompense.
       client.run()
-    except:
+    except Exception:
       logging.exception('catch-all for client.run')
       send_last_lines()
       import os
