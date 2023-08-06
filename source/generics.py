@@ -8,7 +8,7 @@ def get_speedrunners_for_game():
   src_game_ids = {}
   for game_name, twitch_game_id, src_game_id in database.get_all_games():
     twitch_game_ids.append(twitch_game_id)
-    src_game_ids[game_name] = src_game_id
+    src_game_ids[twitch_game_id] = src_game_id
     logging.info(f'Getting speedrunners for game {game_name} ({twitch_game_id} | {src_game_id})')
 
   if len(twitch_game_ids) == 0:
@@ -35,10 +35,11 @@ def get_speedrunners_for_game():
   for i, stream in enumerate(streams):
     twitch_username = stream['name']
     game_name = stream['game']
+    twitch_game_id = stream['game_id']
 
     prefix = str(i).ljust(2) + '|' + twitch_username.ljust(20) + '|' + game_name.ljust(20) + '|'
 
-    if game_name not in src_game_ids:
+    if twitch_game_id not in src_game_ids:
       logging.info(f'{prefix}is not streaming a tracked game... somehow')
       continue
 
@@ -51,7 +52,7 @@ def get_speedrunners_for_game():
       logging.debug(f'{prefix}is not a speedrunner')
       continue
 
-    if not src_apis.runner_runs_game(twitch_username, src_id, src_game_ids[game_name]):
+    if not src_apis.runner_runs_game(twitch_username, src_id, src_game_ids[twitch_game_id]):
       logging.info(f'{prefix}is a speedrunner, but not of this game')
       continue
 

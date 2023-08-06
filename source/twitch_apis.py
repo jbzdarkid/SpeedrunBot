@@ -61,6 +61,7 @@ def get_live_streams(*, game_ids=None, user_logins=None):
           'title': stream['title'],
           'viewcount': stream['viewer_count'],
           'game': stream['game_name'],
+          'twitch_game_id': stream['game_id'],
         }
 
 
