@@ -67,7 +67,7 @@ def MockStream(name):
 
 class BotTests:
   def on_parsed_streams(self, *streams):
-    self.mock_gsfg.return_value = list(streams)
+    self.mock_get_live_streams.return_value = list(streams)
     bot.announce_live_channels()
     return list(database.get_announced_streams())
 
@@ -168,6 +168,26 @@ class BotTests:
 
     assert message['embed']['title'] == 'new\\_title'
 
+  def testTwoGamesOneChannel(self):
+    channel = bot.client.new_channel()
+    database.add_game('game2_name', 'game2_twitch_id', 'game2_src_id', channel.id)
+    database.add_game('game3_name', 'game3_twitch_id', 'game3_src_id', channel.id)
+    
+    stream = MockStream('foo')
+    stream['game'] = 'game2_name'
+    
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 1
+
+    stream2 = MockStream('bar')
+    stream2['game'] = 'game3_name'
+    
+    streams = self.on_parsed_streams(stream, stream2)
+    assert len(streams) == 2
+    # Shrug? It's not reproing.
+    raise
+
+
   """
   def testGoesOffline(self):
     streams = self.on_parsed_streams(MockStream('foo'))
@@ -227,10 +247,6 @@ class BotTests:
     assert r'underscore\_ went offline' in message.content # Username needs escaping
     assert r'<twitch.tv/underscore_/videos?filter=archives>' in message.content # URL does not
 
-  """
-
-  # This is hard because we're currently mocking get_speedrunners_for_game, which is where the nosrl check lives.
-  # This is the right place for the check, though -- this is exactly about "not doing speedruns".
   def testNoSrl(self):
     stream = MockStream('foo')
     stream['title'] = 'Any% runs of game1'
@@ -240,7 +256,6 @@ class BotTests:
     stream['title'] = 'Randomizer runs of game1 [nosrl]'
     streams = self.on_parsed_streams(stream)
     assert len(streams) == 0
-  """
 
   def testMultipleChannelsMultipleGames(self):
     database.add_game('game2', 'game2', 'game2', bot.client.new_channel().id)
@@ -308,22 +323,29 @@ if __name__ == '__main__':
   error_stream.setFormatter(logging.Formatter('Error: %(message)s'))
   logging.basicConfig(level=logging.DEBUG, handlers=[info_stream, error_stream])
 
+  # Eh. I should probably be mocking the make_request call. Whatever.
+  def mock_src_id(twitch_username):
+    return f'{twitch_username}_src'
+  def mock_runner_runs_game(twitch_username, src_id, src_game_id):
+    return True
 
   tests = BotTests()
-  with (patch('source.generics.get_speedrunners_for_game') as mock_gsfg,
+  with (patch('source.twitch_apis.get_live_streams') as mock_get_live_streams,
         patch('source.src_apis.make_request') as mock_src_http,
         patch('source.discord_apis.make_request') as mock_discord_http,
         patch('source.twitch_apis.make_request') as mock_twitch_http,
         patch('source.twitch_apis.make_head_request', new=tests.mock_head),
         patch('source.discord_apis.edit_message_ids', new=tests.mock_edit_message),
-        patch('source.discord_apis.send_message_ids', new=tests.mock_send_message)):
-    tests.mock_gsfg = mock_gsfg
+        patch('source.discord_apis.send_message_ids', new=tests.mock_send_message),
+        patch('source.src_apis.get_src_id', new=mock_src_id),
+        patch('source.src_apis.runner_runs_game', new=mock_runner_runs_game)):
+    tests.mock_get_live_streams = mock_get_live_streams
     tests.mock_http = {
       'src': mock_src_http,
       'discord': mock_discord_http,
       'twitch': mock_twitch_http,
     }
-
+    
     def is_test(method):
       return inspect.ismethod(method) and method.__name__.startswith('test')
     tests = list(inspect.getmembers(tests, is_test))
@@ -354,3 +376,5 @@ if __name__ == '__main__':
         break
       else:
         print('===', test[0], 'passed')
+    else:
+      print('\nAll tests passed')
