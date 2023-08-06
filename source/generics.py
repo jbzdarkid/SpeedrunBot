@@ -82,12 +82,9 @@ def get_new_runs(game_name, src_game_id, last_update):
 def get_verifier_stats(game_name, since_months=24):
   src_game_id = src_apis.get_game_id(game_name)
 
-  # Sadly, SRC returns runs from oldest to newest, which means we can't do something clever like "stop fetching once runs are too old".
-  # There might be some fancy solutions where we skip around with max/offset, but it's really not worth it yet.
-  # Actually there's an '&orderby=verify-date&direction=desc' which sounds like exactly what I want. Huh.
   runs = src_apis.get_runs(game=src_game_id, status='verified', orderby='verify-date', direction='desc')
   logging.info(f'Found {len(runs)} total verified runs for {game_name}')
-  runs.sort(key=lambda run: run['submitted'], reverse=True) # I don't trust SRC yet
+  runs.sort(key=lambda run: run['submitted'], reverse=True) # I don't trust SRC's API ordering, so re-sort
 
   players = {}
   def get_name(player):
@@ -115,11 +112,11 @@ def get_verifier_stats(game_name, since_months=24):
     output = ''
     for count, verifier in sorted_counts:
       percent = round(count * 100.0 / total_runs, 2)
-      output += f'{verifier} has verified {count} ({percent}%) runs)\n'
+      output += f'{verifier} has verified {count} runs ({percent}%)\n'
     return output
 
   # now actually build the output
-  time_threshold = seconds_since_epoch() - 60*60*24*30*since_months # Approximately the number of seconds in 24 months. Whatever.
+  time_threshold = seconds_since_epoch() - 60*60*24*30*since_months # Approximately the number of seconds in a month. Whatever.
   runs_since_threshold = []
   for run in runs:
     submitted = parse_time(run['submitted'], '%Y-%m-%dT%H:%M:%SZ')
@@ -130,7 +127,7 @@ def get_verifier_stats(game_name, since_months=24):
   output += summarize(runs_since_threshold)
 
   last_100_runs = runs[:100]
-  output += f'Verifier statistics for the last 100 runs of {game_name}:\n'
+  output += f'\nVerifier statistics for the last 100 runs of {game_name}:\n'
   output += summarize(last_100_runs)
 
   return output
