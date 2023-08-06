@@ -66,8 +66,7 @@ class WebSocket():
           await self.heartbeat(websocket)
           continue
 
-        msg = await self.get_message(websocket, timeout=until_next_heartbeat)
-        if msg:
+        if msg := await self.get_message(websocket, timeout=until_next_heartbeat)
           await self.handle_message(msg, websocket)
 
       # Message loop exited, so self.connected = False

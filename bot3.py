@@ -10,7 +10,7 @@ from time import sleep
 from uuid import uuid4
 
 from source import database, generics, twitch_apis, src_apis, discord_apis, discord_websocket_apis, exceptions
-from source.utils import seconds_since_epoch, parse_time
+from source.utils import seconds_since_epoch
 
 # TODO: [nosrl] (and associated tests)
 # TODO: Reactions with :eyes: and :thumpsup: for verifiers
