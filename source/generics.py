@@ -35,7 +35,7 @@ def get_speedrunners_for_game():
   for i, stream in enumerate(streams):
     twitch_username = stream['name']
     game_name = stream['game']
-    twitch_game_id = stream['game_id']
+    twitch_game_id = stream['twitch_game_id']
 
     prefix = str(i).ljust(2) + '|' + twitch_username.ljust(20) + '|' + game_name.ljust(20) + '|'
 
