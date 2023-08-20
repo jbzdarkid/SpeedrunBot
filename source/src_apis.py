@@ -11,6 +11,7 @@ ONE_WEEK  = (3600 * 24 * 7)
 ONE_MONTH = (3600 * 24 * 7 * 30)
 
 api = 'https://www.speedrun.com/api/v1'
+embeds = 'players,level,category,category.variables'
 
 def get_src_id(twitch_username):
   if user := database.get_user(twitch_username):
@@ -49,17 +50,24 @@ def runner_runs_game(twitch_username, src_id, src_game_id):
       return False
 
   try:
-    j = make_request('GET', f'{api}/users/{src_id}/personal-bests', params={'game': src_game_id})
+    personal_bests = get_personal_bests(src_id, src_game_id, max=1)
   except exceptions.NetworkError:
     logging.exception(f'Could not fetch {src_id} personal bests in {src_game_id}, assuming non-speedrunner')
     return False
 
   database.update_user_fetch_time(twitch_username)
-  if len(j['data']) == 0:
+
+  if len(personal_bests) == 0:
     return False
 
   database.add_personal_best(src_id, src_game_id)
   return True
+
+
+def get_personal_bests(src_id, src_game_id, **params):
+  params['game'] = src_game_id
+  j = make_request('GET', f'{api}/users/{src_id}/personal-bests', params=params)
+  return j['data']
 
 
 def get_game_id(game_name):
@@ -106,7 +114,7 @@ def get_runs(**params):
 
   params['offset'] = 0
   params['max'] = 100 # Undocumented parameter, gets 100 runs at once.
-  params['embed'] = 'players,level,category,category.variables'
+  params['embed'] = embeds
 
   runs = []
   try:
@@ -164,7 +172,7 @@ def get_subcategories(run):
   return run_subcategories
 
 
-# NOTE: Run data must be fetched with the embeds in get_runs
+# NOTE: Run data must be fetched with embeds
 def get_current_pb(new_run):
   game = new_run['game']
   category = new_run['category']['data']['id']
@@ -186,7 +194,7 @@ def get_current_pb(new_run):
       return run
 
 
-# NOTE: Run data must be fetched with the embeds in get_runs
+# NOTE: Run data must be fetched with embeds
 def run_to_string(run, current_pb=None):
     category = run['category']['data']['name']
 
