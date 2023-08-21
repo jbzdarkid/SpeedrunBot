@@ -85,6 +85,12 @@ def get_user(twitch_username):
   return None
 
 
+def remove_user(twitch_username):
+  src_id = get_user(twitch_username)['src_id']
+  execute('DELETE FROM personal_bests WHERE src_id=?', src_id)
+  execute('DELETE FROM users WHERE twitch_username=?', twitch_username)
+
+
 def update_user_fetch_time(twitch_username, last_fetched=None):
   if not last_fetched:
     last_fetched = seconds_since_epoch()

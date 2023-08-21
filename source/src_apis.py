@@ -196,35 +196,35 @@ def get_current_pb(new_run):
 
 # NOTE: Run data must be fetched with embeds
 def run_to_string(run, current_pb=None):
-    category = run['category']['data']['name']
+  category = run['category']['data']['name']
 
-    if isinstance(run['level']['data'], dict):
-      category = run['level']['data']['name'] + f': {category}'
+  if isinstance(run['level']['data'], dict):
+    category = run['level']['data']['name'] + f': {category}'
 
-    subcategories = get_subcategories(run)
-    for value in subcategories.values():
-      category += f' ({value["label"]})'
+  subcategories = get_subcategories(run)
+  for value in subcategories.values():
+    category += f' ({value["label"]})'
 
-    time = timedelta(seconds=run['times']['primary_t'])
+  time = timedelta(seconds=run['times']['primary_t'])
 
-    def get_name(player):
-      return player['names']['international'] if player['rel'] == 'user' else player['name']
-    runners = ', '.join(map(get_name, run['players']['data']))
+  def get_name(player):
+    return player['names']['international'] if player['rel'] == 'user' else player['name']
+  runners = ', '.join(map(get_name, run['players']['data']))
 
-    output = f'`{category}` in {time} by {runners}'
-    if 'place' in run:
-      n = int(run['place'])
-      # https://stackoverflow.com/a/36977549
-      ordinal = {1:'st', 2:'nd', 3:'rd'}.get(n%100 if n%100<20 else n%10, 'th')
-      output += f', which would put them in {n}{ordinal} place'
-    if current_pb:
-      current_pb_time = timedelta(seconds=current_pb['times']['primary_t'])
-      n = int(current_pb['place'])
-      # https://stackoverflow.com/a/36977549
-      ordinal = {1:'st', 2:'nd', 3:'rd'}.get(n%100 if n%100<20 else n%10, 'th')
-      output += f'\nAn improvement over their current PB of {current_pb_time} ({n}{ordinal} place)'
-    output += f'\n<{run["weblink"]}>'
-    return output
+  output = f'`{category}` in {time} by {runners}'
+  if 'place' in run:
+    n = int(run['place'])
+    # https://stackoverflow.com/a/36977549
+    ordinal = {1:'st', 2:'nd', 3:'rd'}.get(n%100 if n%100<20 else n%10, 'th')
+    output += f', which would put them in {n}{ordinal} place'
+  if current_pb:
+    current_pb_time = timedelta(seconds=current_pb['times']['primary_t'])
+    n = int(current_pb['place'])
+    # https://stackoverflow.com/a/36977549
+    ordinal = {1:'st', 2:'nd', 3:'rd'}.get(n%100 if n%100<20 else n%10, 'th')
+    output += f'\nAn improvement over their current PB of {current_pb_time} ({n}{ordinal} place)'
+  output += f'\n<{run["weblink"]}>'
+  return output
 
 
 # Undocumented PHP APIs, that I apparently *am* allowed to call.

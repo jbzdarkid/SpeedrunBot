@@ -102,6 +102,7 @@ def on_message_internal(message):
       pass
     send_last_lines()
   def verifier_stats(game_name):
+    assert_args('Game Name', game_name)
     return generics.get_verifier_stats(game_name, 24)
   def announce(channel_id, twitch_username=None, src_username=None):
     assert_args('twitch_username src_username', twitch_username, src_username, example='jbzdarkid darkid')
@@ -114,6 +115,10 @@ def on_message_internal(message):
     database.add_user(twitch_username, src_id)
     database.add_personal_best(src_id, data['src_game_id'])
     return f'Will now announce `{twitch_username}` when they go live on twitch playing `{data["game_name"]}`.'
+  def forget(twitch_username=None):
+    assert_args('twitch_username', twitch_username)
+    twitch_apis.get_user_id(twitch_username) # Will throw if there is any ambiguity about the twich username
+    database.remove_user(twitch_username)
   def about():
     data = database.get_game_for_channel(message['channel_id'])
     game = data['game_name'] if data else 'this game'
@@ -126,6 +131,27 @@ def on_message_internal(message):
     if message['author']['id'] in admins:
       all_commands += [f'`{key}`' for key in admin_commands]
     return 'Available commands: ' + ', '.join(all_commands)
+  def personal_best(twitch_username, game_name=None):
+    assert_args('Twitch username', twitch_username)
+    if not game_name:
+      for stream in database.get_announced_streams():
+        if stream['name'] == twitch_username:
+          game_name = stream['game']
+          break
+      else:
+        raise exceptions.CommandError(f'User {twitch_username} is not live, please provide the game name as the second argument.')
+
+    src_id = database.get_user(twitch_username)['src_id']
+    src_game_id = src_apis.get_game_id(game_name)
+    personal_bests = src_apis.get_personal_bests(src_id, src_game_id, embed=src_apis.embeds) # Embeds are required for run_to_string
+    output = f'Streamer {twitch_username} has {len(personal_bests)} personal bests in {game_name}:'
+    for i, entry in enumerate(personal_bests):
+      if i >= 10:
+        break
+      run = entry['run']
+      run.update(entry) # Embeds are side-by-side with the run from this API, for some reason.
+      output += '\n' + src_apis.run_to_string(run)
+    return output
 
   admin_commands = {
     '!track_game': lambda: track_game(get_channel(), ' '.join(args[1:])),
@@ -137,6 +163,8 @@ def on_message_internal(message):
     '!send_last_lines': lambda: send_last_lines(),
     '!log_streams': lambda: log_streams(),
     '!verifier_stats': lambda: verifier_stats(' '.join(args[1:])),
+    '!pb': lambda: personal_best(args[1], ' '.join(args[2:])),
+    '!forget': lambda: forget(args[1]), # Admin command to prevent abuse
   }
   commands = {
     '!announce_me': lambda: announce(get_channel(), *args[1:3]),
