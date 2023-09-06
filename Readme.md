@@ -1,6 +1,9 @@
 # Discord announcement bot for speedrunners
 This bot uses the twitch.tv and speedrun.com apis to search for speedrunners who are actively speedrunning a given game. It polls every minute, and sends announcements when new streams come online.
 
+# Usage
+Currently, this is my bot and can only be used with my permission. Please let me know if you'd like to use it -- or, you can clone this repo and set up your own bot by following the setup steps below.
+
 ## Setting up the repo
 - Install python 3.9 (or later)
 - Create a virtual environment
