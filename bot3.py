@@ -119,12 +119,19 @@ def on_message_internal(message):
     assert_args('twitch_username', twitch_username)
     twitch_apis.get_user_id(twitch_username) # Will throw if there is any ambiguity about the twich username
     database.remove_user(twitch_username)
+  def get_servers():
+    servers = discord_apis.get_servers()
+    output = f'This bot has presence in {len(servers)} servers:\n'
+    for server in servers:
+      output += f'Server `{server["name"]}` (ID {server["id"]})\n'
+    return output
   def about():
     data = database.get_game_for_channel(message['channel_id'])
     game = data['game_name'] if data else 'this game'
     response = 'Speedrunning bot, created by darkid#1647.\n'
     response += f'The bot will search for twitch streams of {game}, then check to see if the given streamer is a speedrunner, then check to see if the speedrunner has a PB in {game}.\n'
-    response += 'If so, it announces their stream in this channel.'
+    response += 'If so, it announces their stream in this channel.\n'
+    response += 'For more info, see the readme at <https://github.com/jbzdarkid/SpeedrunBot>'
     return response
   def help():
     all_commands = [f'`{key}`' for key in commands]
@@ -133,6 +140,10 @@ def on_message_internal(message):
     return 'Available commands: ' + ', '.join(all_commands)
   def personal_best(twitch_username, game_name=None):
     assert_args('Twitch username', twitch_username)
+    user = database.get_user(twitch_username)
+    if not user:
+      raise exceptions.CommandError(f'Could not find user `{twitch_username}` in the database')
+
     if not game_name:
       for stream in database.get_announced_streams():
         if stream['name'] == twitch_username:
@@ -141,13 +152,10 @@ def on_message_internal(message):
       else:
         raise exceptions.CommandError(f'User {twitch_username} is not live, please provide the game name as the second argument.')
 
-    src_id = database.get_user(twitch_username)['src_id']
     src_game_id = src_apis.get_game_id(game_name)
-    personal_bests = src_apis.get_personal_bests(src_id, src_game_id, embed=src_apis.embeds) # Embeds are required for run_to_string
+    personal_bests = src_apis.get_personal_bests(user['src_id'], src_game_id, embed=src_apis.embeds) # Embeds are required for run_to_string
     output = f'Streamer {twitch_username} has {len(personal_bests)} personal bests in {game_name}:'
-    for i, entry in enumerate(personal_bests):
-      if i >= 10:
-        break
+    for entry in personal_bests[:10]:
       run = entry['run']
       run.update(entry) # Embeds are side-by-side with the run from this API, for some reason.
       output += '\n' + src_apis.run_to_string(run)
@@ -163,8 +171,9 @@ def on_message_internal(message):
     '!send_last_lines': lambda: send_last_lines(),
     '!log_streams': lambda: log_streams(),
     '!verifier_stats': lambda: verifier_stats(' '.join(args[1:])),
-    '!pb': lambda: personal_best(args[1], ' '.join(args[2:])),
-    '!forget': lambda: forget(args[1]), # Admin command to prevent abuse
+    '!pb': lambda: personal_best(*args[1:2], ' '.join(args[2:])), # Currently an admin command but probably doesn't need to be
+    '!forget': lambda: forget(*args[1:2]), # Admin command to prevent abuse
+    '!servers': lambda: get_servers(),
   }
   commands = {
     '!announce_me': lambda: announce(get_channel(), *args[1:3]),

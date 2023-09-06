@@ -122,6 +122,11 @@ def get_owner():
   return j['owner']
 
 
+def get_servers():
+  j = make_request('GET', f'{api}/users/@me/guilds', get_headers=get_headers)
+  return j
+
+
 def register_slash_command(name, desc, args=None, *, guild=None):
   options = []
   if args:
@@ -148,5 +153,4 @@ def register_slash_command(name, desc, args=None, *, guild=None):
     url += f'{api}/{app_id}/guilds/{guild}/commands'
 
   make_request('POST', url, json=body, get_headers=get_headers)
-
 
