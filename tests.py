@@ -282,9 +282,9 @@ class BotTests:
       {'names': {'international': 'foobar'}, 'id': 0},
     ]}
 
-    assert src_apis.get_game_id('foo') == 0
-    assert src_apis.get_game_id('bar') == 0
-    assert src_apis.get_game_id('foobar') == 0
+    assert src_apis.get_game('foo')['id'] == 0
+    assert src_apis.get_game('bar')['id'] == 0
+    assert src_apis.get_game('foobar')['id'] == 0
 
     self.mock_http['src'].return_value = {'data': [
       {'names': {'international': 'foobar'}, 'id': 0},
@@ -292,7 +292,7 @@ class BotTests:
     ]}
 
     try:
-      src_apis.get_game_id('foo')
+      src_apis.get_game('foo')
       assert False
     except exceptions.CommandError as e:
       # It's ambiguous, so we error to the user.
@@ -306,9 +306,9 @@ class BotTests:
       {'names': {'international': 'barfoo'}, 'id': 2},
     ]}
 
-    assert src_apis.get_game_id('foo') == 1
-    assert src_apis.get_game_id('foobar') == 0
-    assert src_apis.get_game_id('barfoo') == 2
+    assert src_apis.get_game('foo')['id'] == 1
+    assert src_apis.get_game('foobar')['id'] == 0
+    assert src_apis.get_game('barfoo')['id'] == 2
 
 if __name__ == '__main__':
   info_stream = logging.StreamHandler(sys.stdout)

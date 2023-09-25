@@ -74,8 +74,9 @@ def on_message_internal(message):
   # Actual commands here
   def track_game(channel_id, game_name):
     assert_args('#channel Game Name', channel_id, game_name)
-    src_game_id = src_apis.get_game_id(game_name)
-    twitch_game_id = twitch_apis.get_game_id(game_name)
+    src_game = src_apis.get_game(game_name)
+    src_game_id = src_game['id']
+    twitch_game_id = src_game['names']['twitch']
     database.add_game(game_name, twitch_game_id, src_game_id, channel_id)
     return f'Will now announce runners of `{game_name}` in channel <#{channel_id}>.'
   def untrack_game(channel_id, game_name):
@@ -84,7 +85,7 @@ def on_message_internal(message):
     return f'No longer announcing runners of `{game_name}` in channel <#{channel_id}>.'
   def moderate_game(channel_id, game_name):
     assert_args('#channel Game Name', channel_id, game_name)
-    src_game_id = src_apis.get_game_id(game_name)
+    src_game_id = src_apis.get_game(game_name)['id']
     database.moderate_game(game_name, src_game_id, channel_id)
     return f'Will now announce newly submitted runs of `{game_name}` in channel <#{channel_id}>.'
   def unmoderate_game(channel_id, game_name):
@@ -152,7 +153,7 @@ def on_message_internal(message):
       else:
         raise exceptions.CommandError(f'User {twitch_username} is not live, please provide the game name as the second argument.')
 
-    src_game_id = src_apis.get_game_id(game_name)
+    src_game_id = src_apis.get_game(game_name)['id']
     personal_bests = src_apis.get_personal_bests(user['src_id'], src_game_id, embed=src_apis.embeds) # Embeds are required for run_to_string
     output = f'Streamer {twitch_username} has {len(personal_bests)} personal bests in {game_name}:'
     for entry in personal_bests[:10]:

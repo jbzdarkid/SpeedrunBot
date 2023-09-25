@@ -81,7 +81,7 @@ def get_new_runs(game_name, src_game_id, last_update):
 
 
 def get_verifier_stats(game_name, since_months=24):
-  src_game_id = src_apis.get_game_id(game_name)
+  src_game_id = src_apis.get_game(game_name)['id']
 
   runs = src_apis.get_runs(game=src_game_id, status='verified', orderby='verify-date', direction='desc')
   logging.info(f'Found {len(runs)} total verified runs for {game_name}')

@@ -70,19 +70,19 @@ def get_personal_bests(src_id, src_game_id, **params):
   return j['data']
 
 
-def get_game_id(game_name):
+def get_game(game_name):
   j = make_request('GET', f'{api}/games', params={'name': game_name})
   if len(j['data']) == 0:
     raise exceptions.CommandError(f'Could not find game `{game_name}` on Speedrun.com')
 
   if len(j['data']) == 1:
-    return j['data'][0]['id']
+    return j['data'][0]
 
   possible_matches = []
   for game in j['data']:
-    possible_match = game['names']['international'] # This used to be game['names']['twitch'], so !add_game might break now. Not sure.
-    if possible_match == game_name:
-      return game['id']
+    possible_match = game['names']['international']
+    if possible_match == game_name: # If there are multiple options, but one is an exact match, return the exact match.
+      return game
     possible_matches.append(f'`{possible_match}`')
 
   suggestions = ', '.join(possible_matches[:10]) # Only show a max of 10 matches, for brevity's sake
