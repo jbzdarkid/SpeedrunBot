@@ -277,7 +277,7 @@ def announce_live_channels():
         name=discord_apis.escape_markdown(stream_name),
         game=stream['game'],
         url=stream['url'])
-      channel_id = database.get_channel_for_game(stream['game'])
+      channel_id = database.get_channel_for_game(stream['twitch_game_id'])
       message = discord_apis.send_message_ids(channel_id, content, get_embed(stream))
 
       metadata = twitch_apis.get_preview_metadata(stream['preview'])

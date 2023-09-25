@@ -112,8 +112,8 @@ def get_all_games():
   return fetchall()
 
 
-def get_channel_for_game(game_name):
-  execute('SELECT discord_channel FROM tracked_games WHERE game_name=?', game_name)
+def get_channel_for_game(twitch_game_id):
+  execute('SELECT discord_channel FROM tracked_games WHERE twitch_game_id=?', twitch_game_id)
   if data := fetchone():
     return data[0]
   return None
