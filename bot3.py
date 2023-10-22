@@ -268,7 +268,7 @@ def announce_live_channels():
     logging.info(f'Live streams: {live_streams}')
   except exceptions.NetworkError:
     live_streams = existing_streams
-    logging.error('There was a network error while fetching live streams, assuming status quo (no streams changed)')
+    logging.exception('There was a network error while fetching live streams, assuming status quo (no streams changed)')
 
   # Next, determine which streams have just gone live
   for stream_name, stream in live_streams.items():
@@ -279,9 +279,13 @@ def announce_live_channels():
         game=stream['game'],
         url=stream['url'])
       channel_id = database.get_channel_for_game(stream['twitch_game_id'])
-      message = discord_apis.send_message_ids(channel_id, content, get_embed(stream))
+      try:
+        message = discord_apis.send_message_ids(channel_id, content, get_embed(stream))
+        metadata = twitch_apis.get_preview_metadata(stream['preview'])
+      except exceptions.NetworkError:
+        logging.exception('There was a network error while trying to announce a new stream, not adding to database (will be announced next pass)')
+        continue
 
-      metadata = twitch_apis.get_preview_metadata(stream['preview'])
       database.add_announced_stream(
         name=stream_name,
         game=stream['game'],
@@ -344,11 +348,15 @@ def announce_live_channels():
       live_stream['preview_expires'] = metadata['expires']
 
     if title_changed or preview_expired:
-      success = discord_apis.edit_message_ids(
-        channel_id=existing_stream['channel_id'],
-        message_id=existing_stream['message_id'],
-        embed=get_embed(existing_stream),
-      )
+      try:
+        success = discord_apis.edit_message_ids(
+          channel_id=existing_stream['channel_id'],
+          message_id=existing_stream['message_id'],
+          embed=get_embed(existing_stream),
+        )
+      except exceptions.NetworkError:
+        logging.exception('Failed to edit stream title/preview')
+        continue
       if success:
         database.update_announced_stream(existing_stream)
       else:
@@ -360,12 +368,16 @@ def announce_live_channels():
     stream_duration = int(seconds_since_epoch() - stream['start'])
     content = f'{discord_apis.escape_markdown(stream_name)} went offline after {timedelta(seconds=stream_duration)}.\n'
     content += f'Watch their latest videos here: <{stream["url"]}/videos?filter=archives>'
-    discord_apis.edit_message_ids(
-      channel_id=stream['channel_id'],
-      message_id=stream['message_id'],
-      content=content,
-      embed=[], # Remove the embed
-    )
+    try:
+      discord_apis.edit_message_ids(
+        channel_id=stream['channel_id'],
+        message_id=stream['message_id'],
+        content=content,
+        embed=[], # Remove the embed
+      )
+    except exceptions.NetworkError:
+      logging.exception('Failed to send stream offline')
+      continue
 
     # If there's a network error, we DON'T want to delete (so that we *do* delete on the next pass)
     # However, if the edit failed, we DO want to delete (since the message is gone)
