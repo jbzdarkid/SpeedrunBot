@@ -134,8 +134,10 @@ def get_runs(**params):
   return runs
 
 
-def get_leaderboard(game, category, level=None, variables={}):
-  params = {f'var-{key}': value['id'] for key, value in variables.items()}
+def get_leaderboard(game, category, level=None, variables=None):
+  params = {}
+  if variables is not None:
+    params = {f'var-{key}': value['id'] for key, value in variables.items()}
   if level:
     j = make_request('GET', f'{api}/leaderboards/{game}/level/{level}/{category}', params=params)
   else:
