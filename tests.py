@@ -122,7 +122,7 @@ class BotTests:
 
   def testChannelStillLiveOnStartup(self):
     channel = bot.client.new_channel()
-    database.add_game('game2', 'game2', 'game2', channel.id)
+    database.add_game('game2', 't2', 's2', channel.id)
     message = channel.send('initial message')
     database.add_announced_stream(
       name='bar',
@@ -144,7 +144,7 @@ class BotTests:
     assert message.content == 'initial message' # Messages are not edited while the stream is still live
 
   def testChannelChangesGame(self):
-    database.add_game('game2', 'game2', 'game2', bot.client.new_channel().id)
+    database.add_game('game2', 't2', 's2', bot.client.new_channel().id)
     stream = MockStream('foo')
 
     streams = self.on_parsed_streams(stream)
@@ -174,20 +174,45 @@ class BotTests:
 
   def testTwoGamesOneChannel(self):
     channel = bot.client.new_channel()
-    database.add_game('game2_name', 'game2_twitch_id', 'game2_src_id', channel.id)
-    database.add_game('game3_name', 'game3_twitch_id', 'game3_src_id', channel.id)
+    database.add_game('game2_name', 't2', 's2', channel.id)
+    database.add_game('game3_name', 't3', 's3', channel.id)
     
     stream = MockStream('foo')
     stream['game'] = 'game2_name'
+    stream['twitch_game_id'] = 't2'
     
     streams = self.on_parsed_streams(stream)
     assert len(streams) == 1
 
     stream2 = MockStream('bar')
     stream2['game'] = 'game3_name'
+    stream2['twitch_game_id'] = 't3'
     
     streams = self.on_parsed_streams(stream, stream2)
     assert len(streams) == 2
+
+  def testTwoGamesTwoChannels(self):
+    database.add_game('game2', 't2', 's2', bot.client.new_channel().id)
+
+    stream = MockStream('foo')
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 1
+    assert streams[0]['game'] == 'game1'
+
+    stream2 = MockStream('bar')
+    stream2['game'] = 'game2'
+    streams = self.on_parsed_streams(stream, stream2)
+    assert len(streams) == 2
+    assert streams[0]['game'] == 'game1'
+    assert streams[1]['game'] == 'game2'
+
+    streams = self.on_parsed_streams(stream2)
+    assert len(streams) == 1
+    assert streams[0]['game'] == 'game2'
+
+    streams = self.on_parsed_streams()
+    assert len(streams) == 0
+
 
   """
   def testGoesOffline(self):
@@ -256,50 +281,6 @@ class BotTests:
 
     stream['title'] = 'Randomizer runs of game1 [nosrl]'
     streams = self.on_parsed_streams(stream)
-    assert len(streams) == 0
-
-  def testOneChannelMultipleGames(self):
-    database.add_game('game2', 'game2', 'game2', list(bot.client.channels.keys())[0])
-
-    stream = MockStream('foo')
-    streams = self.on_parsed_streams(stream)
-    assert len(streams) == 1
-    assert streams[0]['game'] == 'game1'
-
-    stream2 = MockStream('bar')
-    stream2['game'] = 'game2'
-    streams = self.on_parsed_streams(stream, stream2)
-    assert len(streams) == 2
-    assert streams[0]['game'] == 'game1'
-    assert streams[1]['game'] == 'game2'
-
-    streams = self.on_parsed_streams(stream2)
-    assert len(streams) == 1
-    assert streams[0]['game'] == 'game2'
-
-    streams = self.on_parsed_streams()
-    assert len(streams) == 0
-
-  def testMultipleChannelsMultipleGames(self):
-    database.add_game('game2', 'game2', 'game2', bot.client.new_channel().id)
-
-    stream = MockStream('foo')
-    streams = self.on_parsed_streams(stream)
-    assert len(streams) == 1
-    assert streams[0]['game'] == 'game1'
-
-    stream2 = MockStream('bar')
-    stream2['game'] = 'game2'
-    streams = self.on_parsed_streams(stream, stream2)
-    assert len(streams) == 2
-    assert streams[0]['game'] == 'game1'
-    assert streams[1]['game'] == 'game2'
-
-    streams = self.on_parsed_streams(stream2)
-    assert len(streams) == 1
-    assert streams[0]['game'] == 'game2'
-
-    streams = self.on_parsed_streams()
     assert len(streams) == 0
 
   # Note that SRC should not ever return a name which completely mismatches. I hope.
