@@ -76,7 +76,7 @@ def on_message_internal(message):
     assert_args('#channel Game Name', channel_id, game_name)
     src_game = src_apis.get_game(game_name)
     src_game_id = src_game['id']
-    twitch_game_id = src_game['names']['twitch']
+    twitch_game_id = twitch_apis.get_game_id(src_game['names']['twitch'])
     database.add_game(game_name, twitch_game_id, src_game_id, channel_id)
     return f'Will now announce runners of `{game_name}` in channel <#{channel_id}>.'
   def untrack_game(channel_id, game_name):

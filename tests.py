@@ -63,6 +63,7 @@ def MockStream(name):
     'title': name + '_title',
     'preview': 'preview.com/' + name,
     'game': 'game1',
+    'twitch_game_id': 't1',
   }
 
 class BotTests:
@@ -100,6 +101,9 @@ class BotTests:
     print(f'Edited {message} with content "{content}" and embed {embed} to channel {channel.id}')
     return True
 
+  #############
+  #!# Tests #!#
+  #############
 
   def testNoChannels(self):
     streams = self.on_parsed_streams()
@@ -254,6 +258,28 @@ class BotTests:
     streams = self.on_parsed_streams(stream)
     assert len(streams) == 0
 
+  def testOneChannelMultipleGames(self):
+    database.add_game('game2', 'game2', 'game2', list(bot.client.channels.keys())[0])
+
+    stream = MockStream('foo')
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 1
+    assert streams[0]['game'] == 'game1'
+
+    stream2 = MockStream('bar')
+    stream2['game'] = 'game2'
+    streams = self.on_parsed_streams(stream, stream2)
+    assert len(streams) == 2
+    assert streams[0]['game'] == 'game1'
+    assert streams[1]['game'] == 'game2'
+
+    streams = self.on_parsed_streams(stream2)
+    assert len(streams) == 1
+    assert streams[0]['game'] == 'game2'
+
+    streams = self.on_parsed_streams()
+    assert len(streams) == 0
+
   def testMultipleChannelsMultipleGames(self):
     database.add_game('game2', 'game2', 'game2', bot.client.new_channel().id)
 
@@ -360,7 +386,7 @@ if __name__ == '__main__':
       database.conn.close()
       Path('source/database.db').unlink(missing_ok=True)
       importlib.reload(database)
-      database.add_game('game1', 'game1', 'game1', bot.client.new_channel().id)
+      database.add_game('game1', 't1', 's1', bot.client.new_channel().id)
 
       # Run test
       print('---', test[0], 'started')
