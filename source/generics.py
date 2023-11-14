@@ -37,7 +37,7 @@ def get_speedrunners_for_game():
     game_name = stream['game']
     twitch_game_id = stream['twitch_game_id']
 
-    prefix = f'{i:<2}|{twitch_username:<20}|{game_name<20}|'
+    prefix = f'{i:<2}|{twitch_username:<20}|{game_name:<20}|'
 
     if twitch_game_id not in src_game_ids:
       logging.info(f'{prefix}is not streaming a tracked game... somehow')
