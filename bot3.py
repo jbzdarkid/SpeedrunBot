@@ -161,6 +161,14 @@ def on_message_internal(message):
       run.update(entry) # Embeds are side-by-side with the run from this API, for some reason.
       output += '\n' + src_apis.run_to_string(run)
     return output
+  def list_tracked_games():
+    tracked_games_db = list(database.get_all_games())
+    i = 0
+    tracked_games = f'SpeedrunBot is currently tracking {len(tracked_games_db)} games:\n'
+    for game_name, twitch_game_id, src_game_id in tracked_games_db:
+      i += 1
+      tracked_games += f'{i:>2}. {game_name} ({twitch_game_id} | {src_game_id})\n'
+    return tracked_games
 
   admin_commands = {
     '!track_game': lambda: track_game(get_channel(), ' '.join(args[1:])),
@@ -172,14 +180,15 @@ def on_message_internal(message):
     '!send_last_lines': lambda: send_last_lines(),
     '!log_streams': lambda: log_streams(),
     '!verifier_stats': lambda: verifier_stats(' '.join(args[1:])),
-    '!pb': lambda: personal_best(*args[1:2], ' '.join(args[2:])), # Currently an admin command but probably doesn't need to be
     '!forget': lambda: forget(*args[1:2]), # Admin command to prevent abuse
     '!servers': lambda: get_servers(),
+    '!list_tracked_games': lambda: list_tracked_games(),
   }
   commands = {
     '!announce_me': lambda: announce(get_channel(), *args[1:3]),
     '!about': lambda: about(),
     '!help': lambda: help(),
+    '!pb': lambda: personal_best(*args[1:2], ' '.join(args[2:])),
   }
 
   if len(args) == 0:
