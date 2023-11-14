@@ -370,8 +370,7 @@ if __name__ == '__main__':
         print('!!!', test[0], 'failed:')
         import traceback
         traceback.print_exc()
-        break
-      else:
-        print('===', test[0], 'passed')
-    else:
-      print('\nAll tests passed')
+        sys.exit(-1)
+
+      print('===', test[0], 'passed')
+    print('\nAll tests passed')
