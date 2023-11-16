@@ -12,13 +12,10 @@ from uuid import uuid4
 from source import database, generics, twitch_apis, src_apis, discord_apis, discord_websocket_apis, exceptions
 from source.utils import seconds_since_epoch
 
-# TODO: [nosrl] (and associated tests)
 # TODO: Reactions with :eyes: and :thumpsup: for verifiers
 # TODO: Add a test for 'what if a live message got deleted'
 # TODO: Threading for user lookups will save a lot of time, especially as the list of games grows
 # TODO: Try to improve performance by creating a thread for each runner
-# TODO: Stop using select (*) wrong
-#  Didn't I fix this? Who knows.
 # TODO: <t:1626594025> is apparently a thing discord supports. Maybe useful somehow?
 #   See https://discord.com/developers/docs/reference#message-formatting
 
@@ -39,7 +36,7 @@ def on_message(message):
     return # DO NOT process our own messages
   elif any(client.user['id'] == mention['id'] for mention in message['mentions']):
     pass # DO process messages which mention us, no matter which channel they're sent
-  elif database.get_game_for_channel(message['channel_id']) == None:
+  elif len(database.get_games_for_channel(message['channel_id'])) == 0:
     return # DO NOT process messages in unwatched channels
 
   on_message_internal(message)
@@ -107,19 +104,23 @@ def on_message_internal(message):
     return generics.get_verifier_stats(game_name, 24)
   def announce(channel_id, twitch_username=None, src_username=None):
     assert_args('twitch_username src_username', twitch_username, src_username, example='jbzdarkid darkid')
-    data = database.get_game_for_channel(channel_id)
-    if data == None:
-      raise exceptions.UsageError(f'There is no game currently associated with <#{channel_id}>. Please call this command in a channel which is announcing streams.')
+    data = database.get_games_for_channel(channel_id)
+    if not data:
+      raise exceptions.UsageError(f'There are no games currently associated with <#{channel_id}>. Please call this command in a channel which is announcing streams.')
 
     twitch_apis.get_user_id(twitch_username) # Will throw if there is any ambiguity about the twich username
     src_id = src_apis.search_src_user(src_username) # Will throw if there is any ambiguity about the src username
     database.add_user(twitch_username, src_id)
-    database.add_personal_best(src_id, data['src_game_id'])
-    return f'Will now announce `{twitch_username}` when they go live on twitch playing `{data["game_name"]}`.'
+    for d in data:
+      database.add_personal_best(src_id, d['src_game_id'])
+
+    games = ' or '.join(f'`{d["game_name"]}`' for d in data)
+    return f'Will now announce `{twitch_username}` when they go live on twitch playing {games}.'
   def forget(twitch_username=None):
     assert_args('twitch_username', twitch_username)
     twitch_apis.get_user_id(twitch_username) # Will throw if there is any ambiguity about the twich username
     database.remove_user(twitch_username)
+    return f'Removed PBs and user data for {twitch_username}. You will need to unlink your SRC to prevent future announcements.'
   def get_servers():
     servers = discord_apis.get_servers()
     output = f'This bot has presence in {len(servers)} servers:\n'
@@ -127,10 +128,10 @@ def on_message_internal(message):
       output += f'Server `{server["name"]}` (ID {server["id"]})\n'
     return output
   def about():
-    data = database.get_game_for_channel(message['channel_id'])
-    game = data['game_name'] if data else 'this game'
+    data = database.get_games_for_channel(message['channel_id'])
+    games = ' or '.join(f'`{d["game_name"]}`' for d in data) if data else 'any tracked game'
     response = 'Speedrunning bot, created by darkid#1647.\n'
-    response += f'The bot will search for twitch streams of {game}, then check to see if the given streamer is a speedrunner, then check to see if the speedrunner has a PB in {game}.\n'
+    response += f'The bot will search for twitch streams of {games}, then check to see if the given streamer is on speedrun.com, then check to see if the speedrunner has a PB in that game.\n'
     response += 'If so, it announces their stream in this channel.\n'
     response += 'For more info, see the readme at <https://github.com/jbzdarkid/SpeedrunBot>'
     return response

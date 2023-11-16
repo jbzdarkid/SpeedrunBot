@@ -119,14 +119,13 @@ def get_channel_for_game(twitch_game_id):
   return None
 
 
-def get_game_for_channel(channel_id):
-  execute('SELECT game_name, src_game_id FROM tracked_games WHERE discord_channel=?', channel_id)
-  if data := fetchone():
-    return {
-      'game_name': data[0],
-      'src_game_id': data[1],
-    }
-  return None
+def get_games_for_channel(channel_id):
+  execute('SELECT game_name, src_game_id, twitch_game_id FROM tracked_games WHERE discord_channel=?', channel_id)
+  return [{
+    'game_name': d[0],
+    'src_game_id': d[1],
+    'twitch_game_id': d[2],
+  } for d in fetchall()]
 
 
 def remove_game(game_name):
