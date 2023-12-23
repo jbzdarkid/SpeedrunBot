@@ -1,6 +1,7 @@
 # As tempting as it may be, DO NOT import any non-system modules -- this file needs to be stable!
 import requests
 from pathlib import Path
+from sys import argv
 
 with (Path(__file__).parent / 'source' / 'discord_token.txt').open() as f:
   token = f.read().strip()
@@ -37,7 +38,8 @@ while len(message1) + len(lines[i]) < 1900: # Discord character limit, with some
   message1 = lines[i] + '\n' + message1
   i -= 1
 
-message1 = f'Bot crashed, last {len(lines) - i} lines:\n```{message1}```'
+cause = argv[1] if len(argv) > 1 else 'unknown'
+message1 = f'Bot crashed due to {cause}, last {len(lines) - i} lines:\n```{message1}```'
 message2 = f'```{message2}```'
 
 r = requests.post(f'{api}/channels/{channel}/messages', json={'content': message1}, headers=headers)

@@ -98,7 +98,7 @@ def on_message_internal(message):
   def log_streams():
     for _ in generics.get_speedrunners_for_game():
       pass
-    send_last_lines()
+    send_last_lines('log_streams')
   def verifier_stats(game_name):
     assert_args('Game Name', game_name)
     return generics.get_verifier_stats(game_name, 24)
@@ -178,7 +178,7 @@ def on_message_internal(message):
     '!unmoderate_game': lambda: unmoderate_game(get_channel(), ' '.join(args[1:])),
     '!restart': lambda: restart(*args[1:2]),
     '!git_update': lambda: f'```{git_update()}```',
-    '!send_last_lines': lambda: send_last_lines(),
+    '!send_last_lines': lambda: send_last_lines('admin_command'),
     '!log_streams': lambda: log_streams(),
     '!verifier_stats': lambda: verifier_stats(' '.join(args[1:])),
     '!forget': lambda: forget(*args[1:2]), # Admin command to prevent abuse
@@ -225,8 +225,8 @@ def on_message_internal(message):
 
 
 send_error = Path(__file__).with_name('send_error.py')
-def send_last_lines():
-  output = subprocess.run([sys.executable, send_error], stderr=subprocess.STDOUT, stdout=subprocess.PIPE, text=True)
+def send_last_lines(cause):
+  output = subprocess.run([sys.executable, send_error, cause], stderr=subprocess.STDOUT, stdout=subprocess.PIPE, text=True)
   if output.returncode != 0:
     logging.error('Sending last lines failed:')
     logging.error(output.stdout)
@@ -433,7 +433,7 @@ if __name__ == '__main__':
       logging.info(git_update())
       output = subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:])
       if output.returncode != 0:
-        send_last_lines()
+        send_last_lines(f'parent: "{output}"')
         logging.error('Subprocess crashed, waiting for 60 seconds before restarting')
         time.sleep(60) # Sleep after exit, to prevent losing my token.
 
@@ -444,10 +444,10 @@ if __name__ == '__main__':
           func()
         except exceptions.NetworkError:
           logging.exception('A network error occurred')
-          send_last_lines()
+          send_last_lines('forever-network')
         except Exception:
           logging.exception('catch-all for forever_thread')
-          send_last_lines()
+          send_last_lines('forever-generic')
 
         sleep(sleep_time)
 
@@ -461,6 +461,6 @@ if __name__ == '__main__':
       client.run()
     except Exception:
       logging.exception('catch-all for client.run')
-      send_last_lines()
+      send_last_lines('client.run')
       import os
       os.kill(os.getpid(), 1) # I don't think it shuts down the threads otherwise.
