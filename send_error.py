@@ -34,7 +34,7 @@ while len(message2) + len(lines[i]) < 1990: # Discord character limit, with some
   i -= 1
 
 message1 = ''
-while len(message1) + len(lines[i]) < 1900: # Discord character limit, with some extra space for wrapper text
+while len(message1) + len(lines[i]) < 1800: # Discord character limit, with some extra space for wrapper text
   message1 = lines[i] + '\n' + message1
   i -= 1
 

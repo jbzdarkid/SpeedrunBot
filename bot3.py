@@ -219,7 +219,7 @@ def on_message_internal(message):
     discord_apis.send_message_ids(message['channel_id'], f'Failed due to network error, please try again: {e}')
   except Exception: # Coding errors
     logging.exception(f'General error during {args[0]}')
-    send_last_lines()
+    send_last_lines('response-general')
 
   discord_apis.remove_reaction(message, '🕐')
 
@@ -433,7 +433,7 @@ if __name__ == '__main__':
       logging.info(git_update())
       output = subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:])
       if output.returncode != 0:
-        send_last_lines(f'parent: "{output}"')
+        send_last_lines(f'parent: "{output.returncode}"')
         logging.error('Subprocess crashed, waiting for 60 seconds before restarting')
         time.sleep(60) # Sleep after exit, to prevent losing my token.
 
