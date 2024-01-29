@@ -170,6 +170,10 @@ def get_subcategories(run):
   return run_subcategories
 
 
+def parse_name(player):
+  return player['names']['international'] if player['rel'] == 'user' else player['name']
+
+
 # NOTE: Run data must be fetched with embeds
 def get_current_pb(new_run):
   game = new_run['game']
