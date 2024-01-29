@@ -104,7 +104,12 @@ def get_verifier_stats(game_name, since_months=24):
 
     logging.info(f'Found {total_runs} runs in the past {since_months} months, verified by {len(verifier_counts)} verifiers')
 
-    sorted_counts = [(count, players.get(verifier, verifier)) for verifier, count in verifier_counts.items()]
+    sorted_counts = []
+    for verifier, count in verifier_counts.items():
+      if verifier not in players:
+        # In some rare cases, a verifier might not have any runs on the leaderboard themselves. Insert a placeholder in this case.
+        players[verifier] = f'src_id={verifier}'
+      sorted_counts.add((count, players[verifier]))
     sorted_counts.sort(reverse=True)
 
     output = ''
