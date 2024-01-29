@@ -88,14 +88,11 @@ def get_verifier_stats(game_name, since_months=24):
   runs.sort(key=lambda run: run['submitted'], reverse=True) # I don't trust SRC's API ordering, so re-sort
 
   players = {}
-  def get_name(player):
-    return player['names']['international'] if player['rel'] == 'user' else player['name']
-
   for run in runs:
     for player in run['players']['data']:
       player_id = player.get('id', None)
       if player_id and player_id not in players:
-        players[player_id] = get_name(player)
+        players[player_id] = src_apis.parse_name(player)
 
   def summarize(runs):
     verifier_counts = {}

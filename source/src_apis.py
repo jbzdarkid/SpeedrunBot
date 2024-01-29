@@ -149,10 +149,6 @@ def get_leaderboard(game, category, level=None, variables=None):
     yield run['run']
 
 
-def name(player):
-  return player.get('id', player.get('name', '(null)'))
-
-
 # NOTE: Run must be fetched with at least embed=category,category.variables
 # Returns a mapping of variable_id: {data}, where data is an arbitrary set of properties from SRC, including 'id'.
 def get_subcategories(run):
@@ -178,7 +174,7 @@ def get_subcategories(run):
 def get_current_pb(new_run):
   game = new_run['game']
   category = new_run['category']['data']['id']
-  players = set(name(player) for player in new_run['players']['data'])
+  players = set(parse_name(player) for player in new_run['players']['data'])
   time = new_run['times']['primary_t']
   level = new_run['level']['data']['id'] if isinstance(new_run['level']['data'], dict) else None
 
@@ -192,7 +188,7 @@ def get_current_pb(new_run):
   for run in leaderboard:
     if 'place' not in new_run and time <= run['times']['primary_t']:
       new_run['place'] = run['place']
-    if players == set(name(player) for player in run['players']):
+    if players == set(parse_name(player) for player in run['players']):
       return run
 
 
@@ -209,9 +205,7 @@ def run_to_string(run, current_pb=None):
 
   time = timedelta(seconds=run['times']['primary_t'])
 
-  def get_name(player):
-    return player['names']['international'] if player['rel'] == 'user' else player['name']
-  runners = ', '.join(map(get_name, run['players']['data']))
+  runners = ', '.join(map(parse_name, run['players']['data']))
 
   output = f'`{category}` in {time} by {runners}'
   if 'place' in run:
