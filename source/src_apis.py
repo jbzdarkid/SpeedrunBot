@@ -171,7 +171,10 @@ def get_subcategories(run):
 
 
 def parse_name(player):
-  return player['names']['international'] if player['rel'] == 'user' else player['name']
+  if player['rel'] == 'user' and 'names' in player:
+    return player['names']['international']
+  else:
+    return player['name']
 
 
 # NOTE: Run data must be fetched with embeds
