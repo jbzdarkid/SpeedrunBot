@@ -177,7 +177,8 @@ def get_all_moderated_games():
 
 def unmoderate_game(game_name):
   execute('SELECT src_game_id FROM moderated_games WHERE game_name=?', game_name)
-  src_game_id = fetchone()
+  src_game_id = fetchone()[0]
+  print(src_game_id)
   execute('DELETE FROM unverified_runs WHERE src_game_id=?', src_game_id)
   execute('DELETE FROM moderated_games WHERE src_game_id=?', src_game_id)
 
@@ -251,7 +252,13 @@ def delete_announced_stream(announced_stream):
 # Commands related to unverified_runs
 def get_unverified_runs(src_game_id):
   execute('SELECT * FROM unverified_runs WHERE src_game_id=?', src_game_id)
-  return {run['id']:run for run in fetchall()}
+  return {d[0]: {
+    'run_id': d[0],
+    'src_game_id': d[1],
+    'submitted': d[2],
+    'channel_id': d[3],
+    'message_id': d[4],
+  } for d in fetchall()}
 
 
 def add_unverified_run(**unverified_run):
