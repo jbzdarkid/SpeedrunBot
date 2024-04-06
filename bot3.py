@@ -10,7 +10,7 @@ from time import sleep
 from uuid import uuid4
 
 from source import database, generics, twitch_apis, src_apis, discord_apis, discord_websocket_apis, exceptions
-from source.utils import seconds_since_epoch
+from source.utils import seconds_since_epoch, parse_time
 
 # TODO: Reactions with :eyes: and :thumpsup: for verifiers
 # TODO: Add a test for 'what if a live message got deleted'
