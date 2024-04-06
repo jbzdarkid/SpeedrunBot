@@ -118,7 +118,7 @@ def get_run_status(run_id):
 
   # The underlying SRC APIs do not actually 'delete' runs, they seem to simply unlink them in their database.
   # Thus, a submission which is deleted by the runner will still show as 'new' (but not be returned by the get_runs call).
-  # Double-check (using a HEAD request) that this run was deleted using the frontend.
+  # Double-check that this run was deleted according to the frontend.
   status_code, _ = make_head_request(j['data']['weblink'])
   if status_code == 404:
     return 'deleted'

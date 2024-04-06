@@ -282,11 +282,11 @@ def announce_new_runs():
     for run_id, run in db_unverified.items():
       run_status = src_apis.get_run_status(run_id)
       if run_status == 'rejected':
-        discord_apis.add_reaction_ids(run['channel_id'], run['message_id'], 👎)
+        discord_apis.add_reaction_ids(run['channel_id'], run['message_id'], '👎')
       elif run_status == 'verified':
-        discord_apis.add_reaction_ids(run['channel_id'], run['message_id'], 👍)
+        discord_apis.add_reaction_ids(run['channel_id'], run['message_id'], '👍')
       elif run_status == 'deleted':
-        discord_apis.add_reaction_ids(run['channel_id'], run['message_id'], 🗑)
+        discord_apis.add_reaction_ids(run['channel_id'], run['message_id'], '🗑')
       else:
         raise exceptions.InvalidApiResponseError(f'Run {run_id} was somehow status {run_status}')
 

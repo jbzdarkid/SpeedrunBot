@@ -176,7 +176,10 @@ def get_all_moderated_games():
 
 
 def unmoderate_game(game_name):
-  execute('DELETE FROM moderated_games WHERE game_name=?', game_name)
+  execute('SELECT src_game_id FROM moderated_games WHERE game_name=?', game_name)
+  src_game_id = fetchone()
+  execute('DELETE FROM unverified_runs WHERE src_game_id=?', src_game_id)
+  execute('DELETE FROM moderated_games WHERE src_game_id=?', src_game_id)
 
 
 # Commands related to announced_streams
