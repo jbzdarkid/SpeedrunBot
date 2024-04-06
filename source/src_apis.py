@@ -109,7 +109,7 @@ def search_src_user(username):
 
 
 def get_run_status(run_id):
-  j = make_request('GET', f'{api}/runs/{run_id}', params)
+  j = make_request('GET', f'{api}/runs/{run_id}')
   run_status = j['data']['status']
   if run_status == 'rejected':
     return 'rejected'
