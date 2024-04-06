@@ -60,26 +60,6 @@ def get_speedrunners_for_game():
     yield stream
 
 
-def get_new_runs(game_name, src_game_id, last_update):
-  runs = src_apis.get_runs(game=src_game_id, status='new')
-  logging.info(f'Found {len(runs)} unverified run{"s"[:len(runs)^1]} for {game_name}')
-  new_last_update = last_update
-
-  for run in runs:
-    # Only announce runs which are more recent than the last announcement date.
-    # Unfortunately, there's no way to suggest this filter to the speedrun.com APIs.
-    # It might be possible using one of the undocumented PHP APIs.
-    submitted = parse_time(run['submitted'], '%Y-%m-%dT%H:%M:%SZ')
-    if submitted.timestamp() <= last_update:
-      continue
-    current_pb = src_apis.get_current_pb(run)
-    yield f'New run submitted: {src_apis.run_to_string(run, current_pb)}'
-
-    new_last_update = max(submitted.timestamp(), new_last_update)
-
-  database.update_game_moderation_time(game_name, new_last_update)
-
-
 def get_verifier_stats(game_name, since_months=24):
   src_game_id = src_apis.get_game(game_name)['id']
 

@@ -2,7 +2,7 @@ import logging
 from datetime import timedelta
 
 from . import database, exceptions
-from .make_request import make_request
+from .make_request import make_request, make_head_request
 from .utils import seconds_since_epoch
 
 ONE_HOUR  = (3600)
@@ -106,6 +106,24 @@ def search_src_user(username):
 
   suggestions = ', '.join(possible_matches[:10]) # Only show a max of 10 matches, for brevity's sake
   raise exceptions.CommandError(f'Found {len(possible_matches)} possible matches for user `{username}` on Speedrun.com -- Try one of these options:\n' + suggestions)
+
+
+def get_run_status(run_id):
+  j = make_request('GET', f'{api}/runs/{run_id}', params)
+  run_status = j['data']['status']
+  if run_status == 'rejected':
+    return 'rejected'
+  elif run_status == 'verified':
+    return 'verified'
+
+  # The underlying SRC APIs do not actually 'delete' runs, they seem to simply unlink them in their database.
+  # Thus, a submission which is deleted by the runner will still show as 'new' (but not be returned by the get_runs call).
+  # Double-check (using a HEAD request) that this run was deleted using the frontend.
+  status_code, _ = make_head_request(j['data']['weblink'])
+  if status_code == 404:
+    return 'deleted'
+  else:
+    return run_status # probably 'new'
 
 
 def get_runs(**params):

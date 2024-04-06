@@ -49,6 +49,13 @@ c.execute('''CREATE TABLE IF NOT EXISTS announced_streams (
   preview_expires  REAL    NOT NULL,
   PRIMARY KEY (name, game)
 )''')
+c.execute('''CREATE TABLE IF NOT EXISTS unverified_runs (
+  run_id           TEXT    NOT NULL     PRIMARY KEY,
+  src_game_id      TEXT    NOT NULL,
+  submitted        REAL    NOT NULL,
+  channel_id       INTEGER NOT NULL,
+  message_id       INTEGER NOT NULL
+)''')
 
 
 # Simple helper to pack *args (because SQL wants it like that)
@@ -164,14 +171,8 @@ def moderate_game(game_name, src_game_id, discord_channel):
 
 
 def get_all_moderated_games():
-  execute('SELECT game_name, src_game_id, discord_channel, last_update FROM moderated_games')
+  execute('SELECT game_name, src_game_id, discord_channel FROM moderated_games')
   return fetchall()
-
-
-def update_game_moderation_time(game_name, last_update=None):
-  if not last_update:
-    last_update = seconds_since_epoch()
-  execute('UPDATE moderated_games SET last_update=? WHERE game_name=?', last_update, game_name)
 
 
 def unmoderate_game(game_name):
@@ -242,3 +243,24 @@ def get_announced_stream(name, game):
 
 def delete_announced_stream(announced_stream):
   execute('DELETE FROM announced_streams WHERE name=? AND game=?', announced_stream['name'], announced_stream['game'])
+
+
+# Commands related to unverified_runs
+def get_unverified_runs(src_game_id):
+  execute('SELECT * FROM unverified_runs WHERE src_game_id=?', src_game_id)
+  return {run['id']:run for run in fetchall()}
+
+
+def add_unverified_run(**unverified_run):
+  execute('INSERT INTO unverified_runs VALUES (?, ?, ?, ?, ?)',
+    unverified_run['run_id'],
+    unverified_run['src_game_id'],
+    unverified_run['submitted'],
+    unverified_run['channel_id'],
+    unverified_run['message_id'],
+  )
+
+
+def delete_unverified_run(run_id):
+  execute('DELETE FROM unverified_runs WHERE run_id=?', run_id)
+
