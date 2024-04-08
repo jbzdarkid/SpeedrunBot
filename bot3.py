@@ -270,6 +270,7 @@ def announce_new_runs():
         logging.exception('There was a network error while trying to announce an unverified run, not adding to database (will be announced next pass)')
         continue
 
+      logging.info(f'Tracking new unverified run {run_id}')
       database.add_unverified_run(
         run_id=run_id,
         src_game_id=src_game_id,
@@ -281,6 +282,7 @@ def announce_new_runs():
     # All remaining runs are likely verified (accept or reject)
     for run_id, run in db_unverified.items():
       run_status = src_apis.get_run_status(run_id)
+      logging.info(f'Run {run_id} is no longer status=new, now status={run_status}')
       if run_status == 'rejected':
         discord_apis.add_reaction_ids(run['channel_id'], run['message_id'], '👎')
       elif run_status == 'verified':
