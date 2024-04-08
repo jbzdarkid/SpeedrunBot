@@ -9,3 +9,6 @@ class CommandError(Exception):
 
 class UsageError(Exception):
   pass
+
+class InvalidApiResponseError(Exception):
+  pass

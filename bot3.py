@@ -10,7 +10,7 @@ from time import sleep
 from uuid import uuid4
 
 from source import database, generics, twitch_apis, src_apis, discord_apis, discord_websocket_apis, exceptions
-from source.utils import seconds_since_epoch
+from source.utils import seconds_since_epoch, parse_time
 
 # TODO: Reactions with :eyes: and :thumpsup: for verifiers
 # TODO: Add a test for 'what if a live message got deleted'
@@ -238,9 +238,61 @@ def git_update():
   return output.stdout + ('\n' if (output.stderr or output.stdout) else '') + output.stderr
 
 def announce_new_runs():
-  for game_name, src_game_id, channel_id, last_update in database.get_all_moderated_games():
-    for content in generics.get_new_runs(game_name, src_game_id, last_update):
-      discord_apis.send_message_ids(channel_id, content)
+  """
+  We have, as input:
+  - A list of runs which were unverified at last iteration (according to the database)
+  - A list of runs that are still not verified (according to the API)
+
+  1. Iterate the list of API-unverified runs & remove all previously known.
+    -> The remaining runs from the API are announced
+  2. Iterate the list of database-unverified runs
+    a. Remove all which are still known to be unverified (from the SRC API)
+    b. API call to check the status of the remaining runs
+  """
+
+  for game_name, src_game_id, channel_id in database.get_all_moderated_games():
+    db_unverified = database.get_unverified_runs(src_game_id)
+    src_unverified = src_apis.get_runs(game=src_game_id, status='new')
+    logging.info(f'Found {len(db_unverified)} unverified runs in the database for {game_name}')
+    logging.info(f'Found {len(src_unverified)} unverified runs according to SRC for {game_name}')
+
+    for run in src_unverified:
+      run_id = run['id']
+      if run_id in db_unverified:
+        # This run was previously known to be unverified, and it still is. Remove from both lists.
+        del db_unverified[run_id]
+        continue
+
+      try:
+        current_pb = src_apis.get_current_pb(run)
+        message = discord_apis.send_message_ids(channel_id, f'New run submitted: {src_apis.run_to_string(run, current_pb)}')
+      except exceptions.NetworkError:
+        logging.exception('There was a network error while trying to announce an unverified run, not adding to database (will be announced next pass)')
+        continue
+
+      logging.info(f'Tracking new unverified run {run_id}')
+      database.add_unverified_run(
+        run_id=run_id,
+        src_game_id=src_game_id,
+        submitted=parse_time(run['submitted'], '%Y-%m-%dT%H:%M:%SZ'),
+        channel_id=channel_id,
+        message_id=message['id'],
+      )
+
+    # All remaining runs are likely verified (accept or reject)
+    for run_id, run in db_unverified.items():
+      run_status = src_apis.get_run_status(run_id)
+      logging.info(f'Run {run_id} is no longer status=new, now status={run_status}')
+      if run_status == 'rejected':
+        discord_apis.add_reaction_ids(run['channel_id'], run['message_id'], '👎')
+      elif run_status == 'verified':
+        discord_apis.add_reaction_ids(run['channel_id'], run['message_id'], '👍')
+      elif run_status == 'deleted':
+        discord_apis.add_reaction_ids(run['channel_id'], run['message_id'], '🗑')
+      else:
+        raise exceptions.InvalidApiResponseError(f'Run {run_id} was somehow status {run_status}')
+
+      database.delete_unverified_run(run_id)
 
 
 def get_embed(stream):
@@ -256,19 +308,20 @@ def get_embed(stream):
   }
 
 
-# We have, as input:
-# - A list of streams which were live at last iteration
-# - A list of streams that are still live (in the same game)
-#
-# 1. Iterate the list of live streams & remove all previously known.
-#   -> The remaining streams go online
-# 2. Iterate the list of known streams & remove all offline
-#  a. Double check for stream still live (according to preview headers)
-#  b. Double check for game change (according to twitch API)
-#  -> The remaining streams go offline
-
-
 def announce_live_channels():
+  """
+  We have, as input:
+  - A list of streams which were live at last iteration
+  - A list of streams that are still live (in the same game)
+
+  1. Iterate the list of live streams & remove all previously known.
+    -> The remaining streams go online
+  2. Iterate the list of known streams & remove all offline
+  a. Double check for stream still live (according to preview headers)
+  b. Double check for game change (according to twitch API)
+  -> The remaining streams go offline
+  """
+
   # First, fetch the existing & new streams
   existing_streams = {stream['name']: stream for stream in database.get_announced_streams()}
   logging.info(f'Existing streams: {existing_streams}')
