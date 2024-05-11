@@ -289,6 +289,8 @@ def announce_new_runs():
         discord_apis.add_reaction_ids(run['channel_id'], run['message_id'], '👍')
       elif run_status == 'deleted':
         discord_apis.add_reaction_ids(run['channel_id'], run['message_id'], '🗑')
+      elif run_status == 'new':
+        continue # Somehow not listed via get_runs, but whatever, we can just ignore it here
       else:
         raise exceptions.InvalidApiResponseError(f'Run {run_id} was somehow status {run_status}')
 
