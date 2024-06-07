@@ -9,10 +9,9 @@ from pathlib import Path
 from time import sleep
 from uuid import uuid4
 
-from source import database, generics, twitch_apis, src_apis, discord_apis, discord_websocket_apis, exceptions
+from source import database, generics, twitch_apis, src_apis, discord_apis, discord_websocket_apis, exceptions, commands
 from source.utils import seconds_since_epoch, parse_time
 
-# TODO: Reactions with :eyes: and :thumpsup: for verifiers
 # TODO: Add a test for 'what if a live message got deleted'
 # TODO: Threading for user lookups will save a lot of time, especially as the list of games grows
 # TODO: Try to improve performance by creating a thread for each runner
@@ -511,7 +510,13 @@ if __name__ == '__main__':
 
     client.callbacks['on_message'] = on_message
     client.callbacks['on_direct_message'] = on_direct_message
+
     try:
+      discord_apis.delete_all_commands()
+      # TODO: Needs a better home. Maybe during client.run?
+      # TODO: Taking a break.
+      # discord_apis.register_all_commands(commands.ALL_COMMANDS)
+
       admins = [discord_apis.get_owner()['id']] # This can throw, and if it does, we have no recompense.
       client.run()
     except Exception:

@@ -56,6 +56,7 @@ def make_request_internal(method, url, *args, retry=True, allow_4xx=False, **kwa
     return r
   else:
     failure()
+    print(r.request.body)
     raise exceptions.NetworkError(f'{method} {logging_url} returned {r.status_code} {r.reason.upper()}: {r.text}')
 
 

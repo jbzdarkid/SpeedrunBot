@@ -5,7 +5,7 @@ from pathlib import Path
 from .make_request import make_request
 from . import exceptions
 
-api = 'https://discord.com/api/v9'
+api = 'https://discord.com/api/v10'
 
 cached_headers = None
 def get_headers():
@@ -131,30 +131,33 @@ def get_servers():
   return j
 
 
-def register_slash_command(name, desc, args=None, *, guild=None):
-  options = []
-  if args:
-    for arg_name, arg_desc in args.items():
-      option_type = {'channel': 7}.get(arg_name, 3)
+def register_all_commands(commands):
+  j = make_request('GET', f'{api}/oauth2/applications/@me', get_headers=get_headers)
+  url = f'{api}/applications/{j["id"]}/commands'
 
-      options.append({
-        'name': arg_name,
-        'description': arg_desc,
-        'type': option_type,
-        'required': True,
-      })
+  # There is a global rate limit of 200 application command creates per day, per guild
+  # TODO: I should probably GET before I POST and confirm subset. See https://stackoverflow.com/q/9323749
+  for name, command in commands.items():
+    make_request('POST', url, json=command, get_headers=get_headers)
 
-  body = {
-    'type': 1, # CHAT_INPUT
-    'name': name,
-    'description': desc,
-    'options': options
+
+def delete_all_commands():
+  j = make_request('GET', f'{api}/oauth2/applications/@me', get_headers=get_headers)
+  url = f'{api}/applications/{j["id"]}/commands'
+  make_request('PUT', url, json=[], get_headers=get_headers)
+
+
+def acknowledge_interaction(interaction_id, token):
+  json = {'type': 5} # DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+  make_request('POST', f'{api}/interactions/{interaction_id}/{token}/callback', json=json, get_headers=get_headers)
+
+  
+def reply_to_interaction(interaction_id, token, message):
+  json = {
+    'type': 4, # CHANNEL_MESSAGE_WITH_SOURCE
+    'data': {
+      'content': message,
+    }
   }
 
-  if not guild:
-    url = f'{api}/{app_id}/commands'
-  else:
-    url += f'{api}/{app_id}/guilds/{guild}/commands'
-
-  make_request('POST', url, json=body, get_headers=get_headers)
-
+  make_request('POST', f'{api}/interactions/{interaction_id}/{token}/callback', json=json, get_headers=get_headers)

@@ -7,6 +7,7 @@ from random import random
 from threading import Thread
 
 from .utils import seconds_since_epoch
+from . import commands, discord_apis
 
 DISPATCH = 0
 HEARTBEAT = 1
@@ -82,7 +83,7 @@ class WebSocket():
 
   async def connect(self):
     connection_url = self.resume_gateway_url if self.session_id else 'wss://gateway.discord.gg' # Only use the resume URL for resuming an existing session
-    websocket = await websockets.connect(connection_url + '?v=9&encoding=json', ping_timeout=None)
+    websocket = await websockets.connect(connection_url + '?v=10&encoding=json', ping_timeout=None)
     hello = await self.get_message(websocket)
     if not hello:
       return
@@ -134,9 +135,16 @@ class WebSocket():
       'token': self.get_token(),
       'intents': intents,
       'properties': {
-        '$os': 'windows',
-        '$browser': 'speedrunbot-jbzdarkid',
-        '$device': 'speedrunbot-jbzdarkid',
+        'os': 'windows',
+        'browser': 'speedrunbot-jbzdarkid',
+        'device': 'speedrunbot-jbzdarkid',
+      },
+      'presence': {
+        'activities': [{
+          'type': 4,
+          'emoji': 'exclamation',
+          'state': 'Type !help for information',
+        }],
       }
     }
     await self.send_message(websocket, IDENTIFY, identify)
@@ -184,6 +192,7 @@ class WebSocket():
 
   async def handle_message(self, msg, websocket):
     msg = json.loads(msg)
+    print(msg)
     if msg['op'] == DISPATCH:
       if msg['t'] == 'READY':
         # https://discord.com/developers/docs/topics/gateway-events#ready-ready-event-fields
@@ -239,18 +248,45 @@ class WebSocket():
     else:
       logging.error('Cannot handle message opcode ' + str(msg['op']))
 
-  async def on_interaction(self, data):
-    if data['type'] != 1: # CHAT_INPUT
-      logging.error('Cannot handle interaction type' + data['type'])
+  def on_interaction(self, data):
+    if data['type'] != 2: # APPLICATION_COMMAND
+      logging.error(f'Cannot handle interaction type {data["type"]}\n{data}')
       return
 
-    callback = self.callbacks.get(data['name'])
-    if not callback:
-      logging.error('No callback registered for command' + data['name'])
+    name = data['data']['name']
+    if data['member']['user']['id'] in admins and 'name' in commands.ADMIN_COMMANDS:
+      command = ADMIN_COMMANDS[name] # Allow admin versions of normal commands
+    elif name in commands.USER_COMMANDS:
+      command = commands[name]
+    else:
+      discord_apis.reply_to_interaction(data['id'], data['token'], f'Error: unknown command `{name}`!')
       return
 
-    kwargs = {option['name']: option['value'] for option in data['options']}
-    response = callback(**kwargs)
+    # We must ack within 3 seconds or Discord considers the command to have failed.
+    # We then have 15 minutes to reply before the token expires.
+    # https://discord.com/developers/docs/interactions/receiving-and-responding#responding-to-an-interaction
+    discord_apis.acknowledge_interaction(data['id'], data['token'])
+
+    try:
+      channel = data['channel']
+      data = data['data']
+      kwargs = {option['name']: option['value'] for option in data.get('options', [])}
+
+      # This is a relatively common argument and discord's response data is very painful to parse correctly.
+      if 'resolved' in data and 'channels' in data['resolved']:
+        channel = next(data['resolved']['channels'].values())
+      kwargs['channel'] = channel
+
+      response = command(**kwargs)
+    except exceptions.CommandError as e: # User errors
+      response = f'Error: {e}'
+    except exceptions.NetworkError as e: # Server / connectivity errors
+      response = f'Failed due to network error, please try again: {e}'
+      logging.exception('Network error')
+    except Exception: # Coding errors
+      response = f'Failed due to an unknown error, please contact darkid: {e}'
+      logging.exception(f'General error during {data["name"]}')
+      send_last_lines('response-general')
+
     if response:
-      discord_apis.add_reaction(message, '🔇')
-      discord_apis.send_message_ids(data['channel_id'], response)
+      discord_apis.reply_to_interaction(data['id'], data['token'], response)
