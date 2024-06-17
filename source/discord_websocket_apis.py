@@ -259,7 +259,9 @@ class WebSocket():
       # We must ack within 3 seconds or Discord considers the command to have failed.
       # We then have 15 minutes to reply before the token expires.
       # https://discord.com/developers/docs/interactions/receiving-and-responding#responding-to-an-interaction
-      discord_apis.acknowledge_interaction(data['id'], data['token'])
+      # TODO: Somehow getting double-ack from this. IDK, man.
+      # discord_apis.acknowledge_interaction(data['id'], data['token'])
+      print('<264>', data)
 
       # Channel ID is a relatively common piece of information but I don't always want to expose it to the caller.
       # As such I'm just adding it into every command, and the value can be overridden if it's an actual argument.
@@ -273,9 +275,13 @@ class WebSocket():
     except exceptions.NetworkError as e:
       response = f'Failed due to network error, please try again: {e}'
       logging.exception('interaction-network')
-    except Exception:
+    except Exception as e:
       response = f'Failed due to an unknown error, please contact darkid: {e}'
       logging.exception(f'General error during {command_name}')
-      send_last_lines('interaction-generic')
 
-    discord_apis.reply_to_interaction(data['id'], data['token'], response)
+    if not response:
+      response = 'Nothing to say...'
+    try:
+      discord_apis.reply_to_interaction(data['id'], data['token'], response)
+    except Exception as e:
+      logging.exception(f'Failed to send reply to {command_name}')

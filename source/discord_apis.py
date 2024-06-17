@@ -145,36 +145,39 @@ def register_all_commands(commands):
     name = old['name']
     new = commands.get(name, None)
     if not new:
-      logging.info(f'Command {name} does not exist any more, deleting')
+      logging.info(f'Command "{name}" does not exist any more, deleting')
       make_request('DELETE', url + '/' + old['id'], get_headers=get_headers)
       continue
 
     for k, v in new.items():
       if old[k] != v:
-        logging.info(f'Command {name} is out of date; key {k} has been updated to {v}, updating')
+        logging.info(f'Command "{name}" is out of date; key "{k}" has been updated from "{old[k]}" to "{v}", updating')
         make_request('POST', url, json=new, get_headers=get_headers)
         break
     else:
-      logging.info(f'Command {name} is up to date')
+      logging.info(f'Command "{name}" is up to date')
 
     del commands[name] # Delete so that we know it's handled
 
   for new in commands:
-    logging.info(f'Command {name} does not exist, creating')
+    logging.info(f'Command "{name}" does not exist, creating')
     make_request('POST', url, json=new, get_headers=get_headers)
-
-
-def delete_all_commands():
-  j = make_request('GET', f'{api}/oauth2/applications/@me', get_headers=get_headers)
-  url = f'{api}/applications/{j["id"]}/commands'
-  make_request('PUT', url, json=[], get_headers=get_headers)
 
 
 def acknowledge_interaction(interaction_id, token):
   json = {'type': 5} # DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
-  make_request('POST', f'{api}/interactions/{interaction_id}/{token}/callback', json=json, get_headers=get_headers)
+  j = make_request('POST', f'{api}/interactions/{interaction_id}/{token}/callback', allow_4xx=True, json=json, get_headers=get_headers)
+  if not j:
+    return
 
-  
+  # https://discord.com/developers/docs/topics/opcodes-and-status-codes#json-json-error-codes
+  code = j.get('code', 0)
+  if code == 40060: # Interaction has already been acknowledged.
+    logging.error(f'Interaction {interaction_id} was double-acknowledged')
+    return
+
+  raise exceptions.NetworkError(f'Failed to acknowledge interaction {interaction_id}: {j}')
+
 def reply_to_interaction(interaction_id, token, message):
   json = {
     'type': 4, # CHANNEL_MESSAGE_WITH_SOURCE
@@ -183,4 +186,4 @@ def reply_to_interaction(interaction_id, token, message):
     }
   }
 
-  make_request('POST', f'{api}/interactions/{interaction_id}/{token}/callback', json=json, get_headers=get_headers)
+  return make_request('POST', f'{api}/interactions/{interaction_id}/{token}/callback', json=json, get_headers=get_headers)

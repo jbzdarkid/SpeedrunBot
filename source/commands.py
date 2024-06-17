@@ -75,7 +75,6 @@ def announce_me(twitch_username, src_username, channel):
   games = ' or '.join(f'`{d["game_name"]}`' for d in data)
   return f'Will now announce `{twitch_username}` in <#{channel}> when they go live on twitch playing {games}.'
 
-"""
 
 @add_command('Get general information about this bot and how it works')
 def about(channel):
@@ -87,7 +86,7 @@ def about(channel):
   response += 'For more info, see the [GitHub readme](https://github.com/jbzdarkid/SpeedrunBot).'
   return response
 
-"""
+
 @add_command('Get a runner\'s personal best in their current game')
 @add_argument('twitch_username', 'The runner\'s stream name on twitch.tv')
 @add_argument_opt('game_name', 'The game to look up (defaults to the currently streamed game)')

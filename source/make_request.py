@@ -16,7 +16,9 @@ def failure():
 
 def make_request_internal(method, url, *args, retry=True, allow_4xx=False, **kwargs):
   logging_url = url
-  if method == 'POST': # Strip postdata arguments from the URL since they usually contain secrets.
+  if 'callback' in url: # Strip interaction token from the URL
+    logging_url = '/'.join(url.split('/')[:6])
+  elif method == 'POST': # Strip postdata arguments from the URL since they usually contain secrets.
     logging_url = url.partition('?')[0]
 
   if get_headers := kwargs.pop('get_headers', None):
@@ -56,7 +58,6 @@ def make_request_internal(method, url, *args, retry=True, allow_4xx=False, **kwa
     return r
   else:
     failure()
-    print(r.request.body)
     raise exceptions.NetworkError(f'{method} {logging_url} returned {r.status_code} {r.reason.upper()}: {r.text}')
 
 
