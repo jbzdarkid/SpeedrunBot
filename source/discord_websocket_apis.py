@@ -7,7 +7,7 @@ from random import random
 from threading import Thread
 
 from .utils import seconds_since_epoch
-from . import commands, discord_apis
+from . import commands, discord_apis, exceptions
 
 DISPATCH = 0
 HEARTBEAT = 1
@@ -21,7 +21,7 @@ INVALID_SESSION = 9
 HELLO = 10
 HEARTBEAT_ACK = 11
 
-# Valid callbacks:
+# Valid callbacks: (although callbacks are somewhat deprecated)
 # on_message, on_direct_message, on_reaction, on_message_edit, on_message_delete
 
 class WebSocket():
@@ -192,7 +192,6 @@ class WebSocket():
 
   async def handle_message(self, msg, websocket):
     msg = json.loads(msg)
-    print(msg)
     if msg['op'] == DISPATCH:
       if msg['t'] == 'READY':
         # https://discord.com/developers/docs/topics/gateway-events#ready-ready-event-fields
@@ -253,40 +252,30 @@ class WebSocket():
       logging.error(f'Cannot handle interaction type {data["type"]}\n{data}')
       return
 
-    name = data['data']['name']
-    if data['member']['user']['id'] in admins and 'name' in commands.ADMIN_COMMANDS:
-      command = ADMIN_COMMANDS[name] # Allow admin versions of normal commands
-    elif name in commands.USER_COMMANDS:
-      command = commands[name]
-    else:
-      discord_apis.reply_to_interaction(data['id'], data['token'], f'Error: unknown command `{name}`!')
-      return
-
-    # We must ack within 3 seconds or Discord considers the command to have failed.
-    # We then have 15 minutes to reply before the token expires.
-    # https://discord.com/developers/docs/interactions/receiving-and-responding#responding-to-an-interaction
-    discord_apis.acknowledge_interaction(data['id'], data['token'])
+    response = None
+    command_name = None
 
     try:
-      channel = data['channel']
-      data = data['data']
-      kwargs = {option['name']: option['value'] for option in data.get('options', [])}
+      # We must ack within 3 seconds or Discord considers the command to have failed.
+      # We then have 15 minutes to reply before the token expires.
+      # https://discord.com/developers/docs/interactions/receiving-and-responding#responding-to-an-interaction
+      discord_apis.acknowledge_interaction(data['id'], data['token'])
 
-      # This is a relatively common argument and discord's response data is very painful to parse correctly.
-      if 'resolved' in data and 'channels' in data['resolved']:
-        channel = next(data['resolved']['channels'].values())
-      kwargs['channel'] = channel
+      # Channel ID is a relatively common piece of information but I don't always want to expose it to the caller.
+      # As such I'm just adding it into every command, and the value can be overridden if it's an actual argument.
+      kwargs = {'channel': data['channel_id']}
+      for option in data['data'].get('options', []):
+        kwargs[option['name']] = option['value']
 
+      command_name = data['data']['name']
+      command = commands.CALLBACKS[command_name]
       response = command(**kwargs)
-    except exceptions.CommandError as e: # User errors
-      response = f'Error: {e}'
-    except exceptions.NetworkError as e: # Server / connectivity errors
+    except exceptions.NetworkError as e:
       response = f'Failed due to network error, please try again: {e}'
-      logging.exception('Network error')
-    except Exception: # Coding errors
+      logging.exception('interaction-network')
+    except Exception:
       response = f'Failed due to an unknown error, please contact darkid: {e}'
-      logging.exception(f'General error during {data["name"]}')
-      send_last_lines('response-general')
+      logging.exception(f'General error during {command_name}')
+      send_last_lines('interaction-generic')
 
-    if response:
-      discord_apis.reply_to_interaction(data['id'], data['token'], response)
+    discord_apis.reply_to_interaction(data['id'], data['token'], response)

@@ -135,10 +135,33 @@ def register_all_commands(commands):
   j = make_request('GET', f'{api}/oauth2/applications/@me', get_headers=get_headers)
   url = f'{api}/applications/{j["id"]}/commands'
 
-  # There is a global rate limit of 200 application command creates per day, per guild
-  # TODO: I should probably GET before I POST and confirm subset. See https://stackoverflow.com/q/9323749
-  for name, command in commands.items():
-    make_request('POST', url, json=command, get_headers=get_headers)
+  # Ensure that all the commands are up to date by comparing the version from commands.py against the server's copy.
+  # - This helps to avoid the global rate limit of 200 creates/day
+  # - This helps to avoid command downtime when the bot restarts (commands take ~5 minutes to update clientside)
+  # - This helps to avoid stale commands lingering forever
+
+  existing = make_request('GET', url, get_headers=get_headers)
+  for old in existing:
+    name = old['name']
+    new = commands.get(name, None)
+    if not new:
+      logging.info(f'Command {name} does not exist any more, deleting')
+      make_request('DELETE', url + '/' + old['id'], get_headers=get_headers)
+      continue
+
+    for k, v in new.items():
+      if old[k] != v:
+        logging.info(f'Command {name} is out of date; key {k} has been updated to {v}, updating')
+        make_request('POST', url, json=new, get_headers=get_headers)
+        break
+    else:
+      logging.info(f'Command {name} is up to date')
+
+    del commands[name] # Delete so that we know it's handled
+
+  for new in commands:
+    logging.info(f'Command {name} does not exist, creating')
+    make_request('POST', url, json=new, get_headers=get_headers)
 
 
 def delete_all_commands():

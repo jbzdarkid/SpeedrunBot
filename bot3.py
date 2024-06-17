@@ -18,193 +18,67 @@ from source.utils import seconds_since_epoch, parse_time
 # TODO: <t:1626594025> is apparently a thing discord supports. Maybe useful somehow?
 #   See https://discord.com/developers/docs/reference#message-formatting
 
-# We maintain a global list of admins (since it's used by both the websocket client and the REST client).
-# This value is fetched during websocket startup, so there may be a brief period of time where there are no admins registered.
 client = discord_websocket_apis.WebSocket()
+
+# We maintain a global list of admins (to protect our chat-only commands)
 admins = []
 
 def on_direct_message(message):
-  if message['author']['id'] not in admins:
-    return # DO NOT process DMs from non-admins (For safety. It might be fine to process all DMs, I just don't want people spamming the bot without my knowledge.)
-
-  on_message_internal(message)
-
-
-def on_message(message):
-  if message['author']['id'] == client.user['id']:
-    return # DO NOT process our own messages
-  elif any(client.user['id'] == mention['id'] for mention in message['mentions']):
-    pass # DO process messages which mention us, no matter which channel they're sent
-  elif len(database.get_games_for_channel(message['channel_id'])) == 0:
-    return # DO NOT process messages in unwatched channels
-
-  on_message_internal(message)
-
-
-def on_message_internal(message):
   def is_mention(word):
     # @member @&role #channel
+    # https://github.com/Rapptz/discord.py/blob/master/discord/message.py#L892
     return re.fullmatch('<(@|@&|#)\d{15,20}>', word)
   # Since mentions can appear anywhere in the message, strip them out entirely for command processing.
   # User and channel mentions can still be accessed via message.mentions and message.channel_mentions
 
   args = [arg.strip() for arg in message['content'].split(' ') if not is_mention(arg)]
 
-  def get_channel():
-    # https://github.com/Rapptz/discord.py/blob/master/discord/message.py#L892
-    channel_mentions = [m[1] for m in re.findall('<#([0-9]{15,20})>', message['content'])]
-    if len(channel_mentions) == 0:
-      return message['channel_id']
-    if len(channel_mentions) == 1:
-      return channel_mentions[0]
-    if len(channel_mentions) > 1:
-      raise exceptions.CommandError('Response mentions more than one channel. Please mention at most one channel name at a time.')
+  if message['author']['id'] not in admins:
+    return
+  elif len(args) == 0:
+    return
+  elif not args[0].startswith('!'):
+    discord_apis.send_message_ids(message['channel_id'], f'Unknown command: `{args[0]}`')
+    return
 
-  def assert_args(usage, *required_args, example=None):
-    if any((arg == None or arg == '') for arg in required_args):
-      error = f'Usage of {args[0]}: `{args[0]} {usage}`'
-      if example:
-        error += f'\nFor example: `{args[0]} {example}`'
-      raise exceptions.UsageError(error)
-
-  # Actual commands here
-  def track_game(channel_id, game_name):
-    assert_args('#channel Game Name', channel_id, game_name)
-    src_game = src_apis.get_game(game_name)
-    src_game_id = src_game['id']
-    twitch_game_id = twitch_apis.get_game_id(src_game['names']['twitch'])
-    database.add_game(game_name, twitch_game_id, src_game_id, channel_id)
-    return f'Will now announce runners of `{game_name}` in channel <#{channel_id}>.'
-  def untrack_game(channel_id, game_name):
-    assert_args('#channel Game Name', channel_id, game_name)
-    database.remove_game(game_name)
-    return f'No longer announcing runners of `{game_name}` in channel <#{channel_id}>.'
-  def moderate_game(channel_id, game_name):
-    assert_args('#channel Game Name', channel_id, game_name)
-    src_game_id = src_apis.get_game(game_name)['id']
-    database.moderate_game(game_name, src_game_id, channel_id)
-    return f'Will now announce newly submitted runs of `{game_name}` in channel <#{channel_id}>.'
-  def unmoderate_game(channel_id, game_name):
-    assert_args('#channel Game Name', channel_id, game_name)
-    database.unmoderate_game(game_name)
-    return f'No longer announcing newly submitted runs of `{game_name}` in channel <#{channel_id}>.'
-  def restart(code=0):
+  def restart():
     discord_apis.add_reaction(message, '💀')
-    logging.info(f'Killing the bot with code {code}')
+    logging.info('Killing the bot with code 1')
     # Calling sys.exit from a thread does not kill the main process, so we must use os.kill
     import os
-    os.kill(os.getpid(), int(code))
+    os.kill(os.getpid(), 1)
   def log_streams():
     for _ in generics.get_speedrunners_for_game():
       pass
     send_last_lines('log_streams')
   def verifier_stats(game_name):
-    assert_args('Game Name', game_name)
     return generics.get_verifier_stats(game_name, 24)
-  def announce(channel_id, twitch_username=None, src_username=None):
-    assert_args('twitch_username src_username', twitch_username, src_username, example='jbzdarkid darkid')
-    data = database.get_games_for_channel(channel_id)
-    if not data:
-      raise exceptions.UsageError(f'There are no games currently associated with <#{channel_id}>. Please call this command in a channel which is announcing streams.')
-
-    twitch_apis.get_user_id(twitch_username) # Will throw if there is any ambiguity about the twich username
-    src_id = src_apis.search_src_user(src_username) # Will throw if there is any ambiguity about the src username
-    database.add_user(twitch_username, src_id)
-    for d in data:
-      database.add_personal_best(src_id, d['src_game_id'])
-
-    games = ' or '.join(f'`{d["game_name"]}`' for d in data)
-    return f'Will now announce `{twitch_username}` when they go live on twitch playing {games}.'
-  def forget(twitch_username=None):
-    assert_args('twitch_username', twitch_username)
-    twitch_apis.get_user_id(twitch_username) # Will throw if there is any ambiguity about the twich username
-    database.remove_user(twitch_username)
-    return f'Removed PBs and user data for {twitch_username}. You will need to unlink your SRC to prevent future announcements.'
   def get_servers():
     servers = discord_apis.get_servers()
     output = f'This bot has presence in {len(servers)} servers:\n'
     for server in servers:
       output += f'Server `{server["name"]}` (ID {server["id"]})\n'
     return output
-  def about():
-    data = database.get_games_for_channel(message['channel_id'])
-    games = ' or '.join(f'`{d["game_name"]}`' for d in data) if data else 'any tracked game'
-    response = 'Speedrunning bot, created by darkid#1647.\n'
-    response += f'The bot will search for twitch streams of {games}, then check to see if the given streamer is on speedrun.com, then check to see if the speedrunner has a PB in that game.\n'
-    response += 'If so, it announces their stream in this channel.\n'
-    response += 'For more info, see the readme at <https://github.com/jbzdarkid/SpeedrunBot>'
-    return response
-  def help():
-    all_commands = [f'`{key}`' for key in commands]
-    if message['author']['id'] in admins:
-      all_commands += [f'`{key}`' for key in admin_commands]
-    return 'Available commands: ' + ', '.join(all_commands)
-  def personal_best(twitch_username, game_name=None):
-    assert_args('Twitch username', twitch_username)
-    user = database.get_user(twitch_username)
-    if not user:
-      raise exceptions.CommandError(f'Could not find user `{twitch_username}` in the database')
-
-    if not game_name:
-      for stream in database.get_announced_streams():
-        if stream['name'] == twitch_username:
-          game_name = stream['game']
-          break
-      else:
-        raise exceptions.CommandError(f'User {twitch_username} is not live, please provide the game name as the second argument.')
-
-    src_game_id = src_apis.get_game(game_name)['id']
-    personal_bests = src_apis.get_personal_bests(user['src_id'], src_game_id, embed=src_apis.embeds) # Embeds are required for run_to_string
-    output = f'Streamer {twitch_username} has {len(personal_bests)} personal bests in {game_name}:'
-    for entry in personal_bests[:10]:
-      run = entry['run']
-      run.update(entry) # Embeds are side-by-side with the run from this API, for some reason.
-      output += '\n' + src_apis.run_to_string(run)
-    return output
-  def list_tracked_games():
+  def list_all_tracked_games():
     tracked_games_db = list(database.get_all_games())
-    i = 0
     tracked_games = f'SpeedrunBot is currently tracking {len(tracked_games_db)} games:\n'
     for game_name, twitch_game_id, src_game_id in tracked_games_db:
-      i += 1
-      tracked_games += f'{i:>2}. {game_name} ({twitch_game_id} | {src_game_id})\n'
+      tracked_games += f'1. {game_name} ({twitch_game_id} | {src_game_id})\n'
     return tracked_games
 
   admin_commands = {
-    '!track_game': lambda: track_game(get_channel(), ' '.join(args[1:])),
-    '!untrack_game': lambda: untrack_game(get_channel(), ' '.join(args[1:])),
-    '!moderate_game': lambda: moderate_game(get_channel(), ' '.join(args[1:])),
-    '!unmoderate_game': lambda: unmoderate_game(get_channel(), ' '.join(args[1:])),
     '!restart': lambda: restart(*args[1:2]),
     '!git_update': lambda: f'```{git_update()}```',
     '!send_last_lines': lambda: send_last_lines('admin_command'),
     '!log_streams': lambda: log_streams(),
     '!verifier_stats': lambda: verifier_stats(' '.join(args[1:])),
-    '!forget': lambda: forget(*args[1:2]), # Admin command to prevent abuse
     '!servers': lambda: get_servers(),
-    '!list_tracked_games': lambda: list_tracked_games(),
+    '!list_all_tracked_games': lambda: list_all_tracked_games(),
   }
-  commands = {
-    '!announce_me': lambda: announce(get_channel(), *args[1:3]),
-    '!about': lambda: about(),
-    '!help': lambda: help(),
-    '!pb': lambda: personal_best(*args[1:2], ' '.join(args[2:])),
-  }
-
-  if len(args) == 0:
-    return
-  elif message['author']['id'] in admins and args[0] in admin_commands:
-    command = admin_commands[args[0]] # Allow admin versions of normal commands
-  elif args[0] in commands:
-    command = commands[args[0]]
-  elif args[0].startswith('!'):
-    discord_apis.send_message_ids(message['channel_id'], f'Unknown command: `{args[0]}`')
-    return
-  else:
-    return # Not a command
 
   discord_apis.add_reaction(message, '🕐') # In case processing takes a while, ack that we've gotten the message.
   try:
+    command = admin_commands[args[0]]
     response = command()
     if response:
       discord_apis.add_reaction(message, '🔇')
@@ -508,16 +382,13 @@ if __name__ == '__main__':
     threading.Thread(target=forever_thread, args=(announce_live_channels, 60)).start()
     threading.Thread(target=forever_thread, args=(announce_new_runs,      600)).start()
 
-    client.callbacks['on_message'] = on_message
     client.callbacks['on_direct_message'] = on_direct_message
 
+    # Run some top-level startup code. If this throws, we have to shutdown (there is no fallback).
     try:
-      discord_apis.delete_all_commands()
-      # TODO: Needs a better home. Maybe during client.run?
-      # TODO: Taking a break.
-      # discord_apis.register_all_commands(commands.ALL_COMMANDS)
+      discord_apis.register_all_commands(commands.ALL_COMMANDS)
 
-      admins = [discord_apis.get_owner()['id']] # This can throw, and if it does, we have no recompense.
+      admins = [discord_apis.get_owner()['id']] # Only one admin for now (me!)
       client.run()
     except Exception:
       logging.exception('catch-all for client.run')
