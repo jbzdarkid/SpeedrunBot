@@ -8,6 +8,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
     - run: pip install -r requirements.txt
     - run: python -u tests.py
       timeout-minutes: 5
