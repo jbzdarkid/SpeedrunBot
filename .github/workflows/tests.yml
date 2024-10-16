@@ -1,4 +1,4 @@
-name: Validate and publish
+name: Tests
 on:
   push:
 
@@ -11,4 +11,3 @@ jobs:
     - run: pip install -r requirements.txt
     - run: python -u tests.py
       timeout-minutes: 5
-

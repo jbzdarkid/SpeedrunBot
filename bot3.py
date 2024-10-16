@@ -263,12 +263,8 @@ def announce_new_runs():
         del db_unverified[run_id]
         continue
 
-      try:
-        current_pb = src_apis.get_current_pb(run)
-        message = discord_apis.send_message_ids(channel_id, f'New run submitted: {src_apis.run_to_string(run, current_pb)}')
-      except exceptions.NetworkError:
-        logging.exception('There was a network error while trying to announce an unverified run, not adding to database (will be announced next pass)')
-        continue
+      current_pb = src_apis.get_current_pb(run)
+      message = discord_apis.send_message_ids(channel_id, f'New run submitted: {src_apis.run_to_string(run, current_pb)}')
 
       logging.info(f'Tracking new unverified run {run_id}')
       database.add_unverified_run(
@@ -328,12 +324,8 @@ def announce_live_channels():
   existing_streams = {stream['name']: stream for stream in database.get_announced_streams()}
   logging.info(f'Existing streams: {existing_streams}')
 
-  try:
-    live_streams = {stream['name']: stream for stream in generics.get_speedrunners_for_game()}
-    logging.info(f'Live streams: {live_streams}')
-  except exceptions.NetworkError:
-    live_streams = existing_streams
-    logging.exception('There was a network error while fetching live streams, assuming status quo (no streams changed)')
+  live_streams = {stream['name']: stream for stream in generics.get_speedrunners_for_game()}
+  logging.info(f'Live streams: {live_streams}')
 
   # Next, determine which streams have just gone live
   for stream_name, stream in live_streams.items():
@@ -344,12 +336,8 @@ def announce_live_channels():
         game=stream['game'],
         url=stream['url'])
       channel_id = database.get_channel_for_game(stream['twitch_game_id'])
-      try:
-        message = discord_apis.send_message_ids(channel_id, content, get_embed(stream))
-        metadata = twitch_apis.get_preview_metadata(stream['preview'])
-      except exceptions.NetworkError:
-        logging.exception('There was a network error while trying to announce a new stream, not adding to database (will be announced next pass)')
-        continue
+      message = discord_apis.send_message_ids(channel_id, content, get_embed(stream))
+      metadata = twitch_apis.get_preview_metadata(stream['preview'])
 
       database.add_announced_stream(
         name=stream_name,
@@ -413,15 +401,11 @@ def announce_live_channels():
       live_stream['preview_expires'] = metadata['expires']
 
     if title_changed or preview_expired:
-      try:
-        success = discord_apis.edit_message_ids(
-          channel_id=existing_stream['channel_id'],
-          message_id=existing_stream['message_id'],
-          embed=get_embed(existing_stream),
-        )
-      except exceptions.NetworkError:
-        logging.exception('Failed to edit stream title/preview')
-        continue
+      success = discord_apis.edit_message_ids(
+        channel_id=existing_stream['channel_id'],
+        message_id=existing_stream['message_id'],
+        embed=get_embed(existing_stream),
+      )
       if success:
         database.update_announced_stream(existing_stream)
       else:
@@ -433,16 +417,12 @@ def announce_live_channels():
     stream_duration = int(seconds_since_epoch() - stream['start'])
     content = f'{discord_apis.escape_markdown(stream_name)} went offline after {timedelta(seconds=stream_duration)}.\n'
     content += f'Watch their latest videos here: <{stream["url"]}/videos?filter=archives>'
-    try:
-      discord_apis.edit_message_ids(
-        channel_id=stream['channel_id'],
-        message_id=stream['message_id'],
-        content=content,
-        embed=[], # Remove the embed
-      )
-    except exceptions.NetworkError:
-      logging.exception('Failed to send stream offline')
-      continue
+    discord_apis.edit_message_ids(
+      channel_id=stream['channel_id'],
+      message_id=stream['message_id'],
+      content=content,
+      embed=[], # Remove the embed
+    )
 
     # If there's a network error, we DON'T want to delete (so that we *do* delete on the next pass)
     # However, if the edit failed, we DO want to delete (since the message is gone)
