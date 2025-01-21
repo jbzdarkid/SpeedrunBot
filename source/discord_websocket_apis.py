@@ -172,6 +172,10 @@ class WebSocket():
       logging.exception('Disconnecting due to generic websocket error on get')
       self.connected = False
       return None
+    except asyncio.exceptions.IncompleteReadError:
+      logging.exception('Disconnecting due a protocol error (?) during get')
+      self.connected = False
+      return None
 
 
   async def send_message(self, websocket, op, data):
