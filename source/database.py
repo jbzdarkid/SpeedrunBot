@@ -24,6 +24,11 @@ c.execute('''CREATE TABLE IF NOT EXISTS tracked_games (
   src_game_id      TEXT    NOT NULL    UNIQUE,
   discord_channel  INTEGER NOT NULL
 )''')
+c.execute('''CREATE TABLE IF NOT EXISTS src_game_series (
+  src_game_id      TEXT    NOT NULL    PRIMARY KEY,
+  src_series_id    TEXT    NOT NULL,
+  last_fetched     REAL
+)''')
 c.execute('''CREATE TABLE IF NOT EXISTS personal_bests (
   src_id           TEXT    NOT NULL,
   src_game_id      TEXT    NOT NULL,
@@ -144,6 +149,24 @@ def remove_game(game_name):
   # Note: There is no need to delete users here -- users are cross-game.
   execute('DELETE FROM personal_bests WHERE src_game_id=?', src_game_id[0])
   execute('DELETE FROM tracked_games WHERE src_game_id=?', src_game_id[0])
+
+
+# Commands related to src_game_series
+def set_game_series(src_game_id, series_id):
+  fetch_time = seconds_since_epoch()
+  execute('INSERT OR REPLACE INTO src_game_series VALUES (?, ?, ?)', src_game_id, series_id, fetch_time)
+
+
+def get_game_series(src_game_id):
+  execute('SELECT src_series_id, last_fetched FROM src_game_series WHERE src_game_id=?', src_game_id)
+  if data := fetchone():
+    return data
+  return None, None
+
+
+def get_games_in_series(src_series_id):
+  execute('SELECT src_game_id FROM src_game_series WHERE src_series_id=?', src_series_id)
+  return [d[0] for d in fetchall()]
 
 
 # Commands related to personal_bests

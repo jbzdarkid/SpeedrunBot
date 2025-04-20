@@ -49,10 +49,15 @@ def runner_runs_game(twitch_username, src_id, src_game_id):
       # Last check was <1 day ago, don't fetch again
       return False
 
+  # If a game was just recently added, the leaderboards might be locked down -- so we won't find any runs.
+  # For equity, search for a PB for any game in the series to determine if the streamer is a speedrunner.
+  games_in_series = get_games_in_series(src_game_id)
+  
+  # If there are multiple games, this will make a single network call for all games at once
   try:
-    personal_bests = get_personal_bests(src_id, src_game_id, max=1)
+    personal_bests = get_personal_bests(src_id, games_in_series, max=1)
   except exceptions.NetworkError:
-    logging.exception(f'Could not fetch {src_id} personal bests in {src_game_id}, assuming non-speedrunner')
+    logging.exception(f'Could not fetch {src_id} personal bests for any of {games_in_series}, assuming non-speedrunner')
     return False
 
   database.update_user_fetch_time(twitch_username)
@@ -62,6 +67,40 @@ def runner_runs_game(twitch_username, src_id, src_game_id):
 
   database.add_personal_best(src_id, src_game_id)
   return True
+
+
+def get_games_in_series(src_game_id):
+  series_id, fetch_time = database.get_game_series(src_game_id)
+
+  if fetch_time and seconds_since_epoch() < fetch_time + ONE_DAY:
+    # Last check was <1 day ago, just return based on database info
+    return database.get_games_in_series(series_id)
+
+  if not series_id:
+    try:
+      j = make_request('GET', f'{api}/games/{src_game_id}')
+      series_uri = next((link['uri'] for link in j['links'] if link['rel'] == 'series'), None)
+      if series_uri:
+        series_id = series_uri.replace('https://www.speedrun.com/api/v1/series/', '')
+        database.set_game_series(src_game_id, series_id) # Save the series ID before we go any further
+
+    except exceptions.NetworkError:
+      logging.exception(f'Could not find series for in {src_game_id}, assuming no games in series')
+
+  if not series_id:
+    return [src_game_id] # No series id, the series is just (this game) and nothing else.
+
+  games_in_series = []
+  try:
+    j = make_request('GET', f'{api}/series/{series_id}/games')
+    games_in_series = [game['id'] for game in j['data']]
+    for game_id in games_in_series:
+      database.set_game_series(game_id, series_id)
+
+  except exceptions.NetworkError:
+    logging.exception(f'Could not find series for in {src_game_id}, assuming no games in series')
+
+  return games_in_series
 
 
 def get_personal_bests(src_id, src_game_id, **params):

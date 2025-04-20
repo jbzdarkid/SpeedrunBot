@@ -56,14 +56,14 @@ class MockClient:
         return message
     return None
 
-def MockStream(name):
+def MockStream(name, game='game1'):
   return {
     'name': name,
     'url': 'twitch.tv/' + name,
     'title': name + '_title',
     'preview': 'preview.com/' + name,
-    'game': 'game1',
-    'twitch_game_id': 't1',
+    'game': game,
+    'twitch_game_id': game.replace('game', 't'),
   }
 
 class BotTests:
@@ -110,10 +110,12 @@ class BotTests:
     assert len(streams) == 0
 
   def testOneChannelGoesLive(self):
+    database.add_personal_best('foo_src', 's1')
     streams = self.on_parsed_streams(MockStream('foo'))
     assert len(streams) == 1
 
   def testOneChannelGoesLiveThenOffline(self):
+    database.add_personal_best('foo_src', 's1')
     streams = self.on_parsed_streams(MockStream('foo'))
     assert len(streams) == 1
     sleep(1.1)
@@ -136,8 +138,8 @@ class BotTests:
     )
     assert len(list(database.get_announced_streams())) == 1
 
-    stream = MockStream('bar')
-    stream['game'] = 'game2'
+    database.add_personal_best('bar_src', 's2')
+    stream = MockStream('bar', 'game2')
     streams = self.on_parsed_streams(stream)
     assert len(streams) == 1
     assert streams[0]['message_id'] == message.id
@@ -145,6 +147,8 @@ class BotTests:
 
   def testChannelChangesGame(self):
     database.add_game('game2', 't2', 's2', bot.client.new_channel().id)
+    database.add_personal_best('foo_src', 's1')
+    database.add_personal_best('foo_src', 's2')
     stream = MockStream('foo')
 
     streams = self.on_parsed_streams(stream)
@@ -152,7 +156,7 @@ class BotTests:
     assert streams[0]['game'] == 'game1'
     game1_message_id = streams[0]['message_id']
 
-    stream['game'] = 'game2'
+    stream = MockStream('foo', 'game2')
     streams = self.on_parsed_streams(stream)
     assert len(streams) == 1
     assert streams[0]['game'] == 'game2'
@@ -160,7 +164,26 @@ class BotTests:
     game1_message = bot.client.find_message(game1_message_id)
     assert 'offline' in game1_message['content']
 
+  def testChannelChangesGameToNonSpeedgame(self):
+    database.add_game('game2', 't2', 's2', bot.client.new_channel().id)
+    database.add_personal_best('foo_src', 's1')
+    # Notably foo_src does *not* run game2 (s2)
+    stream = MockStream('foo')
+
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 1
+    assert streams[0]['game'] == 'game1'
+    game1_message_id = streams[0]['message_id']
+
+    stream = MockStream('foo', 'game2')
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 0
+
+    game1_message = bot.client.find_message(game1_message_id)
+    assert 'offline' in game1_message['content']
+
   def testChannelChangesTitle(self):
+    database.add_personal_best('foo_src', 's1')
     stream = MockStream('foo')
     streams = self.on_parsed_streams(stream)
     assert len(streams) == 1
@@ -177,30 +200,27 @@ class BotTests:
     database.add_game('game2_name', 't2', 's2', channel.id)
     database.add_game('game3_name', 't3', 's3', channel.id)
     
-    stream = MockStream('foo')
-    stream['game'] = 'game2_name'
-    stream['twitch_game_id'] = 't2'
-    
+    database.add_personal_best('foo_src', 's2')
+    stream = MockStream('foo', 'game2')
     streams = self.on_parsed_streams(stream)
     assert len(streams) == 1
 
-    stream2 = MockStream('bar')
-    stream2['game'] = 'game3_name'
-    stream2['twitch_game_id'] = 't3'
-    
+    database.add_personal_best('bar_src', 's3')
+    stream2 = MockStream('bar', 'game3')
     streams = self.on_parsed_streams(stream, stream2)
     assert len(streams) == 2
 
   def testTwoGamesTwoChannels(self):
     database.add_game('game2', 't2', 's2', bot.client.new_channel().id)
+    database.add_personal_best('foo_src', 's1')
+    database.add_personal_best('bar_src', 's2')
 
     stream = MockStream('foo')
     streams = self.on_parsed_streams(stream)
     assert len(streams) == 1
     assert streams[0]['game'] == 'game1'
 
-    stream2 = MockStream('bar')
-    stream2['game'] = 'game2'
+    stream2 = MockStream('bar', 'game2')
     streams = self.on_parsed_streams(stream, stream2)
     assert len(streams) == 2
     assert streams[0]['game'] == 'game1'
@@ -212,6 +232,8 @@ class BotTests:
 
     streams = self.on_parsed_streams()
     assert len(streams) == 0
+
+    
 
 
   """
@@ -260,7 +282,9 @@ class BotTests:
   """
 
   def testEscapement(self):
+    database.add_personal_best('underscore__src', 's1')
     streams = self.on_parsed_streams(MockStream('underscore_'))
+    assert len(streams) == 1
     message = bot.client.find_message(streams[0]['message_id'])
     assert r'underscore\_ is now doing runs of game1' in message.content # Usernames need escaping
     assert r'underscore\_\_title' in message.embed['title'] # Titles need escaping
@@ -274,10 +298,21 @@ class BotTests:
     assert r'<twitch.tv/underscore_/videos?filter=archives>' in message.content # URL does not
 
   def testNoSrl(self):
+    database.add_personal_best('foo_src', 's1')
     stream = MockStream('foo')
     stream['title'] = 'Any% runs of game1'
     streams = self.on_parsed_streams(stream)
     assert len(streams) == 1
+
+    stream['title'] = 'Randomizer runs of game1 [nosrl]'
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 0
+
+  def testNoSrlNonRunner(self):
+    stream = MockStream('foo')
+    stream['title'] = 'Any% runs of game1'
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 0
 
     stream['title'] = 'Randomizer runs of game1 [nosrl]'
     streams = self.on_parsed_streams(stream)
@@ -317,6 +352,19 @@ class BotTests:
     assert src_apis.get_game('foobar')['id'] == 0
     assert src_apis.get_game('barfoo')['id'] == 2
 
+  def testRunnerRunsOtherGameInSeries(self):
+    database.add_game('game2', 't2', 's2', bot.client.new_channel().id)
+    
+    # Two games in the series, and the user has a PB in the first one
+    database.set_game_series('s1', 'series1')
+    database.set_game_series('s2', 'series1')
+    self.mock_http['src'].return_value = {'data': ['a personal best']}
+
+    stream = MockStream('foo', 'game2')
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 1
+
+
 if __name__ == '__main__':
   info_stream = logging.StreamHandler(sys.stdout)
   info_stream.setLevel(logging.DEBUG)
@@ -327,11 +375,8 @@ if __name__ == '__main__':
   error_stream.setFormatter(logging.Formatter('Error: %(message)s'))
   logging.basicConfig(level=logging.DEBUG, handlers=[info_stream, error_stream])
 
-  # Eh. I should probably be mocking the make_request call. Whatever.
   def mock_src_id(twitch_username):
     return f'{twitch_username}_src'
-  def mock_runner_runs_game(twitch_username, src_id, src_game_id):
-    return True
 
   tests = BotTests()
   with (patch('source.twitch_apis.get_live_streams') as mock_get_live_streams,
@@ -341,8 +386,7 @@ if __name__ == '__main__':
         patch('source.twitch_apis.make_head_request', new=tests.mock_head),
         patch('source.discord_apis.edit_message_ids', new=tests.mock_edit_message),
         patch('source.discord_apis.send_message_ids', new=tests.mock_send_message),
-        patch('source.src_apis.get_src_id', new=mock_src_id),
-        patch('source.src_apis.runner_runs_game', new=mock_runner_runs_game)):
+        patch('source.src_apis.get_src_id', new=mock_src_id)):
     tests.mock_get_live_streams = mock_get_live_streams
     tests.mock_http = {
       'src': mock_src_http,
