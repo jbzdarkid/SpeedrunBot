@@ -49,7 +49,7 @@ def get_speedrunners_for_game():
 
     src_id = src_apis.get_src_id(twitch_username)
     if src_id is None:
-      logging.debug(f'{prefix}is not a speedrunner')
+      logging.info(f'{prefix}is not a speedrunner')
       continue
 
     if not src_apis.runner_runs_game(twitch_username, src_id, src_game_ids[twitch_game_id]):
