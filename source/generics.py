@@ -19,17 +19,6 @@ def get_speedrunners_for_game():
   # Otherwise, we would have to make one call to twitch per game, which is slow.
   streams = twitch_apis.get_live_streams(game_ids=twitch_game_ids)
 
-  # For performance here, instead of directly iterating the streams, pass them into a ThreadPoolExecutor.
-  # pool_data = []
-  # def pool_func(stream):
-  #   output = stream.modify()
-  #   pool_data.append(output) # Thread-safety provided by the GIL
-  #
-  # with ThreadPoolExecutor(8) as pool:
-  #   for i, stream in enumerate(pool.map(pool_func, streams)):
-  #     # log stuff
-  # return pool_data
-
   logging.info('id|username            |game name           |status')
   logging.info('--+--------------------+--------------------+--------------------------------------')
   for i, stream in enumerate(streams):
