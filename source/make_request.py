@@ -26,21 +26,22 @@ def make_request_internal(method, url, *args, retry=True, allow_4xx=False, **kwa
     r = requests.request(method, url, *args, **kwargs)
 
     if retry:
-      if r.status_code == 429 and 'Retry-After' in r.headers:
-        # Try again exactly once when we are told to do so due to rate limiting.
-        sleep(int(r.headers['Retry-After']) * 2)
-        r = requests.request(method, url, *args, **kwargs)
+      if r.status_code in [420, 429]:
+        # Try again exactly once when we are told to back off
+        sleep_time = int(r.headers.get('Retry-After', 5))
+        sleep(sleep_time)
+        r = requests.request(method, url, retry=False, *args, **kwargs)
 
       elif r.status_code == 502:
         # Try again exactly once when we encounter server downtime
         sleep(5)
-        r = requests.request(method, url, *args, **kwargs)
+        r = requests.request(method, url, retry=False, *args, **kwargs)
 
       elif r.status_code == 401 and get_headers != None:
-        # Try again with new headers when we get an UNAUTHORIZED error.
+        # Try again with new headers when we get an UNAUTHORIZED error
         kwargs['headers'] = get_headers()
         sleep(5)
-        r = requests.request(method, url, *args, **kwargs)
+        r = requests.request(method, url, retry=False, *args, **kwargs)
 
   except requests.exceptions.RequestException as e:
     failure()
