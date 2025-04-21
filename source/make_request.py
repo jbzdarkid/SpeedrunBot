@@ -30,18 +30,18 @@ def make_request_internal(method, url, *args, retry=True, allow_4xx=False, **kwa
         # Try again exactly once when we are told to back off
         sleep_time = int(r.headers.get('Retry-After', 5))
         sleep(sleep_time)
-        r = requests.request(method, url, retry=False, *args, **kwargs)
+        r = requests.request(method, url, *args, **kwargs)
 
       elif r.status_code == 502:
         # Try again exactly once when we encounter server downtime
         sleep(5)
-        r = requests.request(method, url, retry=False, *args, **kwargs)
+        r = requests.request(method, url, *args, **kwargs)
 
       elif r.status_code == 401 and get_headers != None:
-        # Try again with new headers when we get an UNAUTHORIZED error
+        # Try again exactly once with new headers when we get an UNAUTHORIZED error
         kwargs['headers'] = get_headers()
         sleep(5)
-        r = requests.request(method, url, retry=False, *args, **kwargs)
+        r = requests.request(method, url, *args, **kwargs)
 
   except requests.exceptions.RequestException as e:
     failure()
