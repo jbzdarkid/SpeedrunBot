@@ -12,12 +12,10 @@ from uuid import uuid4
 from source import database, generics, twitch_apis, src_apis, discord_apis, discord_websocket_apis, exceptions
 from source.utils import seconds_since_epoch, parse_time
 
-# TODO: Reactions with :eyes: and :thumpsup: for verifiers
 # TODO: Add a test for 'what if a live message got deleted'
-# TODO: Threading for user lookups will save a lot of time, especially as the list of games grows
-# TODO: Try to improve performance by creating a thread for each runner
 # TODO: <t:1626594025> is apparently a thing discord supports. Maybe useful somehow?
 #   See https://discord.com/developers/docs/reference#message-formatting
+# TODO: Consider batching SRC user lookups (when gsfg calls get_src_id). Not super relevant (since I'm working with niche games) but will matter for bigger games.
 
 # We maintain a global list of admins (since it's used by both the websocket client and the REST client).
 # This value is fetched during websocket startup, so there may be a brief period of time where there are no admins registered.
