@@ -36,6 +36,7 @@ def get_src_id(twitch_username):
   src_id = j['data'][0]['id']
   if not user:
     # When initially adding a user, we set the fetch_time to 0 so that further lookups will fetch their PBs.
+    # TODO: This seems like a hack. If I wind up rewriting this to do multi-user-fetch, try to do something smarter.
     database.add_user(twitch_username, src_id, 0)
   return src_id
 
@@ -79,7 +80,7 @@ def get_games_in_series(src_game_id):
   if not series_id:
     try:
       j = make_request('GET', f'{api}/games/{src_game_id}')
-      series_uri = next((link['uri'] for link in j['links'] if link['rel'] == 'series'), None)
+      series_uri = next((link['uri'] for link in j['data']['links'] if link['rel'] == 'series'), None)
       if series_uri:
         series_id = series_uri.replace('https://www.speedrun.com/api/v1/series/', '')
         database.set_game_series(src_game_id, series_id) # Save the series ID before we go any further
