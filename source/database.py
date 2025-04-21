@@ -81,7 +81,7 @@ def fetchall():
 
 # Commands related to users
 def add_user(twitch_username, src_id, fetch_time=None):
-  if not fetch_time:
+  if fetch_time is None:
     fetch_time = seconds_since_epoch()
   execute('INSERT OR REPLACE INTO users VALUES (?, ?, ?)', twitch_username.lower(), src_id, fetch_time)
 
