@@ -54,9 +54,8 @@ def runner_runs_game(twitch_username, src_id, src_game_id):
   # For equity, search for a PB for any game in the series to determine if the streamer is a speedrunner.
   games_in_series = get_games_in_series(src_game_id)
   
-  # If there are multiple games, this will make a single network call for all games at once
   try:
-    personal_bests = get_personal_bests(src_id, games_in_series, max=1)
+    personal_bests = get_personal_bests(src_id, games_in_series)
   except exceptions.NetworkError:
     logging.exception(f'Could not fetch {src_id} personal bests for any of {games_in_series}, assuming non-speedrunner')
     return False
@@ -104,10 +103,10 @@ def get_games_in_series(src_game_id):
   return games_in_series
 
 
-def get_personal_bests(src_id, src_game_id, **params):
-  params['game'] = src_game_id
+def get_personal_bests(src_id, src_game_ids, **params):
+  # Sadly, there doesn't seem to be a way to call the SRC API to get PBs in multiple games, so we're stuck making one call and sorting through the results.
   j = make_request('GET', f'{api}/users/{src_id}/personal-bests', params=params)
-  return j['data']
+  return [run for run in j['data'] if run['game'] in src_game_ids]
 
 
 def get_game(game_name):

@@ -358,7 +358,7 @@ class BotTests:
     # Two games in the series, and the user has a PB in the first one
     database.set_game_series('s1', 'series1')
     database.set_game_series('s2', 'series1')
-    self.mock_http['src'].return_value = {'data': ['a personal best']}
+    self.mock_http['src'].return_value = {'data': [{'game': 's1'}, {'game': 's3'}]}
 
     stream = MockStream('foo', 'game2')
     streams = self.on_parsed_streams(stream)
