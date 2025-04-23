@@ -106,7 +106,7 @@ def get_games_in_series(src_game_id):
 def get_personal_bests(src_id, src_game_ids, **params):
   # Sadly, there doesn't seem to be a way to call the SRC API to get PBs in multiple games, so we're stuck making one call and sorting through the results.
   j = make_request('GET', f'{api}/users/{src_id}/personal-bests', params=params)
-  return [run for run in j['data'] if run['game'] in src_game_ids]
+  return [run for run in j['data'] if run['run']['game'] in src_game_ids]
 
 
 def get_game(game_name):
