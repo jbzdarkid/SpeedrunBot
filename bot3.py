@@ -275,7 +275,11 @@ def announce_new_runs():
 
     # All remaining runs are likely verified (accept or reject)
     for run_id, run in db_unverified.items():
-      run_status = src_apis.get_run_status(run_id)
+      try:
+        run_status = src_apis.get_run_status(run_id)
+      except exceptions.NetworkError:
+        logging.exception(f'Failed to load verification status for {run_id}, skipping for now')
+        continue
       logging.info(f'Run {run_id} is no longer status=new, now status={run_status}')
       if run_status == 'rejected':
         discord_apis.add_reaction_ids(run['channel_id'], run['message_id'], '👎')
