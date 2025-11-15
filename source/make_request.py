@@ -55,7 +55,7 @@ def make_request_internal(method, url, *args, retry=True, allow_4xx=False, **kwa
     failure() # Even if the caller allows client errors, it's still a failure and we should take care not to throttle.
     logging.info(f'Completed {method} request to {logging_url} with code {r.status_code}')
     return r
-  else if r.status_code == 404: # TODO: I don't want to silently ignore 404s, but we'll see...
+  elif r.status_code == 404: # TODO: I don't want to silently ignore 404s, but we'll see...
     failure()
     raise exceptions.NetworkError404(f'{method} {logging_url} returned {r.status_code} {r.reason.upper()}: {r.text}')
   else:
