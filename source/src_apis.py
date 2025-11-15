@@ -81,11 +81,11 @@ def get_games_in_series(src_game_id):
       j = make_request('GET', f'{api}/games/{src_game_id}')
       series_uri = next((link['uri'] for link in j['data']['links'] if link['rel'] == 'series'), None)
       if series_uri:
-        series_id = series_uri.replace('https://www.speedrun.com/api/v1/series/', '')
+        series_id = series_uri.split('/api/v1/series/')[1]
         database.set_game_series(src_game_id, series_id) # Save the series ID before we go any further
 
     except exceptions.NetworkError:
-      logging.exception(f'Could not find series for in {src_game_id}, assuming no games in series')
+      logging.exception(f'Could not find series for {src_game_id}, assuming no games in series')
 
   if not series_id:
     return [src_game_id] # No series id, the series is just (this game) and nothing else.
@@ -98,7 +98,7 @@ def get_games_in_series(src_game_id):
       database.set_game_series(game_id, series_id)
 
   except exceptions.NetworkError:
-    logging.exception(f'Could not find series for in {src_game_id}, assuming no games in series')
+    logging.exception(f'Could not find series for {src_game_id}, assuming no games in series')
 
   return games_in_series
 

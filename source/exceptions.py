@@ -4,6 +4,9 @@
 class NetworkError(Exception):
   pass
 
+class NetworkError404(Exception):
+  pass
+
 class CommandError(Exception):
   pass
 
