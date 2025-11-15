@@ -199,7 +199,7 @@ class BotTests:
     channel = bot.client.new_channel()
     database.add_game('game2_name', 't2', 's2', channel.id)
     database.add_game('game3_name', 't3', 's3', channel.id)
-    
+
     database.add_personal_best('foo_src', 's2')
     stream = MockStream('foo', 'game2')
     streams = self.on_parsed_streams(stream)
@@ -233,7 +233,7 @@ class BotTests:
     streams = self.on_parsed_streams()
     assert len(streams) == 0
 
-    
+
 
 
   """
@@ -354,7 +354,7 @@ class BotTests:
 
   def testRunnerRunsOtherGameInSeries(self):
     database.add_game('game2', 't2', 's2', bot.client.new_channel().id)
-    
+
     # Two games in the series, and the user has a PB in the first one
     database.set_game_series('s1', 'series1')
     database.set_game_series('s2', 'series1')
@@ -363,6 +363,26 @@ class BotTests:
     stream = MockStream('foo', 'game2')
     streams = self.on_parsed_streams(stream)
     assert len(streams) == 1
+
+
+  def testNoSeriesBleed(self):
+    database.add_game('game2', 't2', 's2', bot.client.new_channel().id)
+
+    # Both games are in the 'no series' series.
+    database.set_game_series('s1', src_apis.SRC_NO_SERIES)
+    database.set_game_series('s2', src_apis.SRC_NO_SERIES)
+
+    # User has a PB in only game1
+    self.mock_http['src'].return_value = {'data': [{'run': {'game': 's1'}}]}
+
+    # User should only be announced for game1
+    stream = MockStream('foo', 'game1')
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 1
+
+    stream = MockStream('foo', 'game2')
+    streams = self.on_parsed_streams(stream)
+    assert len(streams) == 0
 
 
 if __name__ == '__main__':
@@ -393,7 +413,7 @@ if __name__ == '__main__':
       'discord': mock_discord_http,
       'twitch': mock_twitch_http,
     }
-    
+
     def is_test(method):
       return inspect.ismethod(method) and method.__name__.startswith('test')
     tests = list(inspect.getmembers(tests, is_test))
