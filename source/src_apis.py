@@ -9,6 +9,7 @@ ONE_HOUR  = (3600)
 ONE_DAY   = (3600 * 24)
 ONE_WEEK  = (3600 * 24 * 7)
 ONE_MONTH = (3600 * 24 * 7 * 30)
+SRC_NO_SERIES = 'yr4gon12' # SRC uses this ID for games with no series.
 
 api = 'https://www.speedrun.com/api/v1'
 embeds = 'players,level,category,category.variables'
@@ -72,35 +73,26 @@ def runner_runs_game(twitch_username, src_id, src_game_id):
 def get_games_in_series(src_game_id):
   series_id, fetch_time = database.get_game_series(src_game_id)
 
-  if fetch_time and seconds_since_epoch() < fetch_time + ONE_DAY:
-    # Last check was <1 day ago, just return based on database info
-    return database.get_games_in_series(series_id)
-
-  if not series_id:
+  # Never fetched, or last fetch was > 1 day ago
+  if not fetch_time or seconds_since_epoch() > fetch_time + ONE_DAY:
     try:
       j = make_request('GET', f'{api}/games/{src_game_id}')
       series_uri = next((link['uri'] for link in j['data']['links'] if link['rel'] == 'series'), None)
       if series_uri:
         series_id = series_uri.split('/api/v1/series/')[1]
-        database.set_game_series(src_game_id, series_id) # Save the series ID before we go any further
+        database.set_game_series(src_game_id, series_id) # Save the series ID for this game before we go any further
+
+      j = make_request('GET', f'{api}/series/{series_id}/games')
+      for game in j['data']:
+        database.set_game_series(game['id'], series_id)
 
     except exceptions.NetworkError:
       logging.exception(f'Could not find series for {src_game_id}, assuming no games in series')
 
-  if not series_id:
-    return [src_game_id] # No series id, the series is just (this game) and nothing else.
+  if not series_id or series_id == SRC_NO_SERIES:
+    return [src_game_id] # No series id, the series is just [this game] and nothing else.
 
-  games_in_series = []
-  try:
-    j = make_request('GET', f'{api}/series/{series_id}/games')
-    games_in_series = [game['id'] for game in j['data']]
-    for game_id in games_in_series:
-      database.set_game_series(game_id, series_id)
-
-  except exceptions.NetworkError:
-    logging.exception(f'Could not find series for {src_game_id}, assuming no games in series')
-
-  return games_in_series
+  return database.get_games_in_series(series_id)
 
 
 def get_personal_bests(src_id, src_game_ids, **params):
