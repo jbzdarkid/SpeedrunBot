@@ -159,6 +159,10 @@ def on_message_internal(message):
       run = entry['run']
       run.update(entry) # Embeds are side-by-side with the run from this API, for some reason.
       output += '\n' + src_apis.run_to_string(run)
+
+    if not runner_runs_game(twitch_username, user['src_id'], src_game_id):
+      output += '\n' + 'However, they are not marked as having a PB in our database...'
+
     return output
   def list_tracked_games():
     tracked_games_db = list(database.get_all_games())
