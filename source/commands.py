@@ -1,5 +1,4 @@
-import logging
-
+import json
 from collections import defaultdict
 
 from . import database, twitch_apis, src_apis
@@ -9,6 +8,43 @@ CALLBACKS = {}
 
 ARG_TYPE_STRING  = 3
 ARG_TYPE_CHANNEL = 7
+
+def get_delta(existing_commands):
+  """
+  Compute the delta in commands between the server copy and the local copy.
+  We run this at startup to refresh the commands, but we only want to update the delta (to avoid getting throttled).
+  """
+  commands_to_update = []
+
+  existing_commands = {c['name']: c for c in existing_commands}
+  for name in ALL_COMMANDS:
+    if name not in existing_commands:
+      commands_to_update.append(ALL_COMMANDS[name])
+    elif not is_json_subset(ALL_COMMANDS[name], existing_commands[name]):
+      print(json.dumps(existing_commands[name], indent=2))
+      print(json.dumps(ALL_COMMANDS[name], indent=2))
+      commands_to_update.append(ALL_COMMANDS[name])
+    del existing_commands[name] # So we know if there are leftovers
+  
+  commands_to_delete = list(existing_commands.keys())
+  return (commands_to_update, commands_to_delete)
+
+
+def is_json_subset(a, b):
+  for key, value in a.items():
+    other_value = b.get(key, None)
+    if other_value is None:
+      return False
+    if isinstance(value, dict):
+      if not isinstance(other_value, dict):
+        return False
+      if not is_json_subset(value, other_value):
+        return False
+    # All other types should be first-class python (e.g. array, string, int) and thus directly comparable
+    elif value != other_value:
+      return False
+  return True
+
 
 def add_command(desc):
   def _inner(func):
@@ -29,9 +65,10 @@ def add_argument(name, desc, type=ARG_TYPE_STRING, required=True):
       'name': name,
       'description': desc,
       'type': type,
-      'required': required,
     })
-    options.sort(key = lambda o: 0 if o['required'] else 1) # Required options must come first
+    if required:
+      options[-1]['required'] = True # Discord normalizes to not include this if it's not set
+    options.sort(key = lambda o: 0 if 'required' in o else 1) # Required options must come first
     ALL_COMMANDS[func.__name__]['options'] = options
     return func
   return _inner
@@ -43,11 +80,21 @@ def add_argument_opt(name, desc, type=ARG_TYPE_STRING):
 
 def require_permission(permission):
   def _inner(func):
-    permissions = ALL_COMMANDS[func.__name__].get('permissions', 0)
+    permissions = ALL_COMMANDS[func.__name__].get('default_member_permissions', '0')
+    permissions = int(permissions) # Inexplicably discord expects this as a string.
     permissions |= {
-      'manage_channels': 0x0000000000000010,
+      'create_invite':    0x0000000000000001,
+      'kick_members':     0x0000000000000002,
+      'ban_members':      0x0000000000000004,
+      'admin':            0x0000000000000008,
+      'manage_channels':  0x0000000000000010,
+      'manage_guild':     0x0000000000000020,
+      'add_reactions':    0x0000000000000040,
+      'send_messages':    0x0000000000000800,
+      'manage_roles':     0x0000000010000000,
+      'pin_messages':     0x0008000000000000,
     }[permission]
-    ALL_COMMANDS[func.__name__]['permissions'] = permissions
+    ALL_COMMANDS[func.__name__]['default_member_permissions'] = str(permissions)
     return func
   return _inner
 
@@ -57,7 +104,6 @@ def require_permission(permission):
 #######################
 
 
-"""
 @add_command('Explicitly announce your stream when it goes live')
 @add_argument('twitch_username', 'Your stream name on twitch.tv')
 @add_argument('src_username', 'Your username on speedrun.com')
@@ -129,7 +175,7 @@ def forget(twitch_username):
 
 @add_command('Announce speedrunners of this game when they go live')
 @add_argument('game_name', 'The exact name of the game to announce on speedrun.com')
-@add_argument_opt('channel', 'The channel to announce runners in (default: current channel)')
+@add_argument_opt('channel', 'The channel to announce runners in (default: current channel)', type=ARG_TYPE_CHANNEL)
 @require_permission('manage_channels')
 def track_game(game_name, channel):
   src_game = src_apis.get_game(game_name)
@@ -141,7 +187,7 @@ def track_game(game_name, channel):
 
 @add_command('Stop announcing speedrunners for a specific game')
 @add_argument('game_name', 'The exact name of the game to stop announcing')
-@add_argument_opt('channel', 'The channel to stop announcing in (default: current channel)')
+@add_argument_opt('channel', 'The channel to stop announcing in (default: current channel)', type=ARG_TYPE_CHANNEL)
 @require_permission('manage_channels')
 def untrack_game(game_name, channel):
   database.remove_game(game_name)
@@ -153,26 +199,25 @@ def untrack_game(game_name, channel):
 def list_tracked_games(channel):
   data = database.get_games_for_channel(channel)
   tracked_games = f'SpeedrunBot is currently tracking {len(data)} games:\n'
-  for d in data:
-    tracked_games += f'1. {d["game_name"]} ({d["twitch_game_id"]} | {d["src_game_id"]})\n'
+  for i, d in enumerate(data):
+    tracked_games += f'{i+1}. {d["game_name"]} ({d["twitch_game_id"]} | {d["src_game_id"]})\n'
   return tracked_games
 
 
 @add_command('Announce newly-submitted runs of this game when they are awaitng verification')
 @add_argument('game_name', 'Speedrun.com game to watch for new submissions')
-@add_argument_opt('channel', 'The channel to announce runs in (default: current channel)')
+@add_argument_opt('channel', 'The channel to announce runs in (default: current channel)', type=ARG_TYPE_CHANNEL)
 @require_permission('manage_channels')
 def moderate_game(game_name, channel):
   src_game_id = src_apis.get_game(game_name)['id']
   database.moderate_game(game_name, src_game_id, channel)
   return f'Will now announce newly submitted runs of `{game_name}` in channel <#{channel}>.'
 
+
 @add_command('Stop announcing newly-submitted runs of this game when they are awaitng verification')
 @add_argument('game_name', 'Speedrun.com game to stop watching for new submissions')
-@add_argument_opt('channel', 'The channel to stop announcing runs in (default: current channel)')
+@add_argument_opt('channel', 'The channel to stop announcing runs in (default: current channel)', type=ARG_TYPE_CHANNEL)
 @require_permission('manage_channels')
 def unmoderate_game(game_name, channel):
   database.unmoderate_game(game_name)
   return f'No longer announcing newly submitted runs of `{game_name}` in channel <#{channel}>.'
-
-"""

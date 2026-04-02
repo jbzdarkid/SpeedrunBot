@@ -1,5 +1,6 @@
 import importlib
 import inspect
+import json
 import logging
 import sys
 from datetime import datetime, timedelta
@@ -8,7 +9,7 @@ from time import sleep
 from unittest.mock import patch
 
 import bot3 as bot
-from source import database, src_apis, exceptions
+from source import database, src_apis, exceptions, commands
 
 _id = 0
 def get_id():
@@ -316,6 +317,95 @@ class BotTests:
     assert src_apis.get_game('foo')['id'] == 1
     assert src_apis.get_game('foobar')['id'] == 0
     assert src_apis.get_game('barfoo')['id'] == 2
+    
+  def testIsSubset(self):
+    base = {
+      'a': 1,
+      'b': [2, 3],
+      'c': "4",
+      'd': {
+        'e': 5,
+        'f': [6, 7],
+      },
+      'g': None,
+    }
+    
+    assert commands.is_json_subset({'a': 1}, base)
+    assert not commands.is_json_subset({'a': 100}, base)
+    assert commands.is_json_subset({'b': [2, 3]}, base)
+    assert not commands.is_json_subset({'b': [3, 2]}, base)
+    assert not commands.is_json_subset({'b': [2, 3, 4]}, base)
+    assert not commands.is_json_subset({'b': {}}, base)
+    assert commands.is_json_subset({'c': "4"}, base)
+    assert not commands.is_json_subset({'c': "5"}, base)
+    assert commands.is_json_subset({'d': {}}, base)
+    assert not commands.is_json_subset({'d': []}, base)
+    assert not commands.is_json_subset({'d': {'z': 0}}, base)
+    assert commands.is_json_subset({'d': {'e': 5}}, base)
+    assert not commands.is_json_subset({'d': {'e': 0}}, base)
+    assert commands.is_json_subset({'d': {'f': [6, 7]}}, base)
+    assert not commands.is_json_subset({'d': {'f': [7, 6]}}, base)
+
+  def testIsSubsetRealData(self):
+    base = json.loads('''
+{
+  "application_id": "1486989895305138297",
+  "contexts": null,
+  "default_member_permissions": null,
+  "description": "Explicitly announce your stream when it goes live",
+  "dm_permission": false,
+  "id": "1486992039194132500",
+  "integration_types": [
+    0,
+    1
+  ],
+  "name": "announce_me",
+  "nsfw": false,
+  "options": [
+    {
+      "description": "Your username on speedrun.com",
+      "name": "src_username",
+      "required": true,
+      "type": 3
+    },
+    {
+      "description": "Your stream name on twitch.tv",
+      "name": "twitch_username",
+      "required": true,
+      "type": 3
+    }
+  ],
+  "type": 1,
+  "version": "1486992039194132501"
+}
+''')
+    update = json.loads('''
+{
+  "description": "Explicitly announce your stream when it goes live",
+  "dm_permission": false,
+  "name": "announce_me",
+  "nsfw": false,
+  "options": [
+    {
+      "description": "Your username on speedrun.com",
+      "name": "src_username",
+      "required": true,
+      "type": 3
+    },
+    {
+      "description": "Your stream name on twitch.tv",
+      "name": "twitch_username",
+      "required": true,
+      "type": 3
+    }
+  ],
+  "type": 1
+}
+''')
+    print(update['dm_permission'])
+    print(base['dm_permission'])
+    assert commands.is_json_subset(update, base)
+
 
 if __name__ == '__main__':
   info_stream = logging.StreamHandler(sys.stdout)

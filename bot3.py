@@ -1,5 +1,6 @@
 import logging
 import logging.handlers
+import os
 import re
 import subprocess
 import sys
@@ -15,37 +16,18 @@ from source.utils import seconds_since_epoch, parse_time
 # TODO: Add a test for 'what if a live message got deleted'
 # TODO: Threading for user lookups will save a lot of time, especially as the list of games grows
 # TODO: Try to improve performance by creating a thread for each runner
-# TODO: <t:1626594025> is apparently a thing discord supports. Maybe useful somehow?
-#   See https://discord.com/developers/docs/reference#message-formatting
 
 client = discord_websocket_apis.WebSocket()
 
-# We maintain a global list of admins (to protect our chat-only commands)
-admins = []
-
 def on_direct_message(message):
-  def is_mention(word):
-    # @member @&role #channel
-    # https://github.com/Rapptz/discord.py/blob/master/discord/message.py#L892
-    return re.fullmatch('<(@|@&|#)\d{15,20}>', word)
-  # Since mentions can appear anywhere in the message, strip them out entirely for command processing.
-  # User and channel mentions can still be accessed via message.mentions and message.channel_mentions
-
-  args = [arg.strip() for arg in message['content'].split(' ') if not is_mention(arg)]
-
-  if message['author']['id'] not in admins:
-    return
-  elif len(args) == 0:
-    return
-  elif not args[0].startswith('!'):
-    discord_apis.send_message_ids(message['channel_id'], f'Unknown command: `{args[0]}`')
+  # Direct messages are only allowed for me (the bot author) since they are now exclusively used for high risk commands.
+  if message['author']['id'] != discord_apis.get_owner_id():
     return
 
   def restart():
     discord_apis.add_reaction(message, '💀')
     logging.info('Killing the bot with code 1')
     # Calling sys.exit from a thread does not kill the main process, so we must use os.kill
-    import os
     os.kill(os.getpid(), 1)
   def log_streams():
     for _ in generics.get_speedrunners_for_game():
@@ -75,6 +57,13 @@ def on_direct_message(message):
     '!servers': lambda: get_servers(),
     '!list_all_tracked_games': lambda: list_all_tracked_games(),
   }
+  args = message['content'].split(' ')
+  if len(args) == 0:
+    return
+  elif args[0] not in admin_commands:
+    discord_apis.send_message_ids(message['channel_id'], f'Unknown command: `{args[0]}`')
+    return
+
 
   discord_apis.add_reaction(message, '🕐') # In case processing takes a while, ack that we've gotten the message.
   try:
@@ -93,8 +82,8 @@ def on_direct_message(message):
   except Exception: # Coding errors
     logging.exception(f'General error during {args[0]}')
     send_last_lines('response-general')
-
-  discord_apis.remove_reaction(message, '🕐')
+  finally:
+    discord_apis.remove_reaction(message, '🕐')
 
 
 send_error = Path(__file__).with_name('send_error.py')
@@ -386,9 +375,17 @@ if __name__ == '__main__':
 
     # Run some top-level startup code. If this throws, we have to shutdown (there is no fallback).
     try:
-      discord_apis.register_all_commands(commands.ALL_COMMANDS)
+      existing_commands = discord_apis.get_commands()
+      commands_to_update, commands_to_delete = commands.get_delta(existing_commands)
+      if not commands_to_update and not commands_to_delete:
+        print('All commands up to date')
+      for command in commands_to_update:
+        print('Updating command', command['name'])
+        discord_apis.register_command(command)
+      for command in commands_to_delete:
+        print('Deleting command', command['name'])
+        discord_apis.delete_command(command)
 
-      admins = [discord_apis.get_owner()['id']] # Only one admin for now (me!)
       client.run()
     except Exception:
       logging.exception('catch-all for client.run')

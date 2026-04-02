@@ -1,5 +1,6 @@
 import logging
 import re
+from functools import cache
 from pathlib import Path
 
 from .make_request import make_request
@@ -121,9 +122,16 @@ def remove_reaction(message, emoji):
     logging.exception('Error while attempting to add a reaction')
 
 
-def get_owner():
+@cache
+def get_owner_id():
   j = make_request('GET', f'{api}/oauth2/applications/@me', get_headers=get_headers)
-  return j['owner']
+  return j['owner']['id']
+
+
+@cache
+def get_id():
+  j = make_request('GET', f'{api}/oauth2/applications/@me', get_headers=get_headers)
+  return j['id']
 
 
 def get_servers():
@@ -131,37 +139,19 @@ def get_servers():
   return j
 
 
-def register_all_commands(commands):
-  j = make_request('GET', f'{api}/oauth2/applications/@me', get_headers=get_headers)
-  url = f'{api}/applications/{j["id"]}/commands'
+def get_commands():
+  j = make_request('GET', f'{api}/applications/{get_id()}/commands', get_headers=get_headers)
+  return j
 
-  # Ensure that all the commands are up to date by comparing the version from commands.py against the server's copy.
-  # - This helps to avoid the global rate limit of 200 creates/day
-  # - This helps to avoid command downtime when the bot restarts (commands take ~5 minutes to update clientside)
-  # - This helps to avoid stale commands lingering forever
 
-  existing = make_request('GET', url, get_headers=get_headers)
-  for old in existing:
-    name = old['name']
-    new = commands.get(name, None)
-    if not new:
-      logging.info(f'Command "{name}" does not exist any more, deleting')
-      make_request('DELETE', url + '/' + old['id'], get_headers=get_headers)
-      continue
+def register_command(command):
+  j = make_request('POST', f'{api}/applications/{get_id()}/commands', json=command, get_headers=get_headers)
+  return j
 
-    for k, v in new.items():
-      if old[k] != v:
-        logging.info(f'Command "{name}" is out of date; key "{k}" has been updated from "{old[k]}" to "{v}", updating')
-        make_request('POST', url, json=new, get_headers=get_headers)
-        break
-    else:
-      logging.info(f'Command "{name}" is up to date')
 
-    del commands[name] # Delete so that we know it's handled
-
-  for new in commands:
-    logging.info(f'Command "{name}" does not exist, creating')
-    make_request('POST', url, json=new, get_headers=get_headers)
+def delete_command(command):
+  j = make_request('DELETE', f'{api}/applications/{get_id()}/commands/{command["id"]}', get_headers=get_headers)
+  return j
 
 
 def acknowledge_interaction(interaction_id, token):
@@ -177,6 +167,7 @@ def acknowledge_interaction(interaction_id, token):
     return
 
   raise exceptions.NetworkError(f'Failed to acknowledge interaction {interaction_id}: {j}')
+
 
 def reply_to_interaction(interaction_id, token, message):
   json = {

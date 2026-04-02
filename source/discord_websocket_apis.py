@@ -260,7 +260,7 @@ class WebSocket():
       # We then have 15 minutes to reply before the token expires.
       # https://discord.com/developers/docs/interactions/receiving-and-responding#responding-to-an-interaction
       # TODO: Somehow getting double-ack from this. IDK, man.
-      # discord_apis.acknowledge_interaction(data['id'], data['token'])
+      discord_apis.acknowledge_interaction(data['id'], data['token'])
       print('<264>', data)
 
       # Channel ID is a relatively common piece of information but I don't always want to expose it to the caller.
