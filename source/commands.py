@@ -104,6 +104,17 @@ def require_permission(permission):
 #######################
 
 
+@add_command('Get general information about this bot and how it works')
+def about(channel):
+  data = database.get_games_for_channel(channel)
+  games = ' or '.join(f'`{d["game_name"]}`' for d in data) if data else 'any tracked game'
+  response = 'Speedrunning bot, created by `darkid`.\n'
+  response += f'The bot will search for twitch streams of {games}, then check to see if the given streamer is on speedrun.com, then check to see if the speedrunner has a PB in that game.\n'
+  response += 'If all of that is true, it announces their stream in the associated channel.\n'
+  response += 'For more info, see the [GitHub readme](https://github.com/jbzdarkid/SpeedrunBot).'
+  return response
+
+
 @add_command('Explicitly announce your stream when it goes live')
 @add_argument('twitch_username', 'Your stream name on twitch.tv')
 @add_argument('src_username', 'Your username on speedrun.com')
@@ -120,17 +131,6 @@ def announce_me(twitch_username, src_username, channel):
 
   games = ' or '.join(f'`{d["game_name"]}`' for d in data)
   return f'Will now announce `{twitch_username}` in <#{channel}> when they go live on twitch playing {games}.'
-
-
-@add_command('Get general information about this bot and how it works')
-def about(channel):
-  data = database.get_games_for_channel(channel)
-  games = ' or '.join(f'`{d["game_name"]}`' for d in data) if data else 'any tracked game'
-  response = 'Speedrunning bot, created by `darkid`.\n'
-  response += f'The bot will search for twitch streams of {games}, then check to see if the given streamer is on speedrun.com, then check to see if the speedrunner has a PB in that game.\n'
-  response += 'If all of that is true, it announces their stream in the associated channel.\n'
-  response += 'For more info, see the [GitHub readme](https://github.com/jbzdarkid/SpeedrunBot).'
-  return response
 
 
 @add_command('Get a runner\'s personal best in their current game')
@@ -170,7 +170,7 @@ def personal_best(twitch_username, game_name=None):
 def forget(twitch_username):
   twitch_apis.get_user_id(twitch_username) # Will throw if there is any ambiguity about the twich username
   database.remove_user(twitch_username)
-  return f'Removed PBs and user data for {twitch_username}. You will need to unlink your SRC to prevent future announcements.'
+  return f'Removed PBs and user data for {twitch_username}.\nYou will need to unlist your Twitch account on your speedrun.com profile to prevent future announcements.'
 
 
 @add_command('Announce speedrunners of this game when they go live')

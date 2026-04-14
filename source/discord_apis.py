@@ -154,27 +154,18 @@ def delete_command(command):
   return j
 
 
-def acknowledge_interaction(interaction_id, token):
-  json = {'type': 5} # DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
-  j = make_request('POST', f'{api}/interactions/{interaction_id}/{token}/callback', allow_4xx=True, json=json, get_headers=get_headers)
-  if not j:
-    return
-
-  # https://discord.com/developers/docs/topics/opcodes-and-status-codes#json-json-error-codes
-  code = j.get('code', 0)
-  if code == 40060: # Interaction has already been acknowledged.
-    logging.error(f'Interaction {interaction_id} was double-acknowledged')
-    return
-
-  raise exceptions.NetworkError(f'Failed to acknowledge interaction {interaction_id}: {j}')
+def acknowledge_interaction(interaction_id, token, private=False):
+  json = {
+    'type': 5, # DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+  }
+  if private:
+    json['data'] = {'flags': 64} # EPHEMERAL, flag will carry into the reply
+  
+  j = make_request('POST', f'{api}/interactions/{interaction_id}/{token}/callback', json=json, get_headers=get_headers)
+  return j
 
 
 def reply_to_interaction(interaction_id, token, message):
-  json = {
-    'type': 4, # CHANNEL_MESSAGE_WITH_SOURCE
-    'data': {
-      'content': message,
-    }
-  }
+  json = {'content': message}
 
-  return make_request('POST', f'{api}/interactions/{interaction_id}/{token}/callback', json=json, get_headers=get_headers)
+  return make_request('PATCH', f'{api}/webhooks/{get_id()}/{token}/messages/@original', json=json, get_headers=get_headers)

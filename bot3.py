@@ -49,13 +49,14 @@ def on_direct_message(message):
     return tracked_games
 
   admin_commands = {
-    '!restart': lambda: restart(*args[1:2]),
+    '!restart': lambda: restart(),
     '!git_update': lambda: f'```{git_update()}```',
     '!send_last_lines': lambda: send_last_lines('admin_command'),
     '!log_streams': lambda: log_streams(),
     '!verifier_stats': lambda: verifier_stats(' '.join(args[1:])),
     '!servers': lambda: get_servers(),
     '!list_all_tracked_games': lambda: list_all_tracked_games(),
+    '!list': lambda: ', '.join(admin_commands.keys()),
   }
   args = message['content'].split(' ')
   if len(args) == 0:
@@ -347,12 +348,12 @@ if __name__ == '__main__':
     import time
     while 1:
       logging.info(f'Starting subtask at {datetime.now()}')
-      logging.info(git_update())
+      logging.info(git_update()) # Pull new code on restart so that I can update the bot without remoting in.
       output = subprocess.run([sys.executable, __file__, 'subtask'] + sys.argv[1:])
       if output.returncode != 0:
         send_last_lines(f'parent: "{output.returncode}"')
         logging.error('Subprocess crashed, waiting for 60 seconds before restarting')
-        time.sleep(60) # Sleep after exit, to prevent losing my token.
+        time.sleep(60) # Sleep after exit, to prevent losing my discord token.
 
   else:
     def forever_thread(func, sleep_time):
@@ -368,27 +369,15 @@ if __name__ == '__main__':
 
         sleep(sleep_time)
 
-    threading.Thread(target=forever_thread, args=(announce_live_channels, 60)).start()
-    threading.Thread(target=forever_thread, args=(announce_new_runs,      600)).start()
-
-    client.callbacks['on_direct_message'] = on_direct_message
-
-    # Run some top-level startup code. If this throws, we have to shutdown (there is no fallback).
     try:
-      existing_commands = discord_apis.get_commands()
-      commands_to_update, commands_to_delete = commands.get_delta(existing_commands)
-      if not commands_to_update and not commands_to_delete:
-        print('All commands up to date')
-      for command in commands_to_update:
-        print('Updating command', command['name'])
-        discord_apis.register_command(command)
-      for command in commands_to_delete:
-        print('Deleting command', command['name'])
-        discord_apis.delete_command(command)
+      # Aside from the primary command loop, we also have two auxiliary threads.
+      threading.Thread(target=forever_thread, args=(announce_live_channels, 60)).start()
+      threading.Thread(target=forever_thread, args=(announce_new_runs,      600)).start()
 
+      client.callbacks['on_direct_message'] = on_direct_message
       client.run()
     except Exception:
+      # If any of this top-level code fails, we report it and shut down. The parent will try again.
       logging.exception('catch-all for client.run')
       send_last_lines('client.run')
-      import os
       os.kill(os.getpid(), 1) # I don't think it shuts down the threads otherwise.

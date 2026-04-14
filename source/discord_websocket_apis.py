@@ -36,10 +36,21 @@ class WebSocket():
 
 
   def run(self):
-    asyncio.get_event_loop().run_until_complete(self.run_async())
+    asyncio.run(self.run_async())
 
 
   async def run_async(self):
+    existing_commands = discord_apis.get_commands()
+    commands_to_update, commands_to_delete = commands.get_delta(existing_commands)
+    if not commands_to_update and not commands_to_delete:
+      logging.info('All commands up to date')
+    for command in commands_to_update:
+      logging.info('Updating command', command['name'])
+      discord_apis.register_command(command)
+    for command in commands_to_delete:
+      logging.info('Deleting command', command['name'])
+      discord_apis.delete_command(command)
+
     while 1: # This loop does not exit naturally
       # Clients are limited to 1000 IDENTIFY calls to the websocket in a 24-hour period.
       # https://discord.com/developers/docs/topics/gateway#identifying
@@ -259,9 +270,7 @@ class WebSocket():
       # We must ack within 3 seconds or Discord considers the command to have failed.
       # We then have 15 minutes to reply before the token expires.
       # https://discord.com/developers/docs/interactions/receiving-and-responding#responding-to-an-interaction
-      # TODO: Somehow getting double-ack from this. IDK, man.
       discord_apis.acknowledge_interaction(data['id'], data['token'])
-      print('<264>', data)
 
       # Channel ID is a relatively common piece of information but I don't always want to expose it to the caller.
       # As such I'm just adding it into every command, and the value can be overridden if it's an actual argument.
