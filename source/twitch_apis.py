@@ -7,10 +7,10 @@ from .utils import parse_time, seconds_since_epoch
 
 api = 'https://api.twitch.tv/helix'
 
-cached_headers = None
+cached_headers = (None, 0)
 def get_headers():
   global cached_headers
-  if not cached_headers:
+  if cached_headers[1] < seconds_since_epoch():
     with Path(__file__).with_name('twitch_token.txt').open() as f:
       token = f.read().strip()
     with Path(__file__).with_name('twitch_client.txt').open() as f:
@@ -21,11 +21,11 @@ def get_headers():
       'client_id': client_id,
       'client_secret': token,
     })
-    cached_headers = {
+    cached_headers = ({
       'client-id': client_id,
       'Authorization': 'Bearer ' + j['access_token']
-    }
-  return cached_headers
+    }, seconds_since_epoch() + 60*60*24*30)
+  return cached_headers[0]
 
 
 # game_ids is an array of twitch game ids. (max: 100)
