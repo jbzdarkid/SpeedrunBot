@@ -12,7 +12,7 @@ ONE_MONTH = (3600 * 24 * 7 * 30)
 SRC_NO_SERIES = 'yr4gon12' # SRC uses this ID for games with no series.
 
 api = 'https://www.speedrun.com/api/v1'
-embeds = 'players,level,category,category.variables'
+embeds = 'game,players,level,category,category.variables'
 
 def get_src_id(twitch_username):
   if user := database.get_user(twitch_username):
@@ -258,6 +258,7 @@ def get_current_pb(new_run):
 
 # NOTE: Run data must be fetched with embeds
 def run_to_string(run, current_pb=None):
+  game = run['game']['data']['names']['international']
   category = run['category']['data']['name']
 
   if isinstance(run['level']['data'], dict):
@@ -271,7 +272,7 @@ def run_to_string(run, current_pb=None):
 
   runners = ', '.join(map(parse_name, run['players']['data']))
 
-  output = f'`{category}` in {time} by {runners}'
+  output = f'`{game} | {category}` in {time} by {runners}'
   if 'place' in run:
     n = int(run['place'])
     # https://stackoverflow.com/a/36977549
