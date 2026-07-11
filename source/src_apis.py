@@ -236,7 +236,7 @@ def parse_name(player):
 
 # NOTE: Run data must be fetched with embeds
 def get_current_pb(new_run):
-  game = new_run['game']
+  game = new_run['game']['data']['id']
   category = new_run['category']['data']['id']
   players = set(parse_name(player) for player in new_run['players']['data'])
   time = new_run['times']['primary_t']
