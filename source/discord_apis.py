@@ -139,6 +139,16 @@ def get_servers():
   return j
 
 
+def get_channel_server(channel_id):
+  j = make_request('GET', f'{api}/channels/{channel_id}', get_headers=get_headers)
+  return j['guild_id']
+  
+
+def get_server_channels(server_id):
+  j = make_request('GET', f'{api}/guilds/{server_id}/channels', get_headers=get_headers)
+  return [channel['id'] for channel in j]
+
+
 def get_commands():
   j = make_request('GET', f'{api}/applications/{get_id()}/commands', get_headers=get_headers)
   return j

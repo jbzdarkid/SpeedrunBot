@@ -1,7 +1,8 @@
 import json
+import logging
 from collections import defaultdict
 
-from . import database, twitch_apis, src_apis
+from . import database, discord_apis, src_apis, twitch_apis
 
 ALL_COMMANDS = defaultdict(lambda: defaultdict(dict))
 CALLBACKS = {}
@@ -21,8 +22,6 @@ def get_delta(existing_commands):
     if name not in existing_commands:
       commands_to_update.append(ALL_COMMANDS[name])
     elif not is_json_subset(ALL_COMMANDS[name], existing_commands[name]):
-      print(json.dumps(existing_commands[name], indent=2))
-      print(json.dumps(ALL_COMMANDS[name], indent=2))
       commands_to_update.append(ALL_COMMANDS[name])
     del existing_commands[name] # So we know if there are leftovers
   
@@ -194,14 +193,24 @@ def untrack_game(game_name, channel):
   return f'No longer announcing runners of `{game_name}` in channel <#{channel}>.'
 
 
-@add_command('List currently tracked games in the current channel')
+@add_command('List currently tracked games in the current server')
 @require_permission('manage_channels')
 def list_tracked_games(channel):
-  data = database.get_games_for_channel(channel)
-  tracked_games = f'SpeedrunBot is currently tracking {len(data)} games:\n'
-  for i, d in enumerate(data):
-    tracked_games += f'{i+1}. {d["game_name"]} ({d["twitch_game_id"]} | {d["src_game_id"]})\n'
-  return tracked_games
+  # This is an unfortunate consequence of how I built this API -- the guild_id is available in the response but not passed down.
+  server_id = discord_apis.get_channel_server(channel)
+  channels = discord_apis.get_server_channels(server_id)
+  tracked_games = ''
+  num_games = 0
+  for channel in channels:
+    data = database.get_games_for_channel(channel)
+    if not data:
+      continue
+    tracked_games += f'In channel <#{channel}>:\n'
+    for d in data:
+      num_games += 1
+      tracked_games += f'{num_games}. {d["game_name"]} ({d["twitch_game_id"]} | {d["src_game_id"]})\n'
+
+    return f'SpeedrunBot is currently tracking {num_games} games:\n' + tracked_games
 
 
 @add_command('Announce newly-submitted runs of this game when they are awaitng verification')
